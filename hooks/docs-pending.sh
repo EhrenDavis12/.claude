@@ -1,5 +1,8 @@
 #!/bin/bash
-# Tier 2 wiring for the forge-doc-planner agent.
+# Tier 2 wiring for the forge-doc-planner agent. Belongs to the `forge` system.
+#
+# settings.json does not follow CLAUDE.md's import line, so this hook would keep firing after a
+# swap and tell a system with no forge-doc-planner to dispatch one. Hence the self-gate below.
 #
 # Fires on SessionStart. The design docs are hand-written by the user between sessions, so
 # the condition "docs have changed and have not been tidied" almost always becomes true while
@@ -15,6 +18,10 @@ set -euo pipefail
 
 cd "${CLAUDE_PROJECT_DIR:-.}" 2>/dev/null || exit 0
 command -v jq >/dev/null 2>&1 || exit 0
+
+# The gate: forge must be the active system. The import line is the single source of truth for
+# that, so derive it here rather than trusting a second copy of the answer.
+grep -qxF '@.claude/systems/forge/SYSTEM.md' CLAUDE.md 2>/dev/null || exit 0
 
 # No active project — repo-context.sh already says so. Don't say it twice.
 slug=$(jq -r '.project // empty' .claude/project/active.json 2>/dev/null) || exit 0

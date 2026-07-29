@@ -43,8 +43,8 @@ it. One hook at the right moment beats two at the wrong ones.
 
 ## Tier 1 — On-demand (default)
 
-No hook. The agent fires because its `description` matches the situation and `CLAUDE.md`
-tells Claude to dispatch it.
+No hook. The agent fires because its `description` matches the situation and the owning
+system's `SYSTEM.md` — the file `CLAUDE.md` imports — tells Claude to dispatch it.
 
 ```
 Agent(subagent_type: "NAME", prompt: "...")
@@ -210,4 +210,14 @@ A `Stop` hook that never clears wedges the session. Four rules, all mandatory:
    ```
 5. Restart Claude Code, then confirm with `/hooks` (lists what actually loaded) or
    `claude --debug`. **Until then the hook is written but unproven — say so.**
-6. Record the tier in the agent's roster row in `.claude/agents/README.md`.
+6. Record the tier in the agent's roster row in its system's `SYSTEM.md`, and list the hook in
+   that system's `system.json` under `hooks[]`.
+7. **If the hook belongs to a system, give it a self-gate.** `settings.json` does not follow
+   `CLAUDE.md`'s import line, so the script must derive the active system from that line and
+   exit silently when it doesn't match:
+
+   ```bash
+   grep -qxF '@.claude/systems/<system>/SYSTEM.md' CLAUDE.md 2>/dev/null || exit 0
+   ```
+
+   Only genuinely repo-level hooks (`repo-context.sh`) skip this.

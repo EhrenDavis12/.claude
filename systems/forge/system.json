@@ -1,0 +1,23 @@
+{
+  "name": "forge",
+  "title": "The forge pipeline — design docs → PRD → code → tests",
+  "summary": "Pure delegation. The main loop coordinates and never writes a project artifact; ten prefixed agents own one territory each.",
+  "agents": [
+    "forge-doc-planner",
+    "forge-doc-writer",
+    "forge-prd-author",
+    "forge-prd-reviewer",
+    "forge-code-writer",
+    "forge-code-cleaner",
+    "forge-code-reviewer",
+    "forge-prd-alignment",
+    "forge-test-author",
+    "forge-test-auditor"
+  ],
+  "skills": [
+    "forge-tidy-docs"
+  ],
+  "hooks": [
+    ".claude/hooks/docs-pending.sh"
+  ]
+}

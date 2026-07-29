@@ -1,6 +1,6 @@
 ---
 name: agent-creator
-description: Design, review, install, and wire up subagents for this repo. Use whenever a new agent is proposed, an existing agent needs changing, or you are deciding whether some recurring job deserves its own agent at all. Enforces one job per agent, no overlap with the existing roster, a justified model and effort tier, and correct wiring into .claude/agents plus CLAUDE.md and hooks so the agent actually gets dispatched. Also use to audit or consolidate the current agent roster, or to make an existing agent fire reliably.
+description: Design, review, install, and wire up subagents for this repo. Use whenever a new agent is proposed, an existing agent needs changing, or you are deciding whether some recurring job deserves its own agent at all. Enforces one job per agent, no overlap with the existing roster, a justified model and effort tier, and correct wiring into .claude/agents plus the owning system's SYSTEM.md, system.json, and hooks so the agent actually gets dispatched. Also use to audit or consolidate the current agent roster, or to make an existing agent fire reliably.
 ---
 
 # Agent Creator
@@ -12,9 +12,12 @@ reachable.
 
 ## What this skill protects against
 
-- **The agent nobody dispatches.** There are no hooks in this repo by default. An agent file
-  that isn't named in `CLAUDE.md` and has no hook behind it is dead weight — it costs
-  nothing to run because it never runs.
+- **The agent nobody dispatches.** An agent file that isn't named in the **active system's**
+  `SYSTEM.md` and has no hook behind it is dead weight — it costs nothing to run because it
+  never runs.
+- **The agent that survives a swap.** An agent missing from its system's `system.json` stays
+  dispatchable after `/set-system` points elsewhere, because the deny list is computed from the
+  *inactive* systems. Documented but unlisted is worse than absent.
 - **The overlapping pair.** Two agents whose triggers both match the same situation. You get
   double the tokens and non-deterministic behavior about which one fires.
 - **The over-provisioned agent.** `opus` at `xhigh` doing a mechanical find-and-replace.
@@ -24,8 +27,12 @@ reachable.
 
 Before anything else:
 
-1. `Read .claude/agents/README.md` — the roster.
-2. Read the **frontmatter only** of every file in `.claude/agents/` (the roster can drift).
+1. `Read .claude/agents/README.md` — the cross-system doctrine.
+2. `Read` the active system's `SYSTEM.md` (whichever `CLAUDE.md` imports) — its roster, its
+   write boundary, and how much the main loop is allowed to do itself.
+3. Read the **frontmatter only** of every file in `.claude/agents/` (rosters drift).
+4. `Read .claude/systems/*/system.json` — the wiring lists. An agent in a roster table but not
+   in a `system.json` is already broken; say so.
 
 This is cheap and every gate below depends on it. Do not skip it, including when the user
 sounds certain about what they want.
@@ -48,45 +55,32 @@ If none hold, route to the cheaper mechanism:
 
 | The actual need | The right tool |
 |---|---|
-| A rule that should always be followed | a line in `CLAUDE.md` |
+| A rule true regardless of system | a line in `CLAUDE.md` |
+| A rule that is this system's doctrine | a line in the active `SYSTEM.md` |
 | A multi-step procedure invoked on request | a skill |
 | A deterministic check on every tool call | a hook — see `references/wiring.md` |
-| A one-off that writes an artifact | an existing worker agent — not the main loop |
+| A one-off that writes an artifact | depends on the active system — see below |
 | A one-off that only reads | just read it inline |
 | Broad read-only search | the built-in `Explore` agent — do not rebuild it |
 
-**This repo runs pure delegation.** The main loop never produces or modifies a project
-artifact. Every change to source, tests, design docs, or PRDs goes through the agent that owns
-that territory. The main loop coordinates and holds the end goal — the one thing no subagent
-can do, and the thing that degrades as its context fills with implementation detail.
+**How much the main loop may do itself is set by the active system, not by this skill.** Read
+the `SYSTEM.md` that `CLAUDE.md` imports before applying this gate — it decides whether that
+fourth row means "route it to an existing worker agent" or "just do it inline".
 
-The line is **produce/modify vs. read/decide**:
+- Under **`forge`**, the main loop never produces or modifies a project artifact. Every change
+  to source, tests, design docs, or PRDs goes through the agent owning that territory, so a
+  one-off write routes to an existing worker — never to the main loop, and never to a new agent
+  invented for the occasion.
+- Under **`direct`**, there is no delegation boundary and the main loop writes directly. A
+  proposal justified only by "the main loop isn't allowed to write this" fails Gate 1 outright.
 
-| Main loop does | Delegated |
-|---|---|
-| Decides what happens next and in what order | Writing or editing any artifact |
-| Dispatches agents, reads their reports | |
-| Researches answers to agents' questions | |
-| Talks to the user | |
+**Do not reassert pure delegation as a repo constant.** It is one system's doctrine. Enforcing
+it against a system that deliberately dropped it is exactly the failure the system split exists
+to prevent.
 
-Reading is never delegation-worthy on its own — the main loop reads whatever it needs to
-decide or to answer an agent. What it does not do is *write*.
-
-Three carve-outs, because they are not project artifacts:
-
-- **`.claude/**` and `CLAUDE.md`** — the agent system itself, maintained by this skill in the
-  main loop. Delegating it would require an agent to build agents.
-- **Git operations** — commits, branches, and history are coordination, not authorship.
-- **Anything the user explicitly asks the main loop to do inline.** Their call overrides this.
-
-Ambiguity is no longer a reason to keep work inline — that is what the batch-and-resume loop
-below handles. Tight iteration isn't either, since `SendMessage` resumes an agent with its
-context rather than restarting it.
-
-The temptation to design against is the trivial change. Delegating a one-line fix costs one
-dispatch; doing it inline costs the boundary. "I'll just do this one" is exactly how the main
-loop drifts back into being an implementer, and the drift is invisible until the context is
-already full.
+Two things hold either way: reading is never delegation-worthy on its own, and `.claude/**`
+plus `CLAUDE.md` are always the main loop's — maintained by this skill, since delegating them
+would require an agent to build agents.
 
 ### Gate 2 — Is it already covered?
 
@@ -132,34 +126,41 @@ Two standing rules:
 An agent isn't installed until it's reachable. See **Wiring** below. Pick the tier, apply it,
 and record it in the roster row.
 
-## Workflows: folder + prefix
+## Systems: folder + prefix + `system.json`
 
-Agents belong to a **workflow** — a pipeline of agents that hand work to each other. This repo
-has one, `forge` (design docs → PRD → code → tests). More may be added.
+Agents belong to a **system** — a whole way of working, with its own rules, agents, skills, and
+hooks. One system is active at a time; see `.claude/systems/README.md`. Today there are two:
+`forge` (design docs → PRD → code → tests) and `direct` (no pipeline, no agents).
 
-A workflow is not a project. The `forge` pipeline runs against whichever project
-`/set-project` has made active; agents resolve their paths from that project's manifest.
-Never add a per-project agent — add a project.
+**Every agent must belong to exactly one system.** An agent belonging to none is never denied
+on a swap, because the deny list is computed from the *inactive* systems — so it stays
+dispatchable into a system whose rules it was never written for.
 
-Each workflow gets both:
+A system is not a project. The `forge` pipeline runs against whichever project `/set-project`
+has made active; agents resolve their paths from that project's manifest. Never add a
+per-project agent — add a project.
 
-- **A folder:** `.claude/agents/<workflow>/`
-- **A name prefix:** `<workflow>-<artifact>-<position>`, e.g. `forge-doc-planner`
+Each system gets all three:
 
-Both, because they do different things — and this was verified empirically, not assumed:
+- **A folder:** `.claude/agents/<system>/`
+- **A name prefix:** `<system>-<artifact>-<position>`, e.g. `forge-doc-planner`
+- **An entry in `.claude/systems/<system>/system.json`** under `agents[]`
+
+The folder and prefix do different things — and this was verified empirically, not assumed:
 
 > **Project-level agent subfolders are discovered, but they do not namespace.** The dispatch
 > name comes entirely from the `name:` frontmatter field. A file at
 > `.claude/agents/forge/x.md` with `name: x` is dispatched as `x`, not `forge:x`.
 
 So the folder groups files for humans, and the prefix is the *only* thing that identifies the
-workflow at dispatch time. Skip the prefix and agents from different workflows become
+system at dispatch time. Skip the prefix and agents from different systems become
 indistinguishable in the registry.
 
 Keep `name:` identical to the filename stem. That is why files look like
 `forge/forge-doc-planner.md` — the stutter in the path is the cost of the name being right.
 
-`.claude/agents/README.md` stays at the top level as the master roster across all workflows.
+`.claude/agents/README.md` stays at the top level, but holds **doctrine only** — the roster of
+who exists right now lives in each system's `SYSTEM.md`.
 
 ## Naming: planner, worker, reviewer
 
@@ -244,7 +245,7 @@ by the main loop. What a hook *can* do is deterministically force the trigger. T
 
 | Tier | Mechanism | Use when | Ongoing cost |
 |---|---|---|---|
-| **1. On-demand** *(default)* | agent `description` + a dispatch line in `CLAUDE.md` | It's invoked because someone asks | Zero |
+| **1. On-demand** *(default)* | agent `description` + a dispatch line in the owning system's `SYSTEM.md` | It's invoked because someone asks | Zero |
 | **2. Reminder** | `PostToolUse` **command** hook, tight matcher, exit 2 so stderr reaches Claude | It must fire on a condition that gets forgotten | ~Zero — shell only |
 | **3. Enforcement** | `Stop` **command** hook, `decision: block` until a condition clears | Silently skipping it costs real work | ~Zero, but loop risk |
 
@@ -253,11 +254,18 @@ Rules that always apply:
 - **Tier 1 is the default.** Escalating requires a stated reason.
 - **Never use `prompt`-type hooks here.** They fire a real LLM call on every match — exactly
   the bloat this skill exists to prevent. Command hooks only.
-- Every tier still needs all four base steps:
-  1. File at `.claude/agents/<name>.md` with valid frontmatter.
-  2. A row in `.claude/agents/README.md`.
-  3. A dispatch line in `CLAUDE.md` with the literal `Agent(subagent_type: "<name>", ...)` call.
-  4. Triggers stated in the agent's own `description`.
+- Every tier still needs all five base steps:
+  1. File at `.claude/agents/<system>/<name>.md` with valid frontmatter.
+  2. A roster row in `.claude/systems/<system>/SYSTEM.md`.
+  3. **A `agents[]` entry in `.claude/systems/<system>/system.json`** — this is the wiring, not
+     the documentation. Skipping it leaves the agent dispatchable after a swap.
+  4. A dispatch line in that same `SYSTEM.md` with the literal
+     `Agent(subagent_type: "<name>", ...)` call.
+  5. Triggers stated in the agent's own `description`.
+- **A hook owned by a system must self-gate.** `settings.json` does not follow `CLAUDE.md`'s
+  import line, so the script derives the active system from that line itself and exits silently
+  when it doesn't match. `.claude/hooks/docs-pending.sh` is the worked example. Only genuinely
+  repo-level hooks (`repo-context.sh`) skip the gate.
 - **Settings edits go through the `/update-config` skill**, which owns `settings.json`
   correctness. Do not hand-write the hooks block.
 - **Hooks load at session start.** Any hook change needs a Claude Code restart. Say so, and
@@ -275,7 +283,9 @@ safety rules.
 ## Updating an existing agent
 
 The default path when Gate 2 trips, and usually the better outcome than a new agent. Edit in
-place, update the roster row, and check whether `CLAUDE.md`'s description of it has gone stale.
+place, update the roster row in the owning system's `SYSTEM.md`, and check whether that file's
+description of it has gone stale. Renaming an agent also means updating `system.json` — a stale
+name there silently drops it from the deny list.
 
 ## Audit mode
 

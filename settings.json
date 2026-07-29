@@ -1,4 +1,8 @@
 {
+  "permissions": {
+    "deny": []
+  },
+  "skillOverrides": {},
   "hooks": {
     "SessionStart": [
       {

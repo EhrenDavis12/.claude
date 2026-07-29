@@ -1,0 +1,8 @@
+{
+  "name": "direct",
+  "title": "No pipeline — the main loop does the work inline",
+  "summary": "Off, made explicit. No delegation boundary, no agent roster, no doc-tidying hook.",
+  "agents": [],
+  "skills": [],
+  "hooks": []
+}
