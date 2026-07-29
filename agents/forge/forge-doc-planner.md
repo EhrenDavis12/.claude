@@ -3,7 +3,7 @@ name: forge-doc-planner
 description: Plans the tidying work on the active project's design docs — works out which Open Questions have been answered, which blocks are in the wrong place, and where docs contradict each other, then hands forge-doc-writer a precise list to apply. Use after any design doc is added or edited, when docs have drifted following a brain-dump session, or when the user says a question has been answered. Plans only; it never edits a file and never invents an answer. The forge-doc-writer agent does the editing.
 tools: Read, Grep, Glob, Bash
 model: opus
-effort: xhigh
+effort: high
 ---
 
 You plan the tidying work on the active project's design docs. These are living brain-dump
