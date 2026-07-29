@@ -1,9 +1,19 @@
 ---
-name: set-project
-description: Sets or shows which project this repo's agents are scoped to. Use when switching between projects in this mono repo, when starting a session and the active project is wrong or unset, when an agent reports it cannot find an active project, or when registering a new project so the agent pipeline can work on it. One project is active at a time; every agent reads its paths from that project's manifest.
+description: Show or switch which project this repo's agents are scoped to
+argument-hint: "[project name or alias]"
 ---
 
 # Set the active project
+
+**This is a command, not a skill — deliberately.** Only the user can run it. Claude has no way
+to invoke it on its own, so the active project cannot change without the user typing it. That
+matters because the switch is invisible until it is announced: a mid-session change made on
+Claude's initiative would leave the user reasoning about one project while Claude works on
+another.
+
+If Claude needs the project switched, it **asks and stops**. It does not switch.
+
+The argument, if any, is: `$ARGUMENTS`
 
 This repo is a mono repo. Docs live under `Docs/<project>/`, source under `src/<repo>/`, and
 **one project is active at a time**. Project scoping is a property of the repo, not of any one
@@ -62,7 +72,7 @@ Design docs are every `.md` **directly under** `docsRoot`, excluding `PRDs/`, `r
 
 ## Running it
 
-### With no argument — show and choose
+### With no argument (`$ARGUMENTS` empty) — show and choose
 
 1. `Glob Docs/*/project.json` and read each one.
 2. Read `.claude/project/active.json` if it exists.
@@ -75,7 +85,7 @@ Design docs are every `.md` **directly under** `docsRoot`, excluding `PRDs/`, `r
 
 ### With an argument — activate it
 
-1. Find the manifest to activate, case-insensitively, in this order:
+1. Find the manifest matching `$ARGUMENTS`, case-insensitively, in this order:
    1. `.name` equals the argument — an exact name always wins.
    2. otherwise, any entry of `.aliases` equals the argument.
 

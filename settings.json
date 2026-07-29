@@ -1,6 +1,10 @@
 {
   "permissions": {
-    "deny": []
+    "deny": [],
+    "ask": [
+      "Edit(.claude/project/active.json)",
+      "Write(.claude/project/active.json)"
+    ]
   },
   "skillOverrides": {},
   "hooks": {

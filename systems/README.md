@@ -24,6 +24,12 @@ reinterpreted.
 /set-system direct     # switch
 ```
 
+**Only the user can swap.** `/set-system` and `/set-project` are commands, not skills, so Claude
+has no way to invoke either — and it is told not to reach around them by editing the pointer or
+the import line directly. A swap Claude initiated would leave the user reasoning about one rule
+set while another is in force, and because half the swap only lands on restart, "in force"
+would itself be a mixed state. The switches are worth being slow about.
+
 **A restart is required.** The import line changes what the model reads immediately, but the
 agent registry, the skill listing, and the hooks all load at session start. `/set-system` echoes
 the newly active rules into the conversation to keep the current session coherent meanwhile —

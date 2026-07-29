@@ -22,7 +22,7 @@ the slug, then read the manifest whose `.name` matches it — conventionally
 `Docs/<slug>/project.json`. Its paths are repo-relative and already joined: use them as-is,
 and never construct one yourself.
 
-If either file is missing or the manifest will not parse, **stop and report that the caller
+If either file is missing or the manifest will not parse, **stop and report that the user
 must run `/set-project`.** Do not fall back to a guessed path — guessing is how this pipeline
 previously came to point at a directory that did not exist.
 

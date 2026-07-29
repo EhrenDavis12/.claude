@@ -1,12 +1,25 @@
 ---
-name: set-system
-description: Sets or shows which agent system is active — which set of working rules, agents, skills, and hooks is in force. Use when switching between ways of working (the forge pipeline vs. working inline), when turning the pipeline off, when a session's rules look wrong for what is being done, or when registering a new system. One system is active at a time; CLAUDE.md's import line is the single source of truth for which.
+description: Show or switch which agent system is active (forge / direct)
+argument-hint: "[system name]"
 ---
 
 # Set the active agent system
 
 A **system** is a whole way of working: rules, agents, skills, and hooks. One is active at a
 time. Read `.claude/systems/README.md` for the design; this file is how to switch.
+
+**This is a command, not a skill — deliberately.** Only the user can run it. Claude has no way
+to invoke it on its own.
+
+This is the stricter of the two switches. Changing systems changes the rules Claude is
+operating under, and the change is only half-live until a restart — the rules move immediately,
+the agent registry and hooks do not. A swap Claude initiated would put the user in the worst
+possible position: reasoning about one set of rules while a mixed state is actually in force.
+
+So if a swap is needed — including to repair the half-finished state `repo-context.sh` reports
+— **Claude says so and stops.** It does not swap.
+
+The argument, if any, is: `$ARGUMENTS`
 
 The active system is whichever `SYSTEM.md` **`CLAUDE.md`'s single import line** names:
 
@@ -28,7 +41,7 @@ hook self-gates — derives from it. Nothing else may disagree with it, which is
 
 `system.json` is what lets this command know what to deny without hardcoding a roster.
 
-## With no argument — show
+## With no argument (`$ARGUMENTS` empty) — show
 
 1. `Glob .claude/systems/*/system.json` and read each one.
 2. Read `CLAUDE.md`'s import line to find the active system.
@@ -40,7 +53,7 @@ operating under; make the user say it explicitly.
 
 ## With an argument — activate it
 
-1. **Resolve.** Find `.claude/systems/<argument>/`. Match on the directory name and on
+1. **Resolve.** Find `.claude/systems/$ARGUMENTS/`. Match on the directory name and on
    `system.json`'s `.name` — they should be identical; if they are not, stop and report it.
    If nothing matches, list what does exist and stop. Do not scaffold a system on a typo.
 
@@ -69,8 +82,9 @@ operating under; make the user say it explicitly.
      may have denied other things for unrelated reasons.
    - `skillOverrides` — `{"<skill>": "off"}` for every skill belonging to an inactive system.
 
-   An agent or skill listed by *no* system is repo-level (`/agent-creator`, `/set-project`,
-   `/set-system` itself) and is never denied.
+   An agent or skill listed by *no* system is repo-level — `/agent-creator` is the only one —
+   and is never denied. `/set-project` and `/set-system` are commands, not skills, so
+   `skillOverrides` never applies to them at all.
 
    Settings edits go through the `/update-config` skill, which owns `settings.json`
    correctness. Do not hand-write the JSON.

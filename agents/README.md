@@ -102,8 +102,8 @@ at all.
 | Planning an implementation | built-in `Plan` agent |
 | Broad read-only search | built-in `Explore` agent |
 | Security review | `/security-review` skill |
-| Switching or registering a project | `/set-project` skill |
-| Switching the agent system | `/set-system` skill |
+| Switching or registering a project | `/set-project` — a user-only command |
+| Switching the agent system | `/set-system` — a user-only command |
 
 Built-in agents count against overlap checks: `Explore`, `Plan`, `general-purpose`,
 `claude-code-guide`.
