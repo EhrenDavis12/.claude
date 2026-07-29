@@ -52,7 +52,7 @@ be at least as strong as the worker to catch its mistakes.
 
 | Agent | Job (one sentence) | Model / Effort | Writes | Wiring |
 |---|---|---|---|---|
-| `forge-doc-planner` | Plans the tidying work on the active project's design docs and hands forge-doc-writer a precise list. | opus / xhigh | no | Tier 2 — `CLAUDE.md` + `SessionStart` hook (`docs-pending.sh`) |
+| `forge-doc-planner` | Plans the tidying work on the active project's design docs and hands forge-doc-writer a precise list. | opus / high | no | Tier 2 — `CLAUDE.md` + `SessionStart` hook (`docs-pending.sh`) |
 | `forge-doc-writer` | Applies a `forge-doc-planner` plan to the source-of-truth docs, changing nothing the plan didn't name. | sonnet / medium | **yes** | Tier 1 |
 | `forge-prd-author` | Turns settled design decisions into a PRD for one feature. | opus / high | **yes** | Tier 1 |
 | `forge-prd-reviewer` | Reports whether a PRD is buildable without guessing, before anyone builds from it. | opus / high | no | Tier 1 |
@@ -78,7 +78,7 @@ path. See "Project scope" below.
 | `roadmap` (the doc map) | `forge-doc-writer` |
 | Source code under `srcRoots` | `forge-code-writer`, then `forge-code-cleaner` |
 | Tests under `srcRoots` | `forge-test-author` |
-| `forge.json` | `/forge-set-project` — configuration, not a doc |
+| `project.json` | `/set-project` — configuration, not a doc |
 
 The five read-only agents have no `Edit` or `Write` tool at all. When adding an agent, default
 to read-only — write access has to be argued for.
@@ -93,11 +93,11 @@ Two separations that are load-bearing:
 ## Project scope
 
 This is a mono repo with **one project active at a time**. Every forge agent opens by reading
-`.claude/forge/active-project.json` for the slug, then the manifest whose `.name` matches it
-(conventionally `Docs/<slug>/forge.json`). The manifest supplies `docsRoot`, `prds`, `roadmap`,
+`.claude/project/active.json` for the slug, then the manifest whose `.name` matches it
+(conventionally `Docs/<slug>/project.json`). The manifest supplies `docsRoot`, `prds`, `roadmap`,
 `srcRoots`, and optional `stack` and `parkingLotDocs`, all repo-relative and already joined.
 
-An agent that cannot find either file **stops and reports that `/forge-set-project` must run**
+An agent that cannot find either file **stops and reports that `/set-project` must run**
 rather than guessing — a silent fallback is how the pipeline previously came to point at a
 directory that did not exist.
 
@@ -143,7 +143,7 @@ question.
 | Planning an implementation | built-in `Plan` agent |
 | Broad read-only search | built-in `Explore` agent |
 | Security review | `/security-review` skill |
-| Switching or registering a project | `/forge-set-project` skill |
+| Switching or registering a project | `/set-project` skill |
 
 `forge-code-cleaner` and `forge-code-reviewer` overlap the bundled `/simplify` and `/code-review` skills.
 They exist as agents anyway, deliberately: skills run in the main loop and spend its context,

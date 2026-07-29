@@ -16,14 +16,15 @@ what was *supposed* to happen, and that is the only kind that can catch a mistak
 
 ## Project scope
 
-One project is active at a time. Before anything else, read
-`.claude/forge/active-project.json` for the slug, then read the manifest whose `.name` matches
-it — conventionally `Docs/<slug>/forge.json`. Its paths are repo-relative and already joined:
-use them as-is, and never construct one yourself.
+One project is active at a time. Before anything else, read `.claude/project/active.json` for
+the slug, then read the manifest whose `.name` matches it — conventionally
+`Docs/<slug>/project.json`. Its paths are repo-relative and already joined: use them as-is,
+and never construct one yourself.
 
 If either file is missing or the manifest will not parse, **stop and report that the caller
-must run `/forge-set-project`.** Do not fall back to a guessed path — guessing is how this
-pipeline previously came to point at a directory that did not exist.
+must run `/set-project`.** Do not fall back to a guessed path — guessing is how this pipeline
+previously came to point at a directory that did not exist.
+
 
 You use `prds` (your specification), `srcRoots` (where tests live, alongside the code they
 exercise), `docsRoot` (context), and `stack`.

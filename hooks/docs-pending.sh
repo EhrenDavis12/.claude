@@ -16,12 +16,12 @@ set -euo pipefail
 cd "${CLAUDE_PROJECT_DIR:-.}" 2>/dev/null || exit 0
 command -v jq >/dev/null 2>&1 || exit 0
 
-# No active project — forge-active-project.sh already says so. Don't say it twice.
-slug=$(jq -r '.project // empty' .claude/forge/active-project.json 2>/dev/null) || exit 0
+# No active project — repo-context.sh already says so. Don't say it twice.
+slug=$(jq -r '.project // empty' .claude/project/active.json 2>/dev/null) || exit 0
 [ -z "$slug" ] && exit 0
 
 manifest=""
-for candidate in "Docs/$slug/forge.json" Docs/*/forge.json; do
+for candidate in "Docs/$slug/project.json" Docs/*/project.json; do
   [ -f "$candidate" ] || continue
   if [ "$(jq -r '.name // empty' "$candidate" 2>/dev/null)" = "$slug" ]; then
     manifest="$candidate"
@@ -39,7 +39,7 @@ changed=$(git status --porcelain -- "$docs_root" 2>/dev/null) || exit 0
 [ -z "$changed" ] && exit 0
 
 # Only the hand-written design docs are forge-doc-planner's territory. PRDs belong to
-# forge-prd-author, roadmap.md is generated, and forge.json is configuration.
+# forge-prd-author, roadmap.md is generated, and project.json is configuration.
 # Porcelain v1 is "XY " then the path, so the status is exactly the first 3 characters.
 # Renames arrive as `old -> new`; keep the new name. Paths containing spaces are quoted.
 # Note `paste -d` takes a *cyclic list* of delimiters, so ', ' would alternate comma and
@@ -49,7 +49,7 @@ files=$(printf '%s\n' "$changed" \
   | sed 's/^.* -> //; s/^"//; s/"$//' \
   | grep -v "^${docs_root}/PRDs/" \
   | grep -v "^${docs_root}/roadmap\.md$" \
-  | grep -v "^${docs_root}/forge\.json$" \
+  | grep -v "^${docs_root}/project\.json$" \
   | paste -sd, - || true)
 
 [ -z "$files" ] && exit 0

@@ -138,7 +138,7 @@ Agents belong to a **workflow** — a pipeline of agents that hand work to each 
 has one, `forge` (design docs → PRD → code → tests). More may be added.
 
 A workflow is not a project. The `forge` pipeline runs against whichever project
-`/forge-set-project` has made active; agents resolve their paths from that project's manifest.
+`/set-project` has made active; agents resolve their paths from that project's manifest.
 Never add a per-project agent — add a project.
 
 Each workflow gets both:

@@ -17,27 +17,28 @@ edits does not decide. That is why you can run cheaply — you are not being ask
 
 ## Project scope
 
-One project is active at a time. Before anything else, read
-`.claude/forge/active-project.json` for the slug, then read the manifest whose `.name` matches
-it — conventionally `Docs/<slug>/forge.json`. Its paths are repo-relative and already joined:
-use them as-is, and never construct one yourself.
+One project is active at a time. Before anything else, read `.claude/project/active.json` for
+the slug, then read the manifest whose `.name` matches it — conventionally
+`Docs/<slug>/project.json`. Its paths are repo-relative and already joined: use them as-is,
+and never construct one yourself.
 
 If either file is missing or the manifest will not parse, **stop and report that the caller
-must run `/forge-set-project`.** Do not fall back to a guessed path — guessing is how this
-pipeline previously came to point at a directory that did not exist.
+must run `/set-project`.** Do not fall back to a guessed path — guessing is how this pipeline
+previously came to point at a directory that did not exist.
+
 
 You use `docsRoot` and `roadmap`.
 
 ## Scope
 
 You write to the **design docs**: every `.md` file directly under the manifest's `docsRoot`,
-excluding `PRDs/`, `roadmap.md`, and `forge.json`. Docs are flat there by convention — there
+excluding `PRDs/`, `roadmap.md`, and `project.json`. Docs are flat there by convention — there
 is no design-docs subfolder. You also write `roadmap.md` itself, per rule 6.
 
 Out of scope, read-only for context if you need it:
 
 - The manifest's `prds` directory — belongs to `forge-prd-author`.
-- `forge.json` — configuration, belongs to `/forge-set-project`.
+- `project.json` — configuration, belongs to `/set-project`.
 - Another project's docs. Only the active one exists as far as you are concerned.
 - `README.md` at the repo root, unless the caller names it.
 - Source code, `CLAUDE.md`, and anything under `.claude/`.
