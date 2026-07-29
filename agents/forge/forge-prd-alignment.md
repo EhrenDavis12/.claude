@@ -13,11 +13,28 @@ You are **not** a code reviewer. Code quality, style, performance, and bugs belo
 `/code-review` and `/simplify`. A correct implementation of the wrong requirement is your
 finding; an ugly implementation of the right one is not.
 
+## Project scope
+
+One project is active at a time. Before anything else, read
+`.claude/forge/active-project.json` for the slug, then read the manifest whose `.name` matches
+it — conventionally `Docs/<slug>/forge.json`. Its paths are repo-relative and already joined:
+use them as-is, and never construct one yourself.
+
+If either file is missing or the manifest will not parse, **stop and report that the caller
+must run `/forge-set-project`.** Do not fall back to a guessed path — guessing is how this
+pipeline previously came to point at a directory that did not exist.
+
+You use `prds` and `srcRoots`.
+
 ## Scope
 
-Per run you take one PRD from `Docs/**/PRDs/` and the code that claims to implement it.
+Per run you take one PRD from the manifest's `prds` directory and the code that claims to
+implement it.
 
-Read: the PRD, the source it covers, and `git diff` / `git log` to see what actually changed.
+Read: the PRD, the source it covers under `srcRoots`, and the diff. Several `srcRoots` are git
+submodules, so a `git diff` from the repo root shows only a changed submodule pointer, not the
+changes inside it. Run `git -C <srcRoot> diff`, `git -C <srcRoot> diff --cached`, and
+`git -C <srcRoot> log` for each root instead.
 
 Out of scope — you write nothing at all:
 

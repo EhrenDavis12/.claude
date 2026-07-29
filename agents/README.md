@@ -52,7 +52,7 @@ be at least as strong as the worker to catch its mistakes.
 
 | Agent | Job (one sentence) | Model / Effort | Writes | Wiring |
 |---|---|---|---|---|
-| `forge-doc-planner` | Plans the tidying work on the docs under `Docs/` and hands forge-doc-writer a precise list. | opus / xhigh | no | Tier 2 — `CLAUDE.md` + `SessionStart` hook |
+| `forge-doc-planner` | Plans the tidying work on the active project's design docs and hands forge-doc-writer a precise list. | opus / xhigh | no | Tier 2 — `CLAUDE.md` + `SessionStart` hook (`docs-pending.sh`) |
 | `forge-doc-writer` | Applies a `forge-doc-planner` plan to the source-of-truth docs, changing nothing the plan didn't name. | sonnet / medium | **yes** | Tier 1 |
 | `forge-prd-author` | Turns settled design decisions into a PRD for one feature. | opus / high | **yes** | Tier 1 |
 | `forge-prd-reviewer` | Reports whether a PRD is buildable without guessing, before anyone builds from it. | opus / high | no | Tier 1 |
@@ -68,13 +68,17 @@ be at least as strong as the worker to catch its mistakes.
 One chokepoint per territory, enforced by each agent's `tools:` field — a tools restriction is
 a harder guarantee than a gatekeeper agent, and costs nothing.
 
+Territories are **manifest keys**, resolved per active project — no agent holds a hardcoded
+path. See "Project scope" below.
+
 | Territory | Only writer |
 |---|---|
-| `Docs/manual-docs/` and other source-of-truth docs | `forge-doc-writer` |
-| `Docs/{{Project}}/PRDs/` | `forge-prd-author` |
-| `Docs/{{Project}}/roadmap.md` (the doc map) | `forge-doc-writer` |
-| Source code | `forge-code-writer`, then `forge-code-cleaner` |
-| Tests | `forge-test-author` |
+| Design docs — `.md` directly under `docsRoot` | `forge-doc-writer` |
+| `prds` | `forge-prd-author` |
+| `roadmap` (the doc map) | `forge-doc-writer` |
+| Source code under `srcRoots` | `forge-code-writer`, then `forge-code-cleaner` |
+| Tests under `srcRoots` | `forge-test-author` |
+| `forge.json` | `/forge-set-project` — configuration, not a doc |
 
 The five read-only agents have no `Edit` or `Write` tool at all. When adding an agent, default
 to read-only — write access has to be argued for.
@@ -85,6 +89,25 @@ Two separations that are load-bearing:
   was built rather than what was specified, which makes the mistake invisible.
 - **`forge-test-author` does not edit source.** Fixing the code to make your own test pass destroys
   the signal the test existed to give.
+
+## Project scope
+
+This is a mono repo with **one project active at a time**. Every forge agent opens by reading
+`.claude/forge/active-project.json` for the slug, then the manifest whose `.name` matches it
+(conventionally `Docs/<slug>/forge.json`). The manifest supplies `docsRoot`, `prds`, `roadmap`,
+`srcRoots`, and optional `stack` and `parkingLotDocs`, all repo-relative and already joined.
+
+An agent that cannot find either file **stops and reports that `/forge-set-project` must run**
+rather than guessing — a silent fallback is how the pipeline previously came to point at a
+directory that did not exist.
+
+Two consequences worth knowing when adding an agent:
+
+- **Every new agent needs the shared "Project scope" block**, listing which manifest keys it
+  uses. Copy it from any existing forge agent.
+- **`srcRoots` are often git submodules.** A `git diff` from the repo root shows only a changed
+  submodule pointer, so any agent that scopes itself by diff must use `git -C <srcRoot> diff`.
+  Getting this wrong produces an empty diff and a confident "nothing to do".
 
 ## The main loop's job — pure delegation
 
@@ -120,6 +143,7 @@ question.
 | Planning an implementation | built-in `Plan` agent |
 | Broad read-only search | built-in `Explore` agent |
 | Security review | `/security-review` skill |
+| Switching or registering a project | `/forge-set-project` skill |
 
 `forge-code-cleaner` and `forge-code-reviewer` overlap the bundled `/simplify` and `/code-review` skills.
 They exist as agents anyway, deliberately: skills run in the main loop and spend its context,

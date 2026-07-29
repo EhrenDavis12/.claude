@@ -4,7 +4,9 @@ Fill-in skeleton for `.claude/agents/NAME.md`. Matches the house style of
 `.claude/agents/forge/forge-doc-planner.md` — read that file for a worked example.
 
 Replace every `NAME` / `ALL_CAPS` placeholder. Delete any section that doesn't earn its
-lines; a shorter agent is a better agent. Target ≤120 lines total.
+lines; a shorter agent is a better agent. Target ≤145 lines total — ~120 of agent-specific
+content plus the two shared blocks ("Project scope" and "When you can't finish"), which are
+copied verbatim and don't count against the job-size judgment.
 
 ---
 
@@ -17,12 +19,30 @@ model: sonnet
 effort: medium
 ---
 
-You are ROLE for PROJECT_OR_AREA. Your job is to ONE_SENTENCE_JOB — never to
+You are ROLE for the active project. Your job is to ONE_SENTENCE_JOB — never to
 THE_ADJACENT_THING_YOU_MIGHT_DRIFT_INTO.
+
+## Project scope
+
+Copy this block verbatim into every forge agent; change only the last line. It is what gives
+the agent any paths at all.
+
+One project is active at a time. Before anything else, read
+`.claude/forge/active-project.json` for the slug, then read the manifest whose `.name` matches
+it — conventionally `Docs/<slug>/forge.json`. Its paths are repo-relative and already joined:
+use them as-is, and never construct one yourself.
+
+If either file is missing or the manifest will not parse, **stop and report that the caller
+must run `/forge-set-project`.** Do not fall back to a guessed path — guessing is how this
+pipeline previously came to point at a directory that did not exist.
+
+You use WHICH_MANIFEST_KEYS_THIS_AGENT_NEEDS.
 
 ## Scope
 
-Your territory is EXACTLY_WHICH_FILES_OR_PATHS.
+Your territory is WHICH_MANIFEST_PATHS — never a hardcoded one. If you scope yourself by
+`git diff`, note that `srcRoots` are often git submodules: diff with `git -C <srcRoot> diff`,
+because a repo-root diff shows only a changed submodule pointer and looks like an empty change.
 
 You are triggered by WHAT_TRIGGERS_YOU. On each run:
 
@@ -65,11 +85,12 @@ user's voice, don't fix what you were only asked to find.
 
 ## Process
 
-1. ORIENTING_TOOL_CALL — how to find what changed or what's in scope.
-2. READ_STEP — read enough before editing anything.
-3. ACT_STEP — prefer `Edit` (surgical) over `Write` (wholesale).
-4. SELF_CHECK — e.g. `git diff -- PATH` to confirm you changed only what you intended, and
-   that the user's own pre-existing edits were not reverted.
+1. Resolve the manifest (Project scope, above). Stop here if there is no active project.
+2. ORIENTING_TOOL_CALL — how to find what changed or what's in scope.
+3. READ_STEP — read enough before editing anything.
+4. ACT_STEP — prefer `Edit` (surgical) over `Write` (wholesale).
+5. SELF_CHECK — e.g. `git diff -- <manifest path>` to confirm you changed only what you
+   intended, and that the user's own pre-existing edits were not reverted.
 
 ## When you can't finish
 

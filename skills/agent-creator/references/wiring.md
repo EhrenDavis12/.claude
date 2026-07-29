@@ -33,6 +33,11 @@ so "docs changed and weren't tidied" is almost always true *before Claude Code s
 at the only moment it can be observed. If Claude also edits a doc mid-session, it already
 knows — that case needs no hook at all.
 
+**Git pathspecs are case-sensitive.** `git status -- Docs` matches nothing when the tracked
+path is `docs/`, and the hook then fails *silently* — the exact failure that made this hook a
+permanent no-op until it was caught. Take the path from the project manifest, which stores it
+as it is really tracked, and never hardcode a spelling.
+
 Corollary: if the in-session case is already visible to Claude, don't add a second hook for
 it. One hook at the right moment beats two at the wrong ones.
 
@@ -62,11 +67,17 @@ Fires once per session, cannot loop, cannot block. Emit
 #!/bin/bash
 set -euo pipefail
 cd "${CLAUDE_PROJECT_DIR:-.}" 2>/dev/null || exit 0
+command -v jq >/dev/null 2>&1 || exit 0            # no jq → say nothing, don't emit bad JSON
 
-changed=$(git status --porcelain -- Docs 2>/dev/null) || exit 0   # not a repo → silent
-[ -z "$changed" ] && exit 0                                        # nothing pending → silent
+root=$(...)   # resolve from the project manifest; never hardcode a path
 
-files=$(printf '%s\n' "$changed" | awk '{print $NF}' | paste -sd', ' -)
+changed=$(git status --porcelain -- "$root" 2>/dev/null) || exit 0  # not a repo → silent
+[ -z "$changed" ] && exit 0                                          # nothing pending → silent
+
+# Porcelain v1 is "XY " then the path, so cut -c4- strips the status. Renames arrive as
+# `old -> new`; keep the new name. `paste -d` takes a *cyclic list* of delimiters, so ', '
+# would alternate comma and space — join on a single comma.
+files=$(printf '%s\n' "$changed" | cut -c4- | sed 's/^.* -> //; s/^"//; s/"$//' | paste -sd, -)
 jq -cn --arg files "$files" '{
   hookSpecificOutput: {
     hookEventName: "SessionStart",
@@ -109,7 +120,7 @@ case "$file_path" in
   *) exit 0 ;;
 esac
 
-echo 'A doc under Docs/ changed. Dispatch: Agent(subagent_type: "forge-doc-planner", prompt: "Docs under Docs/ were just edited — plan what needs tidying.")' >&2
+echo 'A design doc changed. Dispatch: Agent(subagent_type: "forge-doc-planner", prompt: "Design docs were just edited — plan what needs tidying.")' >&2
 exit 2
 ```
 
@@ -142,7 +153,7 @@ A `Stop` hook that never clears wedges the session. Four rules, all mandatory:
 2. **Block at most once per condition.** Use a sentinel file keyed to the triggering state,
    and check it first:
    ```bash
-   STATE=$(git -C "$CLAUDE_PROJECT_DIR" status --porcelain Docs | shasum | cut -d' ' -f1)
+   STATE=$(git -C "$CLAUDE_PROJECT_DIR" status --porcelain -- "$root" | shasum | cut -d' ' -f1)
    SENTINEL="$CLAUDE_PROJECT_DIR/.claude/.hook-state/NAME-$STATE"
    [ -f "$SENTINEL" ] && exit 0        # already blocked once for this exact state
    mkdir -p "$(dirname "$SENTINEL")" && touch "$SENTINEL"
@@ -151,7 +162,7 @@ A `Stop` hook that never clears wedges the session. Four rules, all mandatory:
 3. **The `reason` must name the exact call to make.** A vague reason ("cleanup is needed")
    produces a retry loop; a precise one gets acted on immediately:
    ```json
-   {"decision": "block", "reason": "Uncommitted changes under Docs/ have not been tidied. Run: Agent(subagent_type: \"forge-doc-planner\", prompt: \"Docs under Docs/ were just edited — plan what needs tidying.\")"}
+   {"decision": "block", "reason": "Uncommitted design-doc changes have not been tidied. Run: Agent(subagent_type: \"forge-doc-planner\", prompt: \"Design docs were just edited — plan what needs tidying.\")"}
    ```
 4. **Document the escape hatch.** Tell the user, at install time: the hook is one entry in
    `settings.json`; deleting it and restarting Claude Code always recovers a wedged session.

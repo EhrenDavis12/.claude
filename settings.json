@@ -6,9 +6,20 @@
         "hooks": [
           {
             "type": "command",
+            "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/forge-active-project.sh",
+            "timeout": 5,
+            "statusMessage": "Resolving active forge project"
+          }
+        ]
+      },
+      {
+        "matcher": "*",
+        "hooks": [
+          {
+            "type": "command",
             "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/docs-pending.sh",
             "timeout": 5,
-            "statusMessage": "Checking Docs/ for untidied changes"
+            "statusMessage": "Checking the active project's docs for untidied changes"
           }
         ]
       }

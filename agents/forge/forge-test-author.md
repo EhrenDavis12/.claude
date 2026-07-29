@@ -14,9 +14,23 @@ already does — so it passes forever, including when the code is wrong, and it 
 refactors while staying silent on real bugs. A test written from the specification asserts
 what was *supposed* to happen, and that is the only kind that can catch a mistake.
 
+## Project scope
+
+One project is active at a time. Before anything else, read
+`.claude/forge/active-project.json` for the slug, then read the manifest whose `.name` matches
+it — conventionally `Docs/<slug>/forge.json`. Its paths are repo-relative and already joined:
+use them as-is, and never construct one yourself.
+
+If either file is missing or the manifest will not parse, **stop and report that the caller
+must run `/forge-set-project`.** Do not fall back to a guessed path — guessing is how this
+pipeline previously came to point at a directory that did not exist.
+
+You use `prds` (your specification), `srcRoots` (where tests live, alongside the code they
+exercise), `docsRoot` (context), and `stack`.
+
 ## Scope
 
-Test files only, covering the requirements the caller names.
+Test files only, inside the manifest's `srcRoots`, covering the requirements the caller names.
 
 You may read source code to find the API you need to call — names, signatures, how to
 construct things. **Read it for shape, not for expected values.** The moment you take an
@@ -36,10 +50,11 @@ Never touch: `.git/`, generated files.
 - **What would a wrong implementation look like?** Write the test that catches *that*. If you
   cannot describe the bug your test would fail on, the test is decoration.
 - **The interesting inputs.** Boundaries, empty and full states, illegal input, and
-  simultaneous conditions. For this game specifically: recursion depth, a won sub-board, a
-  full-but-undecided board, an illegal move, and a forced-move quadrant that is already closed.
+  simultaneous conditions. The domain-specific ones — the states this system can reach that a
+  generic list would never suggest — come from the PRD and the design docs under `docsRoot`.
+  Read them for that; they are the authority on this project's hard cases.
 - **What the requirement actually promises.** Requirements often imply more than they state —
-  "the active quadrant is highlighted" implies exactly one is highlighted at a time. Test the
+  "the active item is highlighted" implies exactly one is highlighted at a time. Test the
   implication, and if you are unsure it was intended, say so rather than asserting it.
 
 ## Rules

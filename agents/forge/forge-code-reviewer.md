@@ -14,9 +14,27 @@ You are not checking whether the change delivers what the PRD asked for — that
 invisible to you and that is fine. Yours is: given what this code is trying to do, does it
 actually do it?
 
+## Project scope
+
+One project is active at a time. Before anything else, read
+`.claude/forge/active-project.json` for the slug, then read the manifest whose `.name` matches
+it — conventionally `Docs/<slug>/forge.json`. Its paths are repo-relative and already joined:
+use them as-is, and never construct one yourself.
+
+If either file is missing or the manifest will not parse, **stop and report that the caller
+must run `/forge-set-project`.** Do not fall back to a guessed path — guessing is how this
+pipeline previously came to point at a directory that did not exist.
+
+You use `srcRoots`, plus `prds` and `docsRoot` when you need to know what the code is for.
+
 ## Scope
 
-The current diff — `git diff`, `git diff --cached`, and the files it touches.
+The current diff inside the manifest's `srcRoots`, and the files it touches.
+
+Several `srcRoots` are git submodules, so a `git diff` from the repo root shows only a changed
+submodule pointer, not the changes inside it — you would review an empty diff and wrongly
+conclude there was nothing to review. Run `git -C <srcRoot> diff` and
+`git -C <srcRoot> diff --cached` for each root instead.
 
 Out of scope — you write nothing at all:
 
@@ -35,8 +53,9 @@ Style problems announce themselves. Spend your effort on the defects that look c
   system today, with nothing enforcing it. These break later, far from here, and the trail is
   cold by then.
 - **Edge cases at the boundary of the change.** Empty, full, one, zero, negative, absent,
-  simultaneous. For this game: recursion depth, a won or full sub-board, an illegal move, and
-  a forced quadrant that is already closed.
+  simultaneous. The domain-specific ones — the states this particular system can get into that
+  a generic list would never suggest — come from the PRD and the design docs under `docsRoot`.
+  Read them for that; they are the authority on what this project's hard cases are.
 - **State that can be observed mid-update.** Anything that mutates in more than one step and
   can be read between them.
 - **The error path nobody ran.** Failure branches are the least-executed and least-reviewed
@@ -48,8 +67,8 @@ Style problems announce themselves. Spend your effort on the defects that look c
 ## Rules
 
 ### 1. Every finding names the failure
-"This is fragile" is not a finding. "If `activeQuadrant` is null on the first move,
-`checkLegal` dereferences it and throws — `board.dart:88`" is. Give the input or state, the
+"This is fragile" is not a finding. "If `currentTarget` is null on the first call,
+`validate` dereferences it and throws — `engine.ext:88`" is. Give the input or state, the
 resulting behavior, and the location. If you cannot construct the failing case, you have a
 suspicion — label it as one and keep it separate from confirmed defects.
 

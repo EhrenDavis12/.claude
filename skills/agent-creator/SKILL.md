@@ -94,8 +94,8 @@ Compare the proposal's **trigger** and **file territory** against every agent on
 plus the built-ins: `Explore`, `Plan`, `general-purpose`, `claude-code-guide`.
 
 Overlap in *either* dimension → **refuse to create.** Propose a concrete edit to the existing
-agent instead, quoting the lines you'd change. Two agents that both watch `Docs/`, or both
-fire "after a doc changes," are one agent.
+agent instead, quoting the lines you'd change. Two agents that both watch the active project's
+`docsRoot`, or both fire "after a doc changes," are one agent.
 
 ### Gate 3 — One job, one sentence
 
@@ -136,6 +136,10 @@ and record it in the roster row.
 
 Agents belong to a **workflow** — a pipeline of agents that hand work to each other. This repo
 has one, `forge` (design docs → PRD → code → tests). More may be added.
+
+A workflow is not a project. The `forge` pipeline runs against whichever project
+`/forge-set-project` has made active; agents resolve their paths from that project's manifest.
+Never add a per-project agent — add a project.
 
 Each workflow gets both:
 
@@ -205,9 +209,12 @@ Body rules:
 - Name the asymmetric failure mode plainly, and bias the agent toward inaction plus flagging.
 - Include the **"When you can't finish"** block verbatim from `references/agent-template.md`.
   Every agent gets it — it is what makes the batch-and-resume loop work.
+- Include the shared **"Project scope"** block, copied from any existing forge agent, naming
+  the manifest keys this agent uses. Without it the agent has no paths at all.
 - End with a named **Report back** structure — the agent's final message is its deliverable.
-- **Target ≤130 lines.** That is 120 lines of agent-specific content plus the ~10-line shared
-  protocol block. Longer means the job is too big: go back to Gate 3.
+- **Target ≤145 lines.** That is ~120 lines of agent-specific content plus the two shared
+  blocks (~11 lines of Project scope, ~10 of the batch-and-resume protocol). Judge length by
+  the agent-specific part: if *that* runs past 120, the job is too big — go back to Gate 3.
 
 ## The batch-and-resume loop
 

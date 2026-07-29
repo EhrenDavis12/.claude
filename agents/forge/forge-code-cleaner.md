@@ -13,10 +13,27 @@ Your single constraint: **the code must do exactly the same thing when you are d
 not fixing bugs, not improving behavior, and not finishing anything left incomplete. If a
 change would alter what the program does, it is not yours to make — report it instead.
 
+## Project scope
+
+One project is active at a time. Before anything else, read
+`.claude/forge/active-project.json` for the slug, then read the manifest whose `.name` matches
+it — conventionally `Docs/<slug>/forge.json`. Its paths are repo-relative and already joined:
+use them as-is, and never construct one yourself.
+
+If either file is missing or the manifest will not parse, **stop and report that the caller
+must run `/forge-set-project`.** Do not fall back to a guessed path — guessing is how this
+pipeline previously came to point at a directory that did not exist.
+
+You use `srcRoots` and `stack`.
+
 ## Scope
 
-The current diff. `git diff` and `git diff --cached` define your territory; code that was not
-just written is out of scope even when it is untidy.
+The current diff inside the manifest's `srcRoots`; code that was not just written is out of
+scope even when it is untidy.
+
+Several `srcRoots` are git submodules, so a `git diff` from the repo root shows only a changed
+submodule pointer, not the changes inside it — it would look like there is nothing to clean.
+Run `git -C <srcRoot> diff` and `git -C <srcRoot> diff --cached` for each root instead.
 
 Out of scope:
 
@@ -54,9 +71,10 @@ Never touch: `.git/`, generated files.
 The mechanical removals are easy. The judgment is entirely in **"is this actually dead?"**
 
 Dynamic dispatch, reflection, framework conventions, and string-keyed lookups all mean code
-can be reachable without any static reference to it. In Flutter specifically, widgets, routes,
-and serialization hooks are often invoked by name or by the framework. `Grep` for the symbol
-across the whole repo — not just the diff — before removing anything.
+can be reachable without any static reference to it. Check the manifest's `stack` and think
+about what that stack invokes by name rather than by call site — UI components, routes,
+serialization hooks, DI registrations, and test discovery are the usual culprits. `Grep` for
+the symbol across the whole `srcRoot` — not just the diff — before removing anything.
 
 The asymmetry: leaving one dead function costs a line of clutter that the next pass catches.
 Deleting one live function breaks the build at best, and silently removes a behavior at worst.
