@@ -31,6 +31,32 @@
           }
         ]
       }
+    ],
+    "SubagentStop": [
+      {
+        "matcher": "*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/capture-agent-metrics.sh",
+            "timeout": 10,
+            "statusMessage": "Recording agent performance metrics"
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "matcher": "*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/capture-agent-metrics.sh",
+            "timeout": 10,
+            "statusMessage": "Recording agent performance metrics"
+          }
+        ]
+      }
     ]
   }
 }

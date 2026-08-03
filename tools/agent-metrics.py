@@ -151,7 +151,59 @@ def analyze_run(path):
         "cache_read": cache_read,
         "max_ctx": max_ctx,
         "dur_s": round(dur, 1),
+        "ended_ts": last_ts or 0.0,
     }
+
+
+def collect_runs(proj, session=None):
+    """Every subagent run currently present in the transcripts, labeled by type."""
+    agentid_to_type = build_agentid_map(proj)
+    sub_glob = os.path.join(proj, "**", "subagents", "agent-*.jsonl")
+    runs = []
+    for path in glob.glob(sub_glob, recursive=True):
+        if session and session not in path:
+            continue
+        aid_match = re.search(r"agent-([0-9a-f]+)\.jsonl$", os.path.basename(path))
+        aid = aid_match.group(1) if aid_match else "?"
+        stats = analyze_run(path)
+        stats["agent"] = agentid_to_type.get(aid, "unknown")
+        stats["agentId"] = aid
+        runs.append(stats)
+    return runs
+
+
+def log_file(cwd):
+    return os.path.join(os.path.abspath(cwd), ".claude", "metrics", "agent-runs.jsonl")
+
+
+def sync_log(proj, cwd):
+    """Merge current transcripts into the durable log, self-healing partial runs.
+
+    The transcript is authoritative for any run it still holds (so a run captured
+    mid-flight is overwritten by its final numbers on a later sync). Runs whose
+    transcripts have been pruned are kept from the existing log. Idempotent.
+    """
+    path = log_file(cwd)
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    by_id = {}
+    if os.path.exists(path):
+        for rec in iter_lines(path):
+            if rec.get("agentId"):
+                by_id[rec["agentId"]] = rec  # historical (maybe pruned)
+    fresh = 0
+    for r in collect_runs(proj):
+        if r["turns"] == 0:
+            continue  # nothing happened yet; skip empty/just-started transcripts
+        if r["agentId"] not in by_id:
+            fresh += 1
+        by_id[r["agentId"]] = r  # transcript wins over history
+    records = sorted(by_id.values(), key=lambda x: x.get("ended_ts", 0))
+    tmp = path + ".tmp"
+    with open(tmp, "w") as f:
+        for rec in records:
+            f.write(json.dumps(rec) + "\n")
+    os.replace(tmp, path)
+    return len(records), fresh
 
 
 def main():
@@ -160,26 +212,36 @@ def main():
     ap.add_argument("--session", help="limit to one session id")
     ap.add_argument("--json", action="store_true")
     ap.add_argument("--runs", action="store_true", help="show every run, not just aggregates")
+    ap.add_argument("--sync", action="store_true",
+                    help="append/refresh runs into .claude/metrics/agent-runs.jsonl (for hooks)")
+    ap.add_argument("--log", action="store_true",
+                    help="report from the durable log instead of live transcripts")
     args = ap.parse_args()
 
     proj = project_dir(args.cwd)
-    if not os.path.isdir(proj):
-        print(f"No transcripts found at {proj}", file=sys.stderr)
-        sys.exit(1)
 
-    agentid_to_type = build_agentid_map(proj)
+    if args.sync:
+        # Hook-friendly: never fail a turn. No transcripts yet == nothing to do.
+        if not os.path.isdir(proj):
+            return
+        total, fresh = sync_log(proj, args.cwd)
+        print(f"agent-metrics: log has {total} run(s) (+{fresh} new)")
+        return
 
-    sub_glob = os.path.join(proj, "**", "subagents", "agent-*.jsonl")
-    runs = []
-    for path in glob.glob(sub_glob, recursive=True):
-        if args.session and args.session not in path:
-            continue
-        aid_match = re.search(r"agent-([0-9a-f]+)\.jsonl$", os.path.basename(path))
-        aid = aid_match.group(1) if aid_match else "?"
-        stats = analyze_run(path)
-        stats["agent"] = agentid_to_type.get(aid, "unknown")
-        stats["agentId"] = aid
-        runs.append(stats)
+    if args.log:
+        lf = log_file(args.cwd)
+        if not os.path.exists(lf):
+            print(f"No metrics log yet at {lf}. It fills as agents run (via the "
+                  "SubagentStop hook) or after `--sync`.")
+            return
+        runs = list(iter_lines(lf))
+        if args.session:
+            runs = [r for r in runs if args.session in r.get("agentId", "")]
+    else:
+        if not os.path.isdir(proj):
+            print(f"No transcripts found at {proj}", file=sys.stderr)
+            sys.exit(1)
+        runs = collect_runs(proj, session=args.session)
 
     if args.json:
         print(json.dumps(runs, indent=2))

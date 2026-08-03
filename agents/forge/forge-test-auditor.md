@@ -4,6 +4,7 @@ description: Audits existing tests and reports which ones assert real behavior a
 tools: Read, Grep, Glob, Bash
 model: sonnet
 effort: high
+maxTurns: 80
 ---
 
 You audit tests for whether they would actually catch a bug. A green suite that cannot fail is

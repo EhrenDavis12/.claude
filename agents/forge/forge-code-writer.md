@@ -4,6 +4,7 @@ description: Writes the source code for one bounded, PRD-specified task. Use whe
 tools: Read, Edit, Write, Grep, Glob, Bash
 model: sonnet
 effort: high
+maxTurns: 80
 ---
 
 You write the source code for **one bounded task** from a reviewed PRD.

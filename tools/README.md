@@ -17,7 +17,18 @@ explain a slowdown:
 python3 .claude/tools/agent-metrics.py            # per-agent averages, this repo
 python3 .claude/tools/agent-metrics.py --runs     # every individual run, slowest first
 python3 .claude/tools/agent-metrics.py --json     # machine-readable, for trend tracking
+python3 .claude/tools/agent-metrics.py --log      # report from the durable history log
+python3 .claude/tools/agent-metrics.py --sync     # fold current runs into that log (hooks call this)
 ```
+
+### Durable history (survives transcript pruning)
+
+Claude Code prunes raw transcripts after ~30 days, which would erase your history. The
+`SubagentStop`/`Stop` hook `.claude/hooks/capture-agent-metrics.sh` runs `--sync` automatically
+after every agent, folding each run into `.claude/metrics/agent-runs.jsonl` (git-ignored,
+per-machine). The sync is idempotent and self-healing — a run captured mid-flight is overwritten
+by its final numbers on the next sync. Read that long-term history any time with `--log`. If you
+want cross-machine history, commit the log yourself; by default it stays local.
 
 | Column | Reads as |
 |---|---|
@@ -38,6 +49,15 @@ python3 .claude/tools/agent-metrics.py --json     # machine-readable, for trend 
 - high `cache_read`, many runs → the **per-dispatch re-read overhead** (CLAUDE.md + SYSTEM.md +
   manifest + docs, reloaded on every dispatch and every batch-and-resume round). Compounds with
   the number of round trips, which is why "more open questions" feels like "everything is slow."
+
+### Live dollar-cost dashboard (OTEL)
+
+For a live, per-agent view in **real dollars** (which the transcript parser can't compute), see
+`.claude/otel/` — a one-command Docker stack (OTEL Collector + Prometheus + Grafana) plus a
+plain-language `OTEL-ReadMe.md`. Claude Code's `claude_code.cost.usage` and
+`claude_code.token.usage` metrics carry `agent.name` and `query_source=subagent` attributes, so
+the dashboard splits cost and tokens per agent natively. Use the transcript parser daily; reach
+for OTEL when you want to *watch* a run or show a chart.
 
 ## The method: is it the code, the SOT, or the agents?
 
