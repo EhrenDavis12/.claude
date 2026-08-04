@@ -164,13 +164,26 @@ user says go. Pushing a branch is outward-facing and hard to take back.
 
 ## Report
 
-Finish with the URLs, bare and clickable, one per line:
+Finish with one table — **one row per repo a PR was created for**, plus a row for every target
+that was skipped or failed, so the table accounts for every target the user named:
 
-```
-✅ Tic-Tac-Toe-Extreme  →  https://github.com/EhrenDavis12/Tic-Tac-Toe-Extreme/pull/12
-✅ local-RED-dev        →  https://github.com/EhrenDavis12/local-RED-dev/pull/8
-⏭️  some-other-repo      →  skipped: no commits ahead of Dev
-```
+| Project | Repo | Status | PR |
+|---|---|---|---|
+| `tic-tac-toe` | `Tic-Tac-Toe-Extreme` | ✅ created | https://github.com/EhrenDavis12/Tic-Tac-Toe-Extreme/pull/12 |
+| `local-RED-dev` | `local-RED-dev` | ✅ created | https://github.com/EhrenDavis12/local-RED-dev/pull/8 |
+| `some-project` | `some-other-repo` | ⏭️ skipped | no commits ahead of `Dev` |
+| `another-project` | `another-repo` | ♻️ pre-existing | https://github.com/EhrenDavis12/another-repo/pull/3 |
+
+Filling it in:
+
+- **Project** — the argument the user typed that resolved to this repo. For the mono repo, and
+  for a literal path, repeat the repo name.
+- **Repo** — the directory name of the repo the PR was opened in. A project with several
+  `srcRoots` gets one row per src root, all sharing the same Project cell value.
+- **Status** — `✅ created`, `♻️ pre-existing` (step 2 found an open PR and you returned it),
+  `⏭️ skipped`, or `❌ failed`.
+- **PR** — the URL, bare so it stays clickable. Never a markdown link, never shortened. For a
+  skipped or failed row, put the reason here instead.
 
 Then stop. Don't offer to merge, don't poll CI, don't summarize the PR bodies back — the user is
 about to read them on GitHub.
