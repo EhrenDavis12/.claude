@@ -155,9 +155,43 @@ def analyze_run(path):
     }
 
 
-def collect_runs(proj, session=None):
-    """Every subagent run currently present in the transcripts, labeled by type."""
+BUILTIN_SYSTEM = "(builtin)"
+
+
+def build_agent_system_map(cwd):
+    """agent name -> owning system (agent team), from every
+    .claude/systems/<name>/system.json. This is authoritative and
+    historical-proof: forge-code-writer maps to forge whenever it ran, and a
+    brand-new team's agents classify automatically the moment its system.json
+    lists them — no change to this tool required.
+    """
+    mapping = {}
+    systems_dir = os.path.join(os.path.abspath(cwd), ".claude", "systems")
+    for sj in glob.glob(os.path.join(systems_dir, "*", "system.json")):
+        try:
+            with open(sj) as f:
+                data = json.load(f)
+        except (OSError, json.JSONDecodeError):
+            continue
+        name = data.get("name") or os.path.basename(os.path.dirname(sj))
+        for a in data.get("agents", []) or []:
+            mapping[a] = name
+    return mapping
+
+
+def classify_system(agent, system_map):
+    if agent in system_map:
+        return system_map[agent]
+    if agent in ("unknown", "?"):
+        return "(unknown)"
+    return BUILTIN_SYSTEM  # harness helpers: Explore, Plan, claude-code-guide, ...
+
+
+def collect_runs(proj, cwd, session=None):
+    """Every subagent run currently present in the transcripts, labeled by type
+    and by the agent team (system) that owns it."""
     agentid_to_type = build_agentid_map(proj)
+    system_map = build_agent_system_map(cwd)
     sub_glob = os.path.join(proj, "**", "subagents", "agent-*.jsonl")
     runs = []
     for path in glob.glob(sub_glob, recursive=True):
@@ -167,6 +201,7 @@ def collect_runs(proj, session=None):
         aid = aid_match.group(1) if aid_match else "?"
         stats = analyze_run(path)
         stats["agent"] = agentid_to_type.get(aid, "unknown")
+        stats["system"] = classify_system(stats["agent"], system_map)
         stats["agentId"] = aid
         runs.append(stats)
     return runs
@@ -191,7 +226,7 @@ def sync_log(proj, cwd):
             if rec.get("agentId"):
                 by_id[rec["agentId"]] = rec  # historical (maybe pruned)
     fresh = 0
-    for r in collect_runs(proj):
+    for r in collect_runs(proj, cwd):
         if r["turns"] == 0:
             continue  # nothing happened yet; skip empty/just-started transcripts
         if r["agentId"] not in by_id:
@@ -216,6 +251,8 @@ def main():
                     help="append/refresh runs into .claude/metrics/agent-runs.jsonl (for hooks)")
     ap.add_argument("--log", action="store_true",
                     help="report from the durable log instead of live transcripts")
+    ap.add_argument("--by-system", action="store_true",
+                    help="show only the per-team (system) comparison, no per-agent detail")
     args = ap.parse_args()
 
     proj = project_dir(args.cwd)
@@ -241,7 +278,14 @@ def main():
         if not os.path.isdir(proj):
             print(f"No transcripts found at {proj}", file=sys.stderr)
             sys.exit(1)
-        runs = collect_runs(proj, session=args.session)
+        runs = collect_runs(proj, args.cwd, session=args.session)
+
+    # Backfill team classification for older log records written before this field
+    # existed, and re-derive if a record somehow lost it.
+    system_map = build_agent_system_map(args.cwd)
+    for r in runs:
+        if not r.get("system"):
+            r["system"] = classify_system(r.get("agent", "unknown"), system_map)
 
     if args.json:
         print(json.dumps(runs, indent=2))
@@ -251,29 +295,66 @@ def main():
         print("No subagent runs found yet. Dispatch some agents, then re-run.")
         return
 
-    if args.runs:
-        print(f"{'agent':<26}{'turns':>6}{'tools':>7}{'out_tok':>9}{'max_ctx':>9}{'dur_s':>8}")
-        print("-" * 65)
-        for r in sorted(runs, key=lambda x: -x["dur_s"]):
-            print(f"{r['agent']:<26}{r['turns']:>6}{r['tool_calls']:>7}"
+    render_report(runs, show_runs=args.runs, by_system=args.by_system)
+
+
+METRIC_KEYS = ("turns", "tool_calls", "out_tok", "cache_read", "max_ctx", "dur_s")
+
+
+def render_report(runs, show_runs=False, by_system=False):
+    # ---- Per-team (system) comparison: the headline for "did the swap help?" ----
+    sysagg = defaultdict(lambda: defaultdict(float))
+    sys_agents = defaultdict(set)
+    for r in runs:
+        s = r["system"]
+        sysagg[s]["runs"] += 1
+        sys_agents[s].add(r["agent"])
+        for k in METRIC_KEYS:
+            sysagg[s][k] += r.get(k, 0)
+
+    print(f"Per-TEAM (agent system) comparison over {len(runs)} run(s):\n")
+    print(f"{'system':<16}{'agents':>7}{'runs':>6}{'avg_turns':>10}"
+          f"{'avg_out':>9}{'avg_ctx':>9}{'avg_dur_s':>10}")
+    print("-" * 67)
+    for s, a in sorted(sysagg.items(), key=lambda kv: -(kv[1]["dur_s"] / kv[1]["runs"])):
+        n = a["runs"]
+        print(f"{s:<16}{len(sys_agents[s]):>7}{int(n):>6}{a['turns']/n:>10.1f}"
+              f"{a['out_tok']/n:>9.0f}{a['max_ctx']/n:>9.0f}{a['dur_s']/n:>10.1f}")
+    print("\nCompare teams row-to-row: lower avg_dur_s / avg_turns / avg_ctx at equal or\n"
+          "better output is the lighter team winning. Track a team's row over time to see\n"
+          "whether a change to its agents actually improved it.")
+
+    if by_system:
+        return
+
+    # ---- Per-agent detail, grouped under its team ----
+    if show_runs:
+        print(f"\n{'system':<12}{'agent':<24}{'turns':>6}{'tools':>7}"
+              f"{'out_tok':>9}{'max_ctx':>9}{'dur_s':>8}")
+        print("-" * 75)
+        for r in sorted(runs, key=lambda x: (x["system"], -x["dur_s"])):
+            print(f"{r['system']:<12}{r['agent']:<24}{r['turns']:>6}{r['tool_calls']:>7}"
                   f"{r['out_tok']:>9}{r['max_ctx']:>9}{r['dur_s']:>8}")
-        print()
 
     agg = defaultdict(lambda: defaultdict(float))
+    agent_sys = {}
     for r in runs:
         a = agg[r["agent"]]
+        agent_sys[r["agent"]] = r["system"]
         a["runs"] += 1
-        for k in ("turns", "tool_calls", "out_tok", "cache_read", "max_ctx", "dur_s"):
-            a[k] += r[k]
+        for k in METRIC_KEYS:
+            a[k] += r.get(k, 0)
 
-    print(f"Per-agent averages over {len(runs)} run(s):\n")
-    print(f"{'agent':<26}{'runs':>5}{'avg_turns':>10}{'avg_tools':>10}"
+    print(f"\nPer-agent averages, grouped by team:\n")
+    print(f"{'system':<12}{'agent':<24}{'runs':>5}{'avg_turns':>10}{'avg_tools':>10}"
           f"{'avg_out':>9}{'avg_ctx':>9}{'avg_dur_s':>10}")
-    print("-" * 79)
-    for agent, a in sorted(agg.items(), key=lambda kv: -(kv[1]["dur_s"] / kv[1]["runs"])):
+    print("-" * 89)
+    for agent, a in sorted(agg.items(),
+                           key=lambda kv: (agent_sys[kv[0]], -(kv[1]["dur_s"] / kv[1]["runs"]))):
         n = a["runs"]
-        print(f"{agent:<26}{int(n):>5}{a['turns']/n:>10.1f}{a['tool_calls']/n:>10.1f}"
-              f"{a['out_tok']/n:>9.0f}{a['max_ctx']/n:>9.0f}{a['dur_s']/n:>10.1f}")
+        print(f"{agent_sys[agent]:<12}{agent:<24}{int(n):>5}{a['turns']/n:>10.1f}"
+              f"{a['tool_calls']/n:>10.1f}{a['out_tok']/n:>9.0f}"
+              f"{a['max_ctx']/n:>9.0f}{a['dur_s']/n:>10.1f}")
     print("\nRead the tall bars: high avg_dur_s + high avg_turns = a slow/looping agent;")
     print("high avg_ctx = an agent drowning in context (quality risk as your SOT grows).")
 

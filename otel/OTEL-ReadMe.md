@@ -55,6 +55,12 @@ charts fill in.
 
 The dashboard has these pictures:
 
+- **Cost per TEAM / Tokens per TEAM** — one bar/line per agent team (forge vs a lighter team).
+  This is the "did switching teams help?" picture: a shorter/cheaper bar for the same work is the
+  lighter team winning. *(These panels split teams apart using the agent-name prefix — `forge-*`
+  counts as team "forge" — so it only works if each team names its agents `teamname-something`,
+  which is already the house rule. The terminal tool `agent-metrics.py` classifies teams more
+  precisely, from each `system.json`.)*
 - **Total cost / Total tokens** — the big running totals, everything so far.
 - **Cost per agent (subagents)** — a bar for each agent. *The longest bar is your most
   expensive agent.* This is the one to stare at. If `forge-prd-reviewer` has the longest bar

@@ -50,6 +50,35 @@ want cross-machine history, commit the log yourself; by default it stays local.
   manifest + docs, reloaded on every dispatch and every batch-and-resume round). Compounds with
   the number of round trips, which is why "more open questions" feels like "everything is slow."
 
+### Comparing agent teams (systems)
+
+This repo runs **one agent team (system) at a time** — forge today, a lighter team tomorrow —
+swapped with `/set-system`. The metrics classify every run by the team that owns it, so you can
+tell whether a swap or a tweak actually helped.
+
+Classification is authoritative and needs no bookkeeping: each run's agent is looked up in every
+`.claude/systems/<name>/system.json` `agents` list. `forge-code-writer` → `forge`; a future
+`lite-builder` listed in `.claude/systems/lite/system.json` → `lite`, **automatically, with no
+change to this tool**. Harness helpers (`Explore`, `Plan`, `claude-code-guide`) that belong to no
+team show as `(builtin)`. Because it keys on the agent name, it is historical-proof — a run stays
+correctly attributed to its team no matter which team is active when you read the report.
+
+Every report leads with a **per-team comparison** row (runs, avg turns, output, context,
+duration); the per-agent detail below it is grouped under its team. The `system` is also written
+into each durable-log record, so history stays classified.
+
+```
+python3 .claude/tools/agent-metrics.py --by-system         # just the team-vs-team headline
+python3 .claude/tools/agent-metrics.py --by-system --log    # over all recorded history
+```
+
+**How to actually answer "did the lighter team do better?"** Run your task under forge, then swap
+to the lighter team (`/set-system`) and run the same task. `--by-system --log` now shows one row
+per team: lower `avg_dur_s` / `avg_turns` / `avg_ctx` at equal or better output is the lighter
+team winning. To check whether a *change to one team* improved it, compare that team's row before
+and after — the log is time-ordered by `ended_ts`, so a dated baseline (below) isolates the two
+periods.
+
 ### Live dollar-cost dashboard (OTEL)
 
 For a live, per-agent view in **real dollars** (which the transcript parser can't compute), see

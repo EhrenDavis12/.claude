@@ -43,8 +43,29 @@
     },
     {
       "type": "barchart",
+      "title": "Cost per TEAM (agent system)  —  forge vs lighter teams",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 4 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": { "defaults": { "unit": "currencyUSD" }, "overrides": [] },
+      "options": { "orientation": "horizontal", "legend": { "showLegend": false } },
+      "targets": [
+        { "refId": "A", "expr": "sum by (team) (label_replace(claude_code_cost_usage{query_source=\"subagent\"}, \"team\", \"$1\", \"agent_name\", \"([^-]+)-.*\"))", "legendFormat": "{{team}}", "datasource": { "type": "prometheus", "uid": "prometheus" } }
+      ]
+    },
+    {
+      "type": "timeseries",
+      "title": "Tokens per TEAM over time  —  did a swap reduce load?",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 24 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": { "defaults": { "unit": "short" }, "overrides": [] },
+      "targets": [
+        { "refId": "A", "expr": "sum by (team) (rate(label_replace(claude_code_token_usage{query_source=\"subagent\"}, \"team\", \"$1\", \"agent_name\", \"([^-]+)-.*\")[5m:]))", "legendFormat": "{{team}}", "datasource": { "type": "prometheus", "uid": "prometheus" } }
+      ]
+    },
+    {
+      "type": "barchart",
       "title": "Cost per agent (subagents)  —  who is expensive",
-      "gridPos": { "h": 9, "w": 12, "x": 0, "y": 4 },
+      "gridPos": { "h": 9, "w": 12, "x": 0, "y": 12 },
       "datasource": { "type": "prometheus", "uid": "prometheus" },
       "fieldConfig": { "defaults": { "unit": "currencyUSD" }, "overrides": [] },
       "options": { "orientation": "horizontal", "legend": { "showLegend": false } },
