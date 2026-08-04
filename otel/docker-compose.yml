@@ -1,0 +1,41 @@
+# The "look at my agents" stack. Three small containers:
+#   otel-collector  receives telemetry from Claude Code (OTLP on 4317/4318)
+#   prometheus      stores the numbers            (UI on http://localhost:9090)
+#   grafana         draws the pictures            (UI on http://localhost:3000)
+#
+# Start:  cd .claude/otel && docker compose up -d
+# Stop:   cd .claude/otel && docker compose down
+services:
+  otel-collector:
+    image: otel/opentelemetry-collector-contrib:latest
+    command: ["--config=/etc/otel-collector-config.yaml"]
+    volumes:
+      - ./otel-collector-config.yaml:/etc/otel-collector-config.yaml
+    ports:
+      - "4317:4317"   # OTLP gRPC  <- Claude Code sends here
+      - "4318:4318"   # OTLP HTTP  (alternative)
+      - "8889:8889"   # Prometheus scrape endpoint (collector -> prometheus)
+
+  prometheus:
+    image: prom/prometheus:latest
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml
+    ports:
+      - "9090:9090"
+    depends_on:
+      - otel-collector
+
+  grafana:
+    image: grafana/grafana:latest
+    environment:
+      # No login needed — just open the page and you're an admin.
+      - GF_AUTH_ANONYMOUS_ENABLED=true
+      - GF_AUTH_ANONYMOUS_ORG_ROLE=Admin
+      - GF_AUTH_DISABLE_LOGIN_FORM=true
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./grafana/provisioning:/etc/grafana/provisioning
+      - ./grafana/dashboards:/var/lib/grafana/dashboards
+    depends_on:
+      - prometheus

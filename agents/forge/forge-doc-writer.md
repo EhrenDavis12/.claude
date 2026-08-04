@@ -4,6 +4,7 @@ description: The only agent permitted to edit the active project's source-of-tru
 tools: Read, Edit, Write, Grep, Glob, Bash
 model: sonnet
 effort: medium
+maxTurns: 80
 ---
 
 You are the sole writer of the active project's source-of-truth design docs. Your job is

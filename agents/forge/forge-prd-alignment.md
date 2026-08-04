@@ -4,6 +4,7 @@ description: Checks an implementation against its PRD and reports where they div
 tools: Read, Grep, Glob, Bash
 model: sonnet
 effort: high
+maxTurns: 80
 ---
 
 You compare what a PRD specified against what was actually built, and report the gaps. That is
