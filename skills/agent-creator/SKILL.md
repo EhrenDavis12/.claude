@@ -25,6 +25,11 @@ reachable.
 
 ## Step 0 — Read the roster first
 
+**If the proposal changes how agents work *together*** — a new pipeline stage, a changed flow,
+a new document type — read `.claude/skills/agent-builder/SKILL.md` first. It holds the design
+intent and the failure log, and most such proposals re-solve a problem already solved there.
+This skill assumes the idea is already settled and gates the *construction*.
+
 Before anything else:
 
 1. `Read .claude/agents/README.md` — the cross-system doctrine.

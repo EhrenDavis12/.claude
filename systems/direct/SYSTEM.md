@@ -26,10 +26,12 @@ conflicts with anything here.
 
 Everything in `CLAUDE.md`, in full. Specifically:
 
-- **The documentation house style** — heading order, `## Decisions`, `## Open Questions` last,
-  never answering an open question yourself, preserving the user's voice, wrapping at column 90.
-  These are properties of the docs, not of the pipeline that used to edit them. Editing a design
-  doc yourself does not license rewriting it in your own words.
+- **The documentation house style** — heading order, `## Open Questions` last, revising in
+  place rather than keeping a decision log, never answering an open question yourself,
+  preserving the user's voice, wrapping at column 90. These are properties of the docs, not of
+  the pipeline that used to edit them. Editing a design doc yourself does not license
+  rewriting it in your own words — but it does oblige you to delete the wording a settled
+  answer supersedes, here as much as under forge.
 - **The active project** — one project at a time, paths from its manifest, `/set-project` to
   switch, and stop rather than guess if the pointer or manifest is missing.
 - **`srcRoots` are git submodules** — diff with `git -C <srcRoot> diff`.

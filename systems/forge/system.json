@@ -10,7 +10,7 @@
     "forge-code-writer",
     "forge-code-cleaner",
     "forge-code-reviewer",
-    "forge-prd-alignment",
+    "forge-code-prd-alignment",
     "forge-test-author",
     "forge-test-auditor"
   ],

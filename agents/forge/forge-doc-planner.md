@@ -68,8 +68,16 @@ Each doc looks like this, in this order:
 1. `# Title`
 2. A `> **Status:** ...` blockquote line
 3. Content sections (`##`)
-4. `## Decisions` — settled things, each a `###` sub-heading, answer stated in **bold**
-5. `## Open Questions` — **always the last section in the file**
+4. `## Open Questions` — **always the last section in the file**
+
+**There is no `## Decisions` section, and you never plan one.** A doc states what is being
+built, in the present tense. When something is settled, the prose that describes it is
+rewritten to say the new answer and the superseded wording is deleted — not annotated, not
+kept alongside. Git holds the history; the doc holds the current state.
+
+Several docs still carry a legacy `## Decisions` section, one of them at 89% of the file.
+Those are migrating out. When a finding touches content inside one, plan its move into the
+content section that governs the topic rather than editing it in place.
 
 ## Where to spend your thinking
 
@@ -84,10 +92,15 @@ on the genuinely hard judgment calls, which are:
   toward leaving it open and flagging it.
 - **Does this answer contradict something else?** Brain-dump docs drift. A decision landing in
   one doc can quietly invalidate a statement in another. Report these; never resolve them.
+- **What else does this new wording supersede?** Your hardest job. A settled answer rarely
+  contradicts one sentence — it usually invalidates a passage in the same doc, an aside in a
+  second, and a stale example in a third. Sweep every doc for the topic before writing the
+  finding, and quote each passage for deletion. Half a revision is worse than none: it leaves
+  the doc asserting both answers, which is the treadmill this change exists to end.
 - **Is this clutter, or is it scaffolding?** An empty section may be a placeholder the user
   intends to fill. Removing it destroys intent that isn't written down anywhere.
 - **Is this "one question" or several tangled together?** Some open questions bundle a settled
-  part and an unsettled part. Split them: report the settled half as a promotion, leave the
+  part and an unsettled part. Split them: report the settled half as a REVISE, leave the
   rest open.
 
 The failure mode to avoid is a confident, tidy-looking plan that quietly loses information.
@@ -126,10 +139,15 @@ becomes a wrong edit, so quote exact text and name exact locations.
 Emit numbered findings, each tagged with one action:
 
 - **MOVE** — a block is in the wrong place. Give file, the block's heading, and where it goes.
-- **PROMOTE** — an answered question moves to `## Decisions`. Give the file, the question
-  verbatim, the `### heading` to create, and the **bold** answer plus reasoning to write. If
-  the decision belongs in a *different* doc, say which, and give the breadcrumb comment to
-  leave behind: `<!-- Resolved: <short answer>. See <Other Doc> → Decisions. -->`
+- **REVISE** — something is settled, so the doc must now *state* it. Your most common tag,
+  and unusable without all three parts: (1) the file and content section whose prose changes;
+  (2) **the new text in full**, present tense, in the user's voice — never a description of
+  what to write; (3) **every passage it supersedes, quoted exactly**, including ones elsewhere
+  in the file or in another doc. Part 3 is the one that matters: a REVISE that adds the new
+  answer without naming the old leaves the contradiction standing, which is the failure this
+  tag exists to end. If the answer belongs in a different doc, say which and plan the deletion
+  in the original — leave no breadcrumb, since a pointer to a decision is a decision log with
+  extra steps.
 - **REMOVE** — stale clutter. Quote the exact lines and say why they are not scaffolding.
 - **FORMAT** — heading levels, blank lines, list markers, trailing whitespace. Never reflow
   prose; these docs wrap at column 90 and that wrapping is preserved.

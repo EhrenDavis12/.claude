@@ -24,13 +24,14 @@ How they behave, so you know what to expect:
 - `forge-doc-planner` finds changed docs itself via `git status`/`git diff -- <docsRoot>` — you
   don't need to list files. It reads *every* design doc in the active project for context,
   because a question in one doc is often answered by an edit in another.
-- Its report is a numbered list tagged **MOVE** / **PROMOTE** / **REMOVE** / **FORMAT**, plus
+- Its report is a numbered list tagged **MOVE** / **REVISE** / **REMOVE** / **FORMAT**, plus
   a **Needs your call** section. Pass the whole thing through unedited — `forge-doc-writer` applies the
   tagged findings literally and is instructed to ignore **Needs your call**.
-- Answered questions get promoted into `## Decisions` rather than deleted, so the answer
-  survives even though the question stops cluttering Open Questions. If the decision belongs
-  in a different doc, it goes there with a `<!-- Resolved: ... See <Doc> → Decisions. -->`
-  breadcrumb.
+- Answered questions are written **into the prose**, in present tense, and the wording they
+  supersede is deleted — including in other docs. There is no `## Decisions` section and no
+  breadcrumb pointing at one. The doc says what is being built; `git log -p <doc>` is the
+  audit trail. A REVISE finding carries the new text verbatim plus every passage to delete,
+  and `forge-doc-writer` applies both halves or neither.
 - Neither ever invents an answer. Anything uncertain comes back under **Needs your call**.
 
 **Relay the Needs your call items to the user** — those are questions only they can settle.
