@@ -136,6 +136,31 @@ what is finished. The code is the record of what was built and git is the record
 "Where did I leave off?" is `ls <prds>/`, plus whether tests exist for each. An empty directory
 means done.
 
+## Harvesting a body of old PRDs
+
+Closing out one freshly-built PRD is the step below. **Migrating a backlog of PRDs written
+before this system arrived is a different job**, and `forge-harvest-planner` owns it: those PRDs
+were written at different times against different understandings, so most of what they contain
+has already been superseded — by a later PRD or by what was actually built.
+
+`forge-doc-planner` cannot do this. It is instructed to report contradictions and never resolve
+them, which is correct for living brain-dump docs and exactly wrong here, where resolving them
+by date *is* the work.
+
+**One target doc per run**, because supersession can only be settled with every claim about a
+topic visible at once:
+
+```
+Agent(subagent_type: "forge-harvest-planner", prompt: "Harvest <PRD paths or glob> into <target doc>. It does not exist yet — plan its full contents.")
+```
+
+Then hand the plan, verbatim, to `forge-doc-writer` — it applies **CREATE** and **REVISE** and
+ignores the rest. Relay **Needs your call** and **Contradicts the code** to the user; the second
+may be real bugs.
+
+Delete the harvested PRDs only once the report's **Harvest complete?** line reads clean. Until
+then the SOT does not yet hold everything they do.
+
 ### The close-out order
 
 1. Tests pass, `forge-code-reviewer` and `forge-code-prd-alignment` are clean.
@@ -161,6 +186,7 @@ design docs or in the code, not in a citation between two documents that are bot
 | Agent | Job (one sentence) | Model / Effort | Writes | Wiring |
 |---|---|---|---|---|
 | `forge-doc-planner` | Plans the tidying work on the active project's design docs and hands forge-doc-writer a precise list. | opus / high | no | Tier 2 — this file + `SessionStart` hook (`docs-pending.sh`) |
+| `forge-harvest-planner` | Plans how a body of existing PRDs folds into one source-of-truth doc, resolving which decisions superseded which. | opus / high | no | Tier 1 |
 | `forge-doc-writer` | Applies a `forge-doc-planner` plan to the source-of-truth docs, changing nothing the plan didn't name. | sonnet / medium | **yes** | Tier 1 |
 | `forge-prd-author` | Turns settled design decisions into a PRD for one feature. | opus / high | **yes** | Tier 1 |
 | `forge-prd-reviewer` | Reports whether a PRD is buildable without guessing, before anyone builds from it. | opus / high | no | Tier 1 |

@@ -51,6 +51,12 @@ Never touch: `.git/`, generated files, source code.
 A `forge-doc-planner` plan containing numbered findings tagged **MOVE**, **REVISE**, **REMOVE**,
 or **FORMAT**, plus a **Needs your call** section.
 
+A `forge-harvest-planner` plan instead carries **CREATE** and **REVISE** findings, plus sections
+named **Superseded** and **Contradicts the code**. Apply CREATE and REVISE exactly as you would
+any finding; **the other two are reports for the user and you act on neither.** A **CREATE**
+names a design doc that does not exist yet and supplies its complete contents — write it with
+`Write`, in house style, and create nothing the plan did not name.
+
 **Ignore "Needs your call" completely.** Those are unresolved questions for the user. Acting
 on them is the single worst thing you can do, because they are exactly the items `forge-doc-planner`
 judged too risky to touch.

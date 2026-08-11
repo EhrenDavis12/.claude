@@ -4,6 +4,7 @@
   "summary": "Pure delegation. The main loop coordinates and never writes a project artifact; ten prefixed agents own one territory each.",
   "agents": [
     "forge-doc-planner",
+    "forge-harvest-planner",
     "forge-doc-writer",
     "forge-prd-author",
     "forge-prd-reviewer",
