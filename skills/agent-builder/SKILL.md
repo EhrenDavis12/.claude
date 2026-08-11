@@ -95,24 +95,28 @@ Consequences worth remembering:
 - It gives you a measured one-shot rate — did the code pass first run? — which is the honest
   version of the confidence score that was considered and rejected.
 
-**What is deliberately not an agent here:** running tests (`flutter test` is a `Bash`
-checkpoint, no judgment involved) and play-testing (the `/run` skill, and better done by a human
-looking at the screen).
+**What is deliberately not an agent here:** running tests (whatever the stack's test command
+is, it is a `Bash` checkpoint — no judgment involved) and play-testing (the `/run` skill, and
+better done by a human looking at the screen).
 
 ## Which tests are worth writing
 
 Match the test to what a wrong answer costs — the same reversibility axis that decides whether
 a feature earned a PRD at all. One principle, two applications.
 
-| Type | Verdict |
+These are properties of tests, not framework names. **Agents stay stack-agnostic**: they
+resolve these into the actual tooling via the manifest's `stack`, the project's testing policy
+if it declares one, and the conventions of the tests already in the repo.
+
+| Kind | Verdict |
 |---|---|
-| `dart analyze` / lints | Always. Free. |
-| **Unit tests on pure logic** | The default and most of the value |
-| **Property/invariant tests** | Highest value per line for a rules engine — covers a space you cannot enumerate |
-| Widget tests | Only where a wrong guess is expensive. Never for appearance |
-| **Golden/snapshot tests** | **Never.** They pin pixels; theming churn invalidates them wholesale |
-| Integration tests | One smoke test, late, on request |
-| Play test | Free, irreplaceable, and yours — not an agent's |
+| Static analysis / linting | Always. Effectively free. |
+| **Fast isolated tests over pure logic** | The default and most of the value |
+| **Property/invariant tests** | Highest value per line for rules and state machines — covers a space you cannot enumerate |
+| Rendered-component tests | Only where a wrong guess is expensive. Never for appearance |
+| **Pixel-snapshot tests** | Only where the visual design is settled. Otherwise every unrelated change invalidates them |
+| End-to-end on a real device | One smoke test, late, on request |
+| Play test | Free, irreplaceable, and the user's — not an agent's |
 
 ## The question loop
 
@@ -167,6 +171,11 @@ Two things people get wrong here:
 6. **Revise in place; git is the audit trail.** Never keep a decision log in prose.
 7. **Nothing may exist in only one place downstream.** A decision living only in a PRD is
    misfiled, because PRDs are deleted and the SOT is not.
+8. **Agents are stack-agnostic; projects are not.** An agent names the *property* it wants —
+   fast, isolated, asserts behavior — never a framework, command, or file extension. Anything
+   true only of the current project's tooling belongs in that project's manifest, which is how
+   the same roster serves the next project without an edit. The tell: if swapping the project
+   would make a sentence in an agent false, that sentence is in the wrong file.
 
 ## The failure log
 
@@ -175,7 +184,7 @@ reintroducing a solved problem.
 
 | What happened | The rule it bought |
 |---|---|
-| PRDs reached **210,000 words against zero lines of Dart** — 10× the design docs they came from | A PRD should be shorter than the code it specifies |
+| PRDs reached **210,000 words against zero lines of code** — 10× the design docs they came from | A PRD should be shorter than the code it specifies |
 | `forge-prd-reviewer` asked *"could the writer finish without guessing?"* — a bar with no floor, since unspecified states are combinatorial. Every review found more; every revision grew the PRD | Price the guess. Block only on expensive or irreversible. **Empty blocking list = ready, stop** |
 | `Tech Design.md` reached **89% `## Decisions`** — the ledger ate the document, and the prose above contradicted the entries below | No decision log. Rewrite the prose, delete what it supersedes |
 | Decisions the user settled lived **only inside PRDs**; two PRDs even carried a section admitting content was owed to the design docs, and it was never routed back | The question loop above, and: harvest a PRD before deleting it |
@@ -185,6 +194,7 @@ reintroducing a solved problem.
 | An "85% confidence of one-shot completion" grade was proposed as a PRD gate, with looping until it passed | Rejected. An uncalibrated number the reviewer both assigns *and* uses to decide whether to loop again is the ratchet with a lab coat on. **Measure the one-shot rate after building; never predict it before** |
 | A `Status: Ready` stamp was specified before noticing `forge-prd-reviewer` is read-only and could not write it | **Derive state from the repo, never store it.** Before adding a status field, name the agent whose tools can actually set it |
 | Test-runner and play-test agents were proposed | Refused. Running a command needs no judgment, and `/run` already covers play-testing. **If a proposed agent's job is one deterministic command, it is a `Bash` line** |
+| Writing the test-strategy rules put Flutter and Dart names — widget tests, golden files, `flutter test` — straight into agents meant to serve any project | Agents name test *properties*, never frameworks. Stack specifics come from the manifest. Written the same day the rule was violated, which is how easily it happens |
 
 The pattern under most of these: **append-only accumulation instead of revision.** Nothing was
 ever rewritten, only added to — in PRDs, in Decisions sections, in review findings. When a new

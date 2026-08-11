@@ -47,13 +47,18 @@ break all of them at once.
   "roadmap": "Docs/tic-tac-toe/roadmap.md",
   "srcRoots": ["src/Tic-Tac-Toe-Extreme"],
   "stack": "Flutter / Dart",
-  "parkingLotDocs": ["Alternative Game Styles.md"]
+  "parkingLotDocs": ["Alternative Game Styles.md"],
+  "testing": {
+    "command": "flutter test",
+    "prefer": ["property tests for the rules engine"],
+    "avoid": ["pixel-snapshot tests — theming is still changing constantly"]
+  }
 }
 ```
 
 Every path is **repo-relative and already joined** — an agent uses it as-is and never
 constructs one. `name`, `docsRoot`, `prds`, `roadmap`, and `srcRoots` are required; `aliases`,
-`title`, `summary`, `stack`, and `parkingLotDocs` are optional.
+`title`, `summary`, `stack`, `parkingLotDocs`, and `testing` are optional.
 
 - `aliases` is an array of short forms that also activate this project — `["ttt"]` makes
   `/set-project ttt` equivalent to `/set-project tic-tac-toe`. They are a typing convenience for
@@ -64,6 +69,15 @@ constructs one. `name`, `docsRoot`, `prds`, `roadmap`, and `srcRoots` are requir
 - `parkingLotDocs` names design docs that are explicitly a holding pen for ideas that are *not*
   the current build. Whatever writes requirements treats them as out of scope — under `forge`
   that is `forge-prd-author`.
+- `stack` is a free-form hint — "Flutter / Dart", "Go", "Rust + wasm". Agents are written to be
+  stack-agnostic and resolve tooling from this plus the repo, so it saves them a guess.
+- `testing` is this project's testing policy, and it exists because the agents deliberately hold
+  none. They know that fast isolated tests beat slow broad ones and that pixel snapshots break
+  on unrelated changes; they do **not** know which trade-offs are right here or what command to
+  run. All three fields are optional: `command` is how the suite runs, `prefer` and `avoid` are
+  arrays of plain-language policy lines. Whatever writes tests reads this and lets it override
+  its defaults — under `forge` that is `forge-test-author`, with `forge-test-auditor` judging
+  against the same policy.
 - `docsRoot` is matched against git pathspecs, which are **case-sensitive**. It must match the
   tracked path exactly — `Docs/x` will not match a path tracked as `docs/x`.
 

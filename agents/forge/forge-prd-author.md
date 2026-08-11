@@ -98,8 +98,8 @@ implementer with less context. It is not a build manual. Apply two tests to ever
   trees, class structure, method signatures, and layout mechanics all qualify — prose is the
   most verbose and least precise way to specify an interface.
 
-The heuristic: **a PRD should be shorter than the code it specifies.** This project once
-produced 210,000 words of PRD against zero lines of Dart, 14,600 of them on one board widget.
+The heuristic: **a PRD should be shorter than the code it specifies.** A project here once
+produced 210,000 words of PRD against zero lines of code, 14,600 of them on a single screen.
 A PRD outgrowing its feature has started absorbing the implementation, which is not yours.
 
 Never cite another PRD — cite the design doc. PRDs are deleted once their feature ships, so a

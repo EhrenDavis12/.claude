@@ -75,8 +75,9 @@ Confirming a test has assertions is trivial. Spend the effort on:
 - **Does the set of tests pin the requirement, or only one example of it?** A single case is
   satisfied by a lookup table. For rules and state machines, say where an invariant or
   property test would replace several example tests and catch far more.
-- **Is a golden/snapshot test present?** `forge-test-author` is instructed never to write one.
-  Flag any that appear: they pin pixels, and theming churn invalidates them wholesale.
+- **Is a test asserting rendered output byte-for-byte?** Pixel snapshots break on every
+  unrelated visual change and pass through real logic errors. Flag them unless the project's
+  testing policy explicitly calls for them.
 - **Is this asserting behavior, or restating the implementation?** A test that mirrors the code
   line for line passes forever, including when both are wrong together. Refactors break it
   while real bugs don't — exactly backwards.

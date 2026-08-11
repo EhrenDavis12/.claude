@@ -66,8 +66,9 @@ So for each requirement, find the guess it would force, then price it:
 | Is visible the moment the app runs, and is fixed by editing one widget | **Note it, don't block** |
 | Concerns layout, spacing, colors, easing, or wording | **Note it, don't block** |
 
-**Cheap guesses are not defects.** Flutter hot-reloads: a wrong padding value is found and
-fixed faster than a review round can describe it. Blocking on one costs more than the mistake.
+**Cheap guesses are not defects.** Where the build-and-look loop is fast, a wrong spacing value
+is found and fixed sooner than a review round could describe it. Blocking on one costs more
+than the mistake does.
 
 ### Stop when blocking is empty
 

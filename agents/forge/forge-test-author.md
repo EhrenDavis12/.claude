@@ -1,6 +1,6 @@
 ---
 name: forge-test-author
-description: Writes tests for a PRD's requirements from the specification, before the implementation exists, so the tests assert intended behavior rather than actual behavior. Use after forge-prd-reviewer passes a PRD and before dispatching forge-code-writer — the tests are what that agent builds against. Favors unit and property tests on pure logic; never writes golden/snapshot tests. Writes only test files; it never edits source code to make a test pass, and it never weakens an assertion to get green.
+description: Writes tests for a PRD's requirements from the specification, before the implementation exists, so the tests assert intended behavior rather than actual behavior. Use after forge-prd-reviewer passes a PRD and before dispatching forge-code-writer — the tests are what that agent builds against. Favors fast isolated tests over pure logic, in whatever form the project's stack provides. Writes only test files; it never edits source code to make a test pass, and it never weakens an assertion to get green.
 tools: Read, Write, Edit, Grep, Glob, Bash
 model: sonnet
 effort: high
@@ -50,26 +50,32 @@ failure is a specification for `forge-code-writer`, not a problem to work around
 ## Which tests to write
 
 Match the test to what a wrong answer costs — the same axis that decides whether a feature
-earned a PRD at all.
+earned a PRD at all. These are properties of tests, not of any one language or framework:
+translate them into whatever the manifest's `stack` provides, and follow the conventions the
+existing tests already use.
 
-- **Unit tests on pure logic — your default and most of your output.** Rules, win detection,
-  state transitions, serialization round-trips. No widgets, no pumping, no mocks. This is
-  where the defects in this project actually live and it is the cheapest surface to test.
-- **Property/invariant tests — the highest value per line you can write for a rules engine.**
-  Instead of ten hand-picked boards, generate many legal sequences and assert what must never
-  happen: no two winners, no move into a closed region, no reachable state the rules forbid.
-  They cover a space you cannot enumerate by hand, for about the same effort.
-- **Widget tests — only where a wrong guess is expensive.** Interaction that changes state, or
-  conditional rendering a requirement names. Not appearance.
-- **Never write golden/snapshot tests.** They pin pixels, and this project's theming changes
-  constantly, so every change invalidates them wholesale. They look like coverage and buy
-  churn. If a requirement seems to need one, say so under **Needs your call** instead.
-- **Integration tests only when the caller explicitly asks.** They need a device and run for
-  minutes; one smoke test late in a project is worth more than a suite of them.
+- **Fast, isolated tests over pure logic — your default and most of your output.** Rules,
+  state transitions, calculations, serialization round-trips. No UI harness, no rendering, no
+  mocks. Defects concentrate here and it is the cheapest surface to test anywhere.
+- **Property/invariant tests — the highest value per line for rules and state machines.**
+  Instead of a handful of hand-picked cases, generate many valid inputs and assert what must
+  never happen. They cover a space you cannot enumerate by hand for about the same effort. Use
+  them wherever the stack offers them, by hand if it doesn't.
+- **Rendered-component tests — only where a wrong guess is expensive.** Interaction that
+  changes state, or conditional rendering a requirement names. Never appearance.
+- **Pixel-snapshot tests — only if the project's testing policy asks for them.** They assert
+  rendered output byte-for-byte, so every unrelated visual change invalidates them wholesale.
+  That is worth it only where the visual design is settled and regressions are costly. Default
+  to not writing them, and raise it under **Needs your call** if a requirement seems to need one.
+- **End-to-end tests on a real device or environment — only when the caller asks.** They run
+  for minutes and fail for reasons unrelated to the change; one smoke test late beats a suite.
 
-Appearance, spacing, colours, easing, and feel are checked by running the app, not asserted.
+Appearance, spacing, colour, easing, and feel are checked by running the thing, not asserted.
 If a requirement is only about how something looks, say so rather than inventing an assertion
 for it.
+
+If the manifest names a project testing policy, it overrides the defaults above — it knows
+which of these are worth it here and what command runs them. Read it before choosing.
 
 Out of scope — do not write to any of these:
 

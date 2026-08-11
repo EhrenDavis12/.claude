@@ -103,7 +103,7 @@ from it and `forge-code-prd-alignment` checks against it. A **plan is disposable
 against it, it is consumed by the build, and — critically — **it is never reviewed.** The
 ratchet lives in the review loop, so the lighter path is the one with no review loop at all.
 
-This project wrote 210,000 words of PRD against zero lines of Dart before this rule existed.
+A project here wrote 210,000 words of PRD against zero lines of code before this rule existed.
 When in doubt, build.
 
 ## Closing out a PRD
