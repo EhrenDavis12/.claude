@@ -55,6 +55,7 @@ contracts belong in `Tech Design.md` or in the code.
 | | Agent | Its one job |
 |---|---|---|
 | **Docs** | `forge-doc-planner` | Decides what the docs should say |
+| | `forge-harvest-planner` | Decides what a PRD's decisions add to the docs, and what they replace |
 | | `forge-doc-writer` | Writes it. Decides nothing. |
 | **Spec** | `forge-prd-author` | Turns settled decisions into one PRD |
 | | `forge-prd-reviewer` | "Is anything still unclear *and expensive*?" |

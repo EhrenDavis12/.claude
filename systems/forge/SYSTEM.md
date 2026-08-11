@@ -61,8 +61,11 @@ signal).
 ```
 forge-prd-author → forge-prd-reviewer → forge-test-author → forge-test-auditor
     → forge-code-writer → forge-code-cleaner → forge-code-reviewer → forge-code-prd-alignment
-    → harvest → delete the PRD
+    → forge-harvest-planner → forge-doc-writer → delete the PRD
 ```
+
+The last two are the close-out, not a build step: they move the PRD's decisions into the design
+docs so the PRD can be deleted. Detail in "Closing out a PRD" below.
 
 **Tests come before the code.** `forge-test-author` is told to work from the PRD and never
 from the implementation; running it first makes that structurally impossible to break rather
@@ -165,9 +168,13 @@ then the SOT does not yet hold everything they do.
 
 1. Tests pass, `forge-code-reviewer` and `forge-code-prd-alignment` are clean.
 2. **Harvest it.** Any decision that exists *only* in the PRD goes back into the design docs —
-   dispatch `forge-doc-planner` with the PRD named as a decision source, then `forge-doc-writer`.
-3. **Check the invariant:** no decision may exist only in a PRD. If deleting it would lose
-   something you could not rebuild from the design docs, the harvest is not finished.
+   dispatch `forge-harvest-planner` with this one PRD and its target doc, then `forge-doc-writer`.
+   Same agent as the bulk migration above: one PRD is simply the smallest case, where there is
+   nothing older to supersede. Not `forge-doc-planner` — that one tidies docs against each
+   other and is instructed never to resolve a contradiction.
+3. **Check the invariant:** no decision may exist only in a PRD. The planner's
+   **Harvest complete?** line states this directly; if it does not read clean, the harvest is
+   not finished and nothing gets deleted.
 4. **Delete it** — `git rm`. Git keeps the history; an archive folder becomes a second source
    of truth again. Deletion is a git operation, so it is the main loop's, not an agent's.
    `git log --diff-filter=D -- <prds>/` lists every retired PRD if you need one back.
