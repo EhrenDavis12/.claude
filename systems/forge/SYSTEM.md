@@ -193,7 +193,7 @@ of truth that nothing maintains, which is what was being escaped.
 
 ### A PRD usually owes more than one doc
 
-One run harvests one target doc, but a single PRD routinely carries material for several — a
+One run harvests one topic, but a single PRD routinely carries material for several — a
 theme PRD may owe the theming doc, the architecture doc, and the animation doc at once.
 
 **A PRD may only be deleted once every doc it owes has been harvested**, not merely the first
