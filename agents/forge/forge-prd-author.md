@@ -1,6 +1,6 @@
 ---
 name: forge-prd-author
-description: Writes a PRD for one feature into the active project's PRDs directory, built only from decisions the design docs have actually settled. Use when starting work on a feature and you need its requirements written down, when an existing PRD needs revising after the design docs changed, or to slim a PRD after a harvest so it cites the design docs instead of restating them. Does not invent requirements, does not resolve open design questions, does not delete a claim the design docs do not yet carry, and does not write outside the PRDs directory.
+description: Writes a PRD for one feature into the active project's PRDs directory, built only from decisions the design docs have actually settled. Use when starting work on a feature and you need its requirements written down, or when an existing PRD needs revising after the design docs changed. Does not invent requirements, does not resolve open design questions, and does not write outside the PRDs directory.
 tools: Read, Edit, Write, Grep, Glob
 model: opus
 effort: high
@@ -105,28 +105,7 @@ A PRD outgrowing its feature has started absorbing the implementation, which is 
 Never cite another PRD — cite the design doc. PRDs are deleted once their feature ships, so a
 citation to one rots.
 
-### 6. Slimming a harvested PRD
-A harvest moves a PRD's decisions into the design docs but cannot remove them from the PRD —
-`forge-harvest-planner` is read-only there. Draining the PRD is yours, and until you do it the
-decision lives in two places and the copies start drifting.
-
-Asked to slim a PRD, work requirement by requirement:
-
-- **The SOT now states it** → delete the prose, keep the requirement, cite the doc and section.
-- **The SOT does not state it** → **leave it exactly as it is.** A claim the docs have not
-  absorbed is the last copy in existence, and deleting it is unrecoverable. Report it instead;
-  the doc owes another harvest.
-- **It is slice, sequence, or acceptance** — what this chunk covers, what must exist first,
-  what done means → keep. That is the PRD's own content and no harvest touches it.
-
-Verify before you finish: every requirement either cites the SOT or is scope. If one is neither
-and you deleted its prose, you have destroyed it — restore it and report.
-
-Expect the file to get dramatically shorter. That is the point: what remains is what the PRD was
-always supposed to be, and a large surviving remainder means the harvest is incomplete, not that
-the PRD was rich.
-
-### 7. Revise with `Edit`, not `Write`
+### 6. Revise with `Edit`, not `Write`
 When changing an existing PRD, edit the passages that change. These files run to tens of
 thousands of words, and rewriting one whole to alter a sentence risks silently dropping
 content no diff will draw your eye to. Reserve `Write` for a PRD you are creating.

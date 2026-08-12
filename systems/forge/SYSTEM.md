@@ -139,12 +139,12 @@ what is finished. The code is the record of what was built and git is the record
 "Where did I leave off?" is `ls <prds>/`, plus whether tests exist for each. An empty directory
 means done.
 
-## Harvesting a body of old PRDs
+## Harvesting — moving decisions into the SOT
 
-Closing out one freshly-built PRD is the step below. **Migrating a backlog of PRDs written
-before this system arrived is a different job**, and `forge-harvest-planner` owns it: those PRDs
-were written at different times against different understandings, so most of what they contain
-has already been superseded — by a later PRD or by what was actually built.
+`forge-harvest-planner` owns this, and it is the same mechanism in both places it is used:
+routinely at close-out, when one shipped PRD gives up its decisions, and once per project when a
+backlog written before this system arrived is migrated wholesale. One PRD is simply the smallest
+case, where nothing older exists to supersede. Both contexts are spelled out below.
 
 `forge-doc-planner` cannot do this. It is instructed to report contradictions and never resolve
 them, which is correct for living brain-dump docs and exactly wrong here, where resolving them
@@ -161,28 +161,28 @@ Then hand the plan, verbatim, to `forge-doc-writer` — it applies **CREATE** an
 ignores the rest. Relay **Needs your call** and **Contradicts the code** to the user; the second
 may be real bugs.
 
-### Harvesting only copies upward — something must drain the PRD
+### Harvesting only copies upward — the PRD must still be drained
 
 `forge-harvest-planner` is read-only toward PRDs by design. So the moment a harvest lands, the
-decision exists in **both** the SOT and the PRD, and you have two sources of truth — the exact
-condition this system exists to remove. The harvest is only half the operation. What happens
-next depends on whether the feature has been built:
+decision exists in **both** the SOT and the PRD, and there are two sources of truth — the exact
+condition this system exists to remove. **A harvest is not finished until the PRD's copy is
+gone.** Left standing, the two copies drift the moment either is edited.
 
-| Feature state | What follows the harvest |
+The drain is **total, never partial**: the PRD is deleted, not edited down. Nothing rewrites a
+PRD to cite what was harvested out of it — a PRD that has given up its decisions has given up
+its reason to exist, and the next one is generated fresh from the now-current SOT when its
+feature is about to be built. Editing one into a thinner version of itself keeps the structure
+that made it wrong: the numbering, the cross-PRD citations, the accumulated shape.
+
+So there is exactly one ending, and only its timing varies:
+
+| Situation | When the drain happens |
 |---|---|
-| **Not built yet** | **Slim it.** Dispatch `forge-prd-author` to strip what the SOT now states and replace it with a citation. The PRD stays, in a ready-to-code state. |
-| **Already built** | **Delete it.** The code and its tests are the record; nothing is left for the PRD to carry. |
+| Feature has shipped | At close-out, below — the tests now carry the spec |
+| Feature not built, PRD predates this system | During migration — harvest everything, then delete, then regenerate just-in-time |
 
-```
-Agent(subagent_type: "forge-prd-author", prompt: "Slim <PRD path>. <target doc> now states its decisions — replace that prose with citations, keep the slice, sequence and acceptance, and leave untouched anything the design docs do not yet carry.")
-```
-
-Slimming is not optional housekeeping. Until it runs, the duplication is live, and the two
-copies start drifting the moment either is edited.
-
-It also makes deletion stop being a judgment call: a slimmed PRD holds nothing that is not in
-the SOT or the code, so **Harvest complete?** becomes true by construction rather than by
-inspection.
+Both are `git rm`. Never an archive folder: a directory of retired PRDs becomes a second source
+of truth that nothing maintains, which is what was being escaped.
 
 ### A PRD usually owes more than one doc
 
@@ -213,9 +213,23 @@ correctness comes first and deletion waits.
    of truth again. Deletion is a git operation, so it is the main loop's, not an agent's.
    `git log --diff-filter=D -- <prds>/` lists every retired PRD if you need one back.
 
-A PRD reaching close-out has already shipped, so it deletes rather than slims. **A PRD whose
-feature is not built yet never reaches this section** — it is harvested and slimmed, and stays
-until its code does.
+### Migrating a backlog written before this system
+
+One-time, and not part of the flow above. A project arriving with PRDs full of decisions —
+because they were written when the SOT could not be trusted — is migrated wholesale rather than
+converted one at a time:
+
+1. **Tidy each design doc** so the SOT is structurally sound before anything lands in it.
+2. **Harvest each doc** from every PRD that feeds it. One run per doc, not per PRD.
+3. **Verify** every PRD's **Harvest complete?** reads clean across *every* doc it owes. This is
+   the gate, and it is the only irreversible step's only protection.
+4. **`git rm` the entire backlog.**
+5. **Regenerate just-in-time** — one PRD, for the feature about to be built, and only when that
+   feature earns a PRD at all. Regenerating the whole backlog rebuilds the problem: this project
+   reached 210,000 words precisely by writing every PRD before any code existed.
+
+Most of a migrated backlog should never come back. Under the triage rule above, the majority of
+features are built and looked at rather than specified.
 
 **Never delete a partially-built PRD.** If half the requirements shipped, it stays at
 `Status: Building` with the rest. Deletion is safe only because the tests now carry the spec in
