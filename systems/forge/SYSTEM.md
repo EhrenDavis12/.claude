@@ -116,10 +116,10 @@ A PRD is scaffolding, not a source of truth. It holds two things with opposite l
 replaces the moment it exists. Keeping the second forever is what makes PRDs a decaying second
 description of the code that something then has to police.
 
-### The four states
+### The three states
 
-A PRD's state lives in the `> **Status:**` line the house style already gives it. Nothing else
-tracks it — state stored in two places is state that goes stale.
+A PRD's state is read from the repo, not stored in the file. Nothing tracks it separately —
+state kept in two places is state that goes stale.
 
 | State | How you can tell | Means |
 |---|---|---|
