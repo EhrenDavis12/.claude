@@ -161,8 +161,41 @@ Then hand the plan, verbatim, to `forge-doc-writer` — it applies **CREATE** an
 ignores the rest. Relay **Needs your call** and **Contradicts the code** to the user; the second
 may be real bugs.
 
-Delete the harvested PRDs only once the report's **Harvest complete?** line reads clean. Until
-then the SOT does not yet hold everything they do.
+### Harvesting only copies upward — something must drain the PRD
+
+`forge-harvest-planner` is read-only toward PRDs by design. So the moment a harvest lands, the
+decision exists in **both** the SOT and the PRD, and you have two sources of truth — the exact
+condition this system exists to remove. The harvest is only half the operation. What happens
+next depends on whether the feature has been built:
+
+| Feature state | What follows the harvest |
+|---|---|
+| **Not built yet** | **Slim it.** Dispatch `forge-prd-author` to strip what the SOT now states and replace it with a citation. The PRD stays, in a ready-to-code state. |
+| **Already built** | **Delete it.** The code and its tests are the record; nothing is left for the PRD to carry. |
+
+```
+Agent(subagent_type: "forge-prd-author", prompt: "Slim <PRD path>. <target doc> now states its decisions — replace that prose with citations, keep the slice, sequence and acceptance, and leave untouched anything the design docs do not yet carry.")
+```
+
+Slimming is not optional housekeeping. Until it runs, the duplication is live, and the two
+copies start drifting the moment either is edited.
+
+It also makes deletion stop being a judgment call: a slimmed PRD holds nothing that is not in
+the SOT or the code, so **Harvest complete?** becomes true by construction rather than by
+inspection.
+
+### A PRD usually owes more than one doc
+
+One run harvests one target doc, but a single PRD routinely carries material for several — a
+theme PRD may owe the theming doc, the architecture doc, and the animation doc at once.
+
+**A PRD may only be deleted once every doc it owes has been harvested**, not merely the first
+one. Partial harvest is the normal state in between and is not a failure. `forge-harvest-planner`
+names the remaining debts in its report; believe that list over the fact that one run finished.
+
+This is the price of harvesting by target doc rather than by PRD, and it is the right trade:
+supersession can only be resolved correctly with every claim on a topic visible at once, so
+correctness comes first and deletion waits.
 
 ### The close-out order
 
@@ -173,11 +206,16 @@ then the SOT does not yet hold everything they do.
    nothing older to supersede. Not `forge-doc-planner` — that one tidies docs against each
    other and is instructed never to resolve a contradiction.
 3. **Check the invariant:** no decision may exist only in a PRD. The planner's
-   **Harvest complete?** line states this directly; if it does not read clean, the harvest is
-   not finished and nothing gets deleted.
+   **Harvest complete?** line states this directly, and it accounts for *every* doc the PRD
+   owes, not just the one this run targeted. If it does not read clean, the harvest is not
+   finished and nothing gets deleted.
 4. **Delete it** — `git rm`. Git keeps the history; an archive folder becomes a second source
    of truth again. Deletion is a git operation, so it is the main loop's, not an agent's.
    `git log --diff-filter=D -- <prds>/` lists every retired PRD if you need one back.
+
+A PRD reaching close-out has already shipped, so it deletes rather than slims. **A PRD whose
+feature is not built yet never reaches this section** — it is harvested and slimmed, and stays
+until its code does.
 
 **Never delete a partially-built PRD.** If half the requirements shipped, it stays at
 `Status: Building` with the rest. Deletion is safe only because the tests now carry the spec in

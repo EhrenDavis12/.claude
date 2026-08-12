@@ -45,6 +45,18 @@ A PRD is a **translation layer**, not a second source of truth. It slices one ch
 SOT, sequences it, translates it into buildable work, and says what "done" means. It **cites**
 decisions and architecture; it never **makes** them.
 
+A PRD written before its SOT was trustworthy will hold decisions anyway. Getting it back to the
+shape above is two steps, and the second is the one that gets forgotten:
+
+```
+harvest   forge-harvest-planner → forge-doc-writer    decisions land in the SOT
+slim      forge-prd-author                            the same prose leaves the PRD
+```
+
+Harvest without slim is not migration, it is duplication. After slimming, a PRD whose feature is
+not built yet **stays** — it is still what the code gets built from. Only a shipped feature's PRD
+is deleted, because by then the tests carry its spec in executable form.
+
 **Architecture is global, so it lives in the SOT — never in a PRD.** This is the line that
 matters most. Per-feature architecture is how 24 PRDs came to cite each other's numbered
 requirements, so renumbering one cascaded into three and a single revision took days. Shared
@@ -196,6 +208,8 @@ reintroducing a solved problem.
 | A `Status: Ready` stamp was specified before noticing `forge-prd-reviewer` is read-only and could not write it | **Derive state from the repo, never store it.** Before adding a status field, name the agent whose tools can actually set it |
 | Test-runner and play-test agents were proposed | Refused. Running a command needs no judgment, and `/run` already covers play-testing. **If a proposed agent's job is one deterministic command, it is a `Bash` line** |
 | Writing the test-strategy rules put Flutter and Dart names — widget tests, golden files, `flutter test` — straight into agents meant to serve any project | Agents name test *properties*, never frameworks. Stack specifics come from the manifest. Written the same day the rule was violated, which is how easily it happens |
+| The first harvest copied decisions into the SOT and **removed nothing from the PRDs** — four files came out byte-identical, so every harvested decision then existed in two places | A migration is copy **plus drain**. When designing any move between artifacts, name the agent that removes from the source; the one that writes the destination cannot, and read-only-toward-the-source is usually why |
+| The close-out order assumed one PRD owes one doc. The first real PRD owed three | Harvesting by target doc is what makes supersession correct, so deletion waits until *every* owed doc is harvested. Partial harvest is the normal in-between state, not a failure |
 
 The pattern under most of these: **append-only accumulation instead of revision.** Nothing was
 ever rewritten, only added to — in PRDs, in Decisions sections, in review findings. When a new
