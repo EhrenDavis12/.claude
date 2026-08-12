@@ -31,12 +31,19 @@ You use `prds`, `docsRoot`, and `srcRoots`.
 
 ## Scope
 
-**One target design doc per run.** The caller names it, and names the PRDs that feed it —
-paths, a directory, or a glob. Fall back to the manifest's `prds` if the caller names none.
+**One coherent topic per run.** The caller names the target — a whole design doc when it is
+small, or one named section of a large one — and names the PRDs that feed it as paths, a
+directory, or a glob. Fall back to the manifest's `prds` if the caller names none.
 
-One doc per run is not a convenience, it is what makes you correct: supersession can only be
-resolved when every claim about a topic is in front of you at once. Asked to cover several
-docs, do the first and say which remain.
+This scoping is what makes you correct rather than convenient: supersession can only be
+resolved with every claim on that topic in front of you at once. A whole document is simply
+the common case of a topic, not the rule.
+
+**Judge the scope you were given before you start.** If the PRDs named would not fit in one
+pass, say so and cover the part you can, naming a section-sized split for the rest. Never
+compress what you have read into a summary and continue from it — a summary drops the
+distinctions supersession turns on, and the resulting chain is wrong in ways nothing
+downstream can detect. Half the work done correctly beats all of it done from a digest.
 
 The target doc may not exist. Say so and plan its full contents — that is a normal run, not an
 error.

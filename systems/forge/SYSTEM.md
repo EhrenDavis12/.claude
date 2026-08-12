@@ -150,8 +150,15 @@ case, where nothing older exists to supersede. Both contexts are spelled out bel
 them, which is correct for living brain-dump docs and exactly wrong here, where resolving them
 by date *is* the work.
 
-**One target doc per run**, because supersession can only be settled with every claim about a
-topic visible at once:
+**One coherent topic per run** — the whole doc when the doc is small, one section when it is
+not. The principle is that supersession can only be settled with every claim on a topic visible
+at once; that is satisfied by a topic, and a whole document is merely the common case.
+
+Size forces this as much as correctness. A hub doc cited by most of the backlog cannot be
+harvested in one pass — one project here had a technical design doc cited by 22 of 24 PRDs, far
+past what a single run can hold. The fallback, chunking with a running summary, is worse than
+the problem: summaries drift, and a drifted summary corrupts the supersession chain silently.
+Splitting by section avoids it entirely, because each section has one or two owning PRDs.
 
 ```
 Agent(subagent_type: "forge-harvest-planner", prompt: "Harvest <PRD paths or glob> into <target doc>. It does not exist yet — plan its full contents.")
