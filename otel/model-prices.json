@@ -1,0 +1,24 @@
+{
+  "_comment": [
+    "Rates the agent-exporter uses to estimate per-agent cost, in USD per million tokens.",
+    "Edit this file and restart agent-exporter to re-price all history — the exporter is",
+    "stateless, so every scrape recomputes from scratch and old runs re-price too.",
+    "",
+    "Each agent's tier is read from the `model:` line in its own .claude/agents/**/*.md",
+    "frontmatter, so an agent moved from opus to sonnet re-prices with no change here.",
+    "",
+    "Why this is an estimate: the run log records output tokens and cached-input re-read,",
+    "but not fresh input or cache-creation tokens. Those are the small terms (across all",
+    "history: ~935M cache-read vs ~8.8M output), so the ranking is sound and the absolute",
+    "number is a floor, not a bill. Read real dollars off the Agent Performance dashboard.",
+    "",
+    "Sonnet 5 carries introductory pricing of 2.00/10.00 through 2026-08-31; the standard",
+    "3.00/15.00 is used here so the series doesn't step when the promo ends."
+  ],
+  "prices_usd_per_mtok": {
+    "opus": { "input": 5.0, "output": 25.0 },
+    "sonnet": { "input": 3.0, "output": 15.0 },
+    "haiku": { "input": 1.0, "output": 5.0 }
+  },
+  "cache_read_multiplier": 0.1
+}

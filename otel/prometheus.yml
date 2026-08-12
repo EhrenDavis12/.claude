@@ -3,6 +3,12 @@ global:
   scrape_interval: 10s
 
 scrape_configs:
+  # Live telemetry straight from Claude Code. Knows main vs subagent, never which agent.
   - job_name: "claude-code"
     static_configs:
       - targets: ["otel-collector:8889"]
+
+  # Per-agent run history, by name, from the SubagentStop hook's log.
+  - job_name: "claude-agents"
+    static_configs:
+      - targets: ["agent-exporter:9101"]

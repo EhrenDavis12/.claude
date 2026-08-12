@@ -1,7 +1,13 @@
-# The "look at my agents" stack. Three small containers:
+# The "look at my agents" stack. Four small containers:
 #   otel-collector  receives telemetry from Claude Code (OTLP on 4317/4318)
+#   agent-exporter  serves per-agent run history by NAME (see below)
 #   prometheus      stores the numbers            (UI on http://localhost:9090)
 #   grafana         draws the pictures            (UI on http://localhost:3000)
+#
+# Why agent-exporter exists: Claude Code reports every custom subagent as
+# agent_name="custom", so its own telemetry can tell you a subagent ran but never
+# which one. The names live only in ../metrics/agent-runs.jsonl, kept current by the
+# SubagentStop hook. The exporter serves that file so per-agent panels can exist.
 #
 # Start:  cd .claude/otel && docker compose up -d
 # Stop:   cd .claude/otel && docker compose down
@@ -16,6 +22,27 @@ services:
       - "4318:4318"   # OTLP HTTP  (alternative)
       - "8889:8889"   # Prometheus scrape endpoint (collector -> prometheus)
 
+  agent-exporter:
+    image: python:3.12-alpine
+    command: ["python", "-u", "/app/agent_exporter.py"]
+    environment:
+      - METRICS_FILE=/data/agent-runs.jsonl
+      - PORT=9101
+      - AGENTS_DIR=/agents
+      - PRICES_FILE=/prices.json
+    volumes:
+      - ./agent_exporter.py:/app/agent_exporter.py:ro
+      # The run log the SubagentStop hook writes. Read-only: nothing in this stack
+      # may edit the history it is reporting on.
+      - ../metrics:/data:ro
+      # Agent definitions — read only for the `model:` line in each frontmatter,
+      # so moving an agent between tiers re-prices it with no edit here.
+      - ../agents:/agents:ro
+      - ./model-prices.json:/prices.json:ro
+    ports:
+      - "9101:9101"
+    restart: unless-stopped
+
   prometheus:
     image: prom/prometheus:latest
     volumes:
@@ -24,6 +51,7 @@ services:
       - "9090:9090"
     depends_on:
       - otel-collector
+      - agent-exporter
 
   grafana:
     image: grafana/grafana:latest

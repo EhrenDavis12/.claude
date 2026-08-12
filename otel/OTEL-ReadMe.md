@@ -55,28 +55,48 @@ charts fill in.
 
 The dashboard has these pictures:
 
-- **Cost per TEAM / Tokens per TEAM** — one bar/line per agent team (forge vs a lighter team).
-  This is the "did switching teams help?" picture: a shorter/cheaper bar for the same work is the
-  lighter team winning. *(These panels split teams apart using the agent-name prefix — `forge-*`
-  counts as team "forge" — so it only works if each team names its agents `teamname-something`,
-  which is already the house rule. The terminal tool `agent-metrics.py` classifies teams more
-  precisely, from each `system.json`.)*
+There are **two** dashboards, and the split is not cosmetic — they are fed by different
+sources because no single source has everything.
+
+### "Claude Code — Agent Performance" (live dollars, no agent names)
+
+Fed by Claude Code's own telemetry. It knows real money, and it updates while a run is
+happening. What it cannot tell you is *which* agent did anything — see the warning below.
+
 - **Total cost / Total tokens** — the big running totals, everything so far.
-- **Cost per agent (subagents)** — a bar for each agent. *The longest bar is your most
-  expensive agent.* This is the one to stare at. If `forge-prd-reviewer` has the longest bar
-  every run, that's where your time and money go.
-- **Tokens per agent** — same idea, but "how much did each agent read and write." A huge bar
-  here usually means that agent is loading a lot of context (your growing docs).
-- **Cost: subagents vs main vs auxiliary** — how much of the spend is the agents themselves
-  vs the main loop.
+- **Cost: subagents vs main vs auxiliary** — how much of the spend is delegated work versus
+  the main loop. This one is genuinely useful and is the reason to keep this dashboard.
 - **Tokens by type** — input vs output vs **cacheRead**. A giant `cacheRead` slice is the
-  "re-reading the same docs on every dispatch" tax we talked about.
+  "re-reading the same docs on every dispatch" tax.
 - **Cost over time, per model** — watch this climb while a pipeline runs; the steep lines are
   your `opus` agents.
 
-**How to actually use it:** run your pipeline once, screenshot the "Cost per agent" bars. That
-is your baseline. Next week, after your docs have grown, run it again and compare. The bar that
-grew the most tells you exactly which agent the scale is hurting — no guessing.
+> **The per-agent and per-team panels on this dashboard do not work, and cannot be made to.**
+> Claude Code reports every custom subagent as `agent_name="custom"` — your agent's actual name
+> is never put on the wire. So "Cost per agent" collapses to a single bar labelled `custom`, and
+> the team panels find no `forge-*` prefix to split on. Use the dashboard below instead.
+
+### "Claude Code — Subagent Efficiency (by name)" (agent names, no dollars)
+
+Fed by `agent-exporter`, which serves the run log that the `SubagentStop` hook keeps at
+`.claude/metrics/agent-runs.jsonl`. That log is the **only** place your agent names exist, so
+this is the dashboard to stare at.
+
+- **Efficiency by agent** — one row per named agent: runs, avg seconds, avg turns, avg tool
+  calls, avg output tokens, peak context, avg cache re-read, and how often it got blocked.
+  This is the whole diagnostic table from `.claude/tools/README.md`, live.
+- **Average seconds per run** — the slow agents, ranked.
+- **Peak context reached** — the agents drowning in context. This is the one that grows as your
+  design docs grow; fix it by narrowing what the agent must read, not by making it smarter.
+- **Blocked & resumed** — runs that sat waiting for a human answer. A high count on one agent
+  means it keeps returning questions it could have answered by reading.
+
+It has no dollar figures: the run log records tokens, not prices. Read cost from the first
+dashboard and attribution from this one.
+
+**How to actually use it:** screenshot "Efficiency by agent" now — that is your baseline. After
+your docs grow, compare. The agent whose peak context and avg turns grew most is the one the
+scale is hurting, by name, with no guessing.
 
 ---
 
@@ -128,17 +148,35 @@ Metrics (these become the charts). Names are lowercased with underscores:
 | `claude_code_active_time_total` | seconds of active work | |
 | `claude_code_commit_count` | git commits made | |
 
-The magic label is **`agent_name`** with **`query_source="subagent"`** — that's what lets every
-chart split things out per agent. Example query you can paste into Grafana or Prometheus:
+**`agent_name` is a trap.** It sounds like it holds your agent's name and it does not — every
+custom subagent reports as the literal string `custom`, because agent names are user-authored
+text that Claude Code deliberately does not export. So this query returns exactly one bar:
 ```promql
-sum by (agent_name) (claude_code_cost_usage{query_source="subagent"})
+sum by (agent_name) (claude_code_cost_usage{query_source="subagent"})   # -> {agent_name="custom"}
 ```
-= "total dollars, broken down by which agent spent them."
+What `query_source` *does* give you honestly is the three-way split — `main`, `auxiliary`,
+`subagent` — which is worth charting:
+```promql
+sum by (query_source) (claude_code_cost_usage)
+```
+
+For anything per-agent, use the `claude_agent_*` metrics from `agent-exporter` instead:
+```promql
+claude_agent_worked_duration_seconds_total / claude_agent_worked_runs_total   # avg s/run, by name
+sort_desc(claude_agent_max_context_tokens)                                    # who is drowning in context
+```
+
+**A note on metric names.** The collector must set `translation_strategy:
+UnderscoreEscapingWithoutSuffixes` for these names to come out as written. The older
+`add_metric_suffixes: false` key is silently ignored from collector 0.15x on — no error, no
+warning — and everything arrives as `claude_code_token_usage_tokens_total` instead, leaving
+every panel empty. If the dashboards go blank after a collector upgrade, check that first.
 
 There are also **events** (logs) with richer per-tool detail (e.g. `claude_code.tool_result`
-carries `duration_ms` per tool call). This stack captures them to the collector's log
-(`docker compose logs -f otel-collector`) but doesn't chart them yet — ask and we can add a
-Loki + Grafana logs view.
+carries `duration_ms` per tool call, and `claude_code.subagent_completed` carries tokens and
+duration per dispatch — though again without the agent's name). This stack captures them to the
+collector's log (`docker compose logs -f otel-collector`) but doesn't chart them yet — ask and
+we can add a Loki + Grafana logs view.
 
 ---
 

@@ -79,14 +79,29 @@ team winning. To check whether a *change to one team* improved it, compare that 
 and after — the log is time-ordered by `ended_ts`, so a dated baseline (below) isolates the two
 periods.
 
-### Live dollar-cost dashboard (OTEL)
+### Live dashboards (OTEL)
 
-For a live, per-agent view in **real dollars** (which the transcript parser can't compute), see
-`.claude/otel/` — a one-command Docker stack (OTEL Collector + Prometheus + Grafana) plus a
-plain-language `OTEL-ReadMe.md`. Claude Code's `claude_code.cost.usage` and
-`claude_code.token.usage` metrics carry `agent.name` and `query_source=subagent` attributes, so
-the dashboard splits cost and tokens per agent natively. Use the transcript parser daily; reach
-for OTEL when you want to *watch* a run or show a chart.
+For a live view in **real dollars** (which the transcript parser can't compute), see
+`.claude/otel/` — a one-command Docker stack (OTEL Collector + agent-exporter + Prometheus +
+Grafana) plus a plain-language `OTEL-ReadMe.md`. Use the transcript parser daily; reach for
+Grafana when you want to *watch* a run or show a chart.
+
+**Cost and agent identity come from different places, and only one of them knows names.** Claude
+Code's own `claude_code.cost.usage` / `claude_code.token.usage` metrics report every custom
+subagent as `agent_name="custom"` — the name you dispatched is never exported. They give real
+dollars split by `query_source` (`main` / `auxiliary` / `subagent`) and by model, and nothing
+finer.
+
+The names live only in this tool's own output. So `.claude/otel/agent_exporter.py` serves
+`agent-runs.jsonl` — the log the `SubagentStop` hook maintains — to Prometheus as
+`claude_agent_*` metrics labelled by `agent` and `system`, and the "Subagent Efficiency (by
+name)" dashboard is built on those. Same numbers as `--log` below, drawn instead of printed.
+
+One caveat carried into those metrics: `dur_s` measures first message to last, so a **resumed**
+agent's wall-clock includes the hours its questions sat waiting for a human answer. The exporter
+splits these out (`claude_agent_worked_*` excludes them, `claude_agent_idle_suspect_runs_total`
+counts them) so per-agent averages stay meaningful. `--runs` shows the same inflation here in the
+terminal; read a multi-day `dur_s` as "this one was blocked," not "this one is slow."
 
 ## The method: is it the code, the SOT, or the agents?
 
