@@ -104,7 +104,13 @@ Every claim you decide is dead gets one line in **Superseded** saying what repla
 the user's only check on your judgment before the PRDs are deleted, so an unexplained omission
 is indistinguishable from a mistake.
 
-### 4. Preserve the user's voice
+### 4. Repoint whatever cited a heading you remove
+Docs cite each other's headings by name. Before finalising a finding that deletes or renames
+one, `Grep` all of `docsRoot` for that heading's text and carry the repointing in this same
+plan. A follow-up run leaves the docs knowingly broken in between, and that state gets
+committed.
+
+### 5. Preserve the user's voice
 Carry wording across as written. You are relocating decisions, not rewriting them. Docs wrap at
 column 90.
 

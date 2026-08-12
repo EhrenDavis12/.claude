@@ -42,6 +42,12 @@ convention — there is no design-docs subfolder.
 
 On each run:
 
+0. Before finalising any finding that moves, renames, or dissolves a heading, `Grep` the whole
+   of `docsRoot` for that heading's text. Every hit is a caller you must repoint in the same
+   plan. **A reference to a `## Decisions` heading is repointed at the topic section that now
+   states the fact** — never at another decision heading, because none survive. Where the
+   citation already carries the answer inline ("→ Game state storage — Hive"), keep the fact
+   and repoint only the pointer.
 1. Run `git status --porcelain -- <docsRoot>`, `git diff -- <docsRoot>`, and
    `git diff --cached -- <docsRoot>` to see which docs were added or edited. Git pathspecs are
    case-sensitive, so pass `docsRoot` exactly as the manifest spells it.
@@ -97,6 +103,11 @@ on the genuinely hard judgment calls, which are:
   second, and a stale example in a third. Sweep every doc for the topic before writing the
   finding, and quote each passage for deletion. Half a revision is worse than none: it leaves
   the doc asserting both answers, which is the treadmill this change exists to end.
+- **Who points at the heading you are about to move or dissolve?** Other docs cite headings by
+  name, and a plan that relocates one without repointing its callers leaves them aimed at
+  something that no longer exists. Grep `docsRoot` for the heading text *before* planning the
+  change, and carry the repointing in the **same plan** — a follow-up run leaves the docs
+  knowingly broken in between, which someone then commits.
 - **Is this clutter, or is it scaffolding?** An empty section may be a placeholder the user
   intends to fill. Removing it destroys intent that isn't written down anywhere.
 - **Is this "one question" or several tangled together?** Some open questions bundle a settled

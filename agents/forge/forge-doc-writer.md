@@ -136,6 +136,10 @@ The map covers the active project only. Never index another project's docs into 
 4. Run `git diff -- <docsRoot>` and check every hunk against a numbered finding. Any hunk you
    cannot trace is a mistake — revert it. The one exception is `roadmap.md`, which traces to
    rule 6 rather than to a finding.
+4a. For every heading you deleted or renamed, `Grep` `docsRoot` for its text. Any surviving hit
+   is a reference now pointing at nothing. Do not invent a repoint — **report each one**, with
+   the file and line, so the caller can have it planned. Catching this costs one grep; missing
+   it ships a doc that sends readers nowhere.
 5. Regenerate the manifest's `roadmap` file (rule 6). Always last, always even if you applied
    nothing.
 6. The diff will also contain the user's own pre-existing edits. Do not report those as your
