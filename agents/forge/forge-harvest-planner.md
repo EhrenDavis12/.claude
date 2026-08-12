@@ -105,10 +105,16 @@ the user's only check on your judgment before the PRDs are deleted, so an unexpl
 is indistinguishable from a mistake.
 
 ### 4. Repoint whatever cited a heading you remove
-Docs cite each other's headings by name. Before finalising a finding that deletes or renames
-one, `Grep` all of `docsRoot` for that heading's text and carry the repointing in this same
-plan. A follow-up run leaves the docs knowingly broken in between, and that state gets
-committed.
+Design docs cite each other's headings by name. Before finalising a finding that deletes or
+renames one, `Grep` the design docs for that heading's text and carry the repointing in this
+same plan. A follow-up run leaves them knowingly broken in between, and that state gets
+committed. **Never repoint inside a PRD** — those are deleted once harvested, so repairing
+them is work on files that are going away.
+
+A corollary for reading: **a PRD's citation pointing at a heading that no longer exists does
+not mean the SOT lacks that content.** Tidying moves settled facts into topic sections and the
+old citations are deliberately left dangling. Check the target doc as it stands now before
+concluding anything is missing, or you will harvest what is already there.
 
 ### 5. Preserve the user's voice
 Carry wording across as written. You are relocating decisions, not rewriting them. Docs wrap at

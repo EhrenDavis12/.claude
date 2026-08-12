@@ -42,12 +42,17 @@ convention — there is no design-docs subfolder.
 
 On each run:
 
-0. Before finalising any finding that moves, renames, or dissolves a heading, `Grep` the whole
-   of `docsRoot` for that heading's text. Every hit is a caller you must repoint in the same
-   plan. **A reference to a `## Decisions` heading is repointed at the topic section that now
-   states the fact** — never at another decision heading, because none survive. Where the
-   citation already carries the answer inline ("→ Game state storage — Hive"), keep the fact
-   and repoint only the pointer.
+0. Before finalising any finding that moves, renames, or dissolves a heading, `Grep` the design
+   docs for that heading's text. Every hit is a caller you must repoint in the same plan.
+   **A reference to a `## Decisions` heading is repointed at the topic section that now states
+   the fact** — never at another decision heading, because none survive. Where the citation
+   already carries the answer inline ("→ Game state storage — Hive"), keep the fact and
+   repoint only the pointer.
+
+   **Exclude `prds` from that sweep, and never plan a repoint inside a PRD.** PRDs cite design
+   docs heavily and are deleted once harvested, so repairing them is work on files that are
+   going away — one project here carried 613 such citations. Note in **Needs your call** that
+   PRD citations were left dangling, then move on; it is expected, not a defect.
 1. Run `git status --porcelain -- <docsRoot>`, `git diff -- <docsRoot>`, and
    `git diff --cached -- <docsRoot>` to see which docs were added or edited. Git pathspecs are
    case-sensitive, so pass `docsRoot` exactly as the manifest spells it.

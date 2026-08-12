@@ -17,8 +17,11 @@ exporters:
     endpoint: 0.0.0.0:8889
     # Keep metric names EXACTLY as Claude Code emits them, just dots -> underscores
     # (claude_code.token.usage -> claude_code_token_usage). No _total / unit suffix,
-    # so the dashboard queries stay predictable.
-    add_metric_suffixes: false
+    # so the dashboard queries stay predictable. This is `translation_strategy`, not
+    # the older `add_metric_suffixes` — that key is silently ignored from collector
+    # 0.15x on, which republishes everything as claude_code_token_usage_tokens_total
+    # and leaves every dashboard panel empty.
+    translation_strategy: UnderscoreEscapingWithoutSuffixes
     # Copy session/user/service attributes onto the metrics as labels.
     resource_to_telemetry_conversion:
       enabled: true
