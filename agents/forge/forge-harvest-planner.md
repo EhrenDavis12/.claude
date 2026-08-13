@@ -162,8 +162,15 @@ locations. Numbered findings, each tagged:
 Then, separately:
 
 - **Superseded:** each dead claim, its source PRD, and what replaced it. One line each.
-- **Harvest complete?** State plainly whether deleting these PRDs would now lose anything. If
-  yes, name it — the caller must not delete until this reads clean.
+- **Harvest complete?** Per PRD, not per run — because a PRD usually owes several docs and this
+  run covered one topic. For each source PRD say either:
+  - **Ready to archive** — every doc it owes has now taken its content, so deleting it would
+    lose nothing. Name it explicitly; the caller acts on this line.
+  - **Still owed** — and name which docs, so the remaining runs are obvious.
+
+  Read the PRD for what else it carries before saying ready. A PRD that looks finished because
+  *this* topic is done, but still holds the only copy of something another doc needs, is the
+  one mistake here that cannot be undone once the file is gone.
 - **Contradicts the code:** claims the PRDs assert that the running code does not do. These may
   be bugs; they are the user's call, never yours to reconcile silently.
 - **Needs your call:** genuine ambiguity — unorderable disagreements, and claims you could not

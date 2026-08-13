@@ -230,7 +230,18 @@ converted one at a time:
 2. **Harvest each doc** from every PRD that feeds it. One run per doc, not per PRD.
 3. **Verify** every PRD's **Harvest complete?** reads clean across *every* doc it owes. This is
    the gate, and it is the only irreversible step's only protection.
-4. **`git rm` the entire backlog.**
+4. **Archive as you go, delete deliberately.** When a run reports a PRD **Ready to archive**,
+   `git mv` it to `<docsRoot>/Archived_for_delition/`. That folder sits outside the manifest's
+   `prds` path on purpose, so no agent globbing that directory can pick up a retired PRD.
+
+   The move is the main loop's, never an agent's — `forge-harvest-planner` holds no write tools
+   by design, and retiring a PRD is exactly the kind of act that should not happen as a side
+   effect of a planning run. It reports; you move.
+
+   Staging rather than deleting outright keeps the irreversible step in the user's hands and
+   makes progress visible: what is left in `prds` is what still owes something. **Empty the
+   folder** — a staging area that never drains becomes the second source of truth this
+   migration exists to remove.
 5. **Regenerate just-in-time** — one PRD, for the feature about to be built, and only when that
    feature earns a PRD at all. Regenerating the whole backlog rebuilds the problem: this project
    reached 210,000 words precisely by writing every PRD before any code existed.
