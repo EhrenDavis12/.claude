@@ -231,7 +231,7 @@ converted one at a time:
 3. **Verify** every PRD's **Harvest complete?** reads clean across *every* doc it owes. This is
    the gate, and it is the only irreversible step's only protection.
 4. **Archive as you go, delete deliberately.** When a run reports a PRD **Ready to archive**,
-   `git mv` it to `<docsRoot>/Archived_for_delition/`. That folder sits outside the manifest's
+   `git mv` it to `<docsRoot>/Archived_for_deletion/`. That folder sits outside the manifest's
    `prds` path on purpose, so no agent globbing that directory can pick up a retired PRD.
 
    The move is the main loop's, never an agent's — `forge-harvest-planner` holds no write tools
