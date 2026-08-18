@@ -14,7 +14,7 @@ reinterpreted.
 
 | System | What it is |
 |---|---|
-| `forge` | Pure delegation. Ten agents, one territory each; the main loop never writes a project artifact. |
+| `forge` | Pure delegation. Twelve agents, one territory each; the main loop never writes a project artifact. |
 | `direct` | Off, made explicit. No pipeline; the main loop does the work inline. |
 
 ## Swapping

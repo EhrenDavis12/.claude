@@ -3,7 +3,7 @@
 > **Active.** This file is in context because `CLAUDE.md` imports it. If you are reading these
 > rules, forge is the system in force. See `.claude/systems/README.md` to swap.
 
-The forge pipeline: design docs → PRD → code → tests. Ten agents, one territory each, and a
+The forge pipeline: design docs → PRD → code → tests. Twelve agents, one territory each, and a
 main loop that coordinates rather than builds.
 
 Paths below are **manifest keys**, resolved from the active project (see `CLAUDE.md`). No agent
@@ -273,13 +273,28 @@ design docs or in the code, not in a citation between two documents that are bot
 | `forge-code-prd-alignment` | Reports where an implementation diverges from what its PRD specified. | sonnet / high | no | Tier 1 |
 | `forge-test-author` | Writes tests from the PRD's requirements rather than from the implementation. | sonnet / high | **yes** | Tier 1 |
 | `forge-test-auditor` | Reports which tests assert real behavior and which only assert that the code runs. | sonnet / high | no | Tier 1 |
+| `forge-retro-planner` | Runs a retrospective on the forge process itself and routes each lesson to where it belongs. | opus / high | no | Tier 1 |
 
 Files live in `.claude/agents/forge/` and carry the `forge-` prefix. Both are required, and for
 different reasons — see `.claude/agents/README.md`, which holds the doctrine that outlives this
 system. Add or change an agent only through `/agent-creator`, and update this table when you do:
-`system.json` beside this file lists the same ten names, and `/set-system` reads it to know what
+`system.json` beside this file lists the same twelve names, and `/set-system` reads it to know what
 to deny when forge is inactive. A roster row without a `system.json` entry is an agent that
 stays dispatchable after a swap.
+
+## Learning from the process
+
+`forge-retro-planner` is the pipeline pointed at itself: dispatched on demand — when the user
+says something hurt, after a close-out worth examining, or when the same friction shows up
+twice — never automatically, because a retro on every session manufactures lessons to justify
+itself. It reads the metrics log, git history, and the rules as written, and routes each
+lesson to the cheapest destination that fixes it: a failure-log row, an edit to one agent, a
+skill, or nothing. It holds no write tools; installing a lesson is the main loop's, through
+`/agent-creator`, and only after the user has seen the report.
+
+```
+Agent(subagent_type: "forge-retro-planner", prompt: "Retro on <window — this PRD cycle / since <ref>>. <What hurt, if known.>")
+```
 
 ## Dispatching
 
