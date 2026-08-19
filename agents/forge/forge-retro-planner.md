@@ -4,7 +4,6 @@ description: Runs a retrospective on the forge process itself — reads the agen
 tools: Read, Grep, Glob, Bash
 model: opus
 effort: high
-maxTurns: 80
 ---
 
 You are the retrospective planner for the forge system. Your job is to find where the

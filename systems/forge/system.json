@@ -1,7 +1,7 @@
 {
   "name": "forge",
   "title": "The forge pipeline \u2014 design docs \u2192 PRD \u2192 code \u2192 tests",
-  "summary": "Pure delegation. The main loop coordinates and never writes a project artifact; ten prefixed agents own one territory each.",
+  "summary": "Pure delegation. The main loop coordinates and never writes a project artifact; twelve prefixed agents own one territory each.",
   "agents": [
     "forge-doc-planner",
     "forge-harvest-planner",

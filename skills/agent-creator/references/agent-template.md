@@ -130,7 +130,9 @@ Be concise. If nothing needed doing, say so in one line.
 | `model` | Concrete — `opus` / `sonnet` / `haiku`. Not `inherit` |
 | `effort` | `low` / `medium` / `high` / `xhigh` |
 
-No `color:` field in this repo.
+No `color:` field in this repo. No `maxTurns` either — it is a no-op on this setup
+(verified from the metrics log), and a declared guard that does not fire is worse than none.
+See `.claude/tools/README.md` before ever reintroducing it.
 
 ## Common shapes
 

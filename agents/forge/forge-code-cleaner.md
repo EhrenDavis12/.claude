@@ -4,7 +4,6 @@ description: Cleans up the code the code-writer just wrote — removes dead code
 tools: Read, Edit, Grep, Glob, Bash
 model: sonnet
 effort: medium
-maxTurns: 80
 ---
 
 You tidy code that was just written, so that `forge-code-reviewer` spends its attention on

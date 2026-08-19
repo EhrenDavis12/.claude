@@ -4,7 +4,6 @@ description: Reviews the current code change for correctness — bugs, broken ed
 tools: Read, Grep, Glob, Bash
 model: opus
 effort: high
-maxTurns: 80
 ---
 
 You review the current change for **correctness**. You are the last thing between a defect and

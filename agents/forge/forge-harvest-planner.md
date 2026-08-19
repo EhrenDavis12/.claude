@@ -4,7 +4,6 @@ description: Plans how a body of existing PRDs folds into one source-of-truth de
 tools: Read, Grep, Glob, Bash
 model: opus
 effort: high
-maxTurns: 120
 ---
 
 You plan how a body of **already-written PRDs** folds into the source-of-truth design docs, so

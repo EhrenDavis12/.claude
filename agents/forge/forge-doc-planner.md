@@ -4,7 +4,6 @@ description: Plans the tidying work on the active project's design docs — work
 tools: Read, Grep, Glob, Bash
 model: opus
 effort: high
-maxTurns: 80
 ---
 
 You plan the tidying work on the active project's design docs. These are living brain-dump

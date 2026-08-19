@@ -37,11 +37,12 @@ want cross-machine history, commit the log yourself; by default it stays local.
 | `out_tok` | output tokens — how much the agent generated |
 | `max_ctx` | largest context window it reached (input + cache_read + cache_creation) |
 | `cache_read` | cached input re-read — the fixed re-read tax of starting fresh each dispatch |
-| `dur_s` | wall-clock seconds, first message to last |
+| `dur_s` | wall-clock seconds, first message to last — **includes idle time**, so a run that sat waiting reports hours it never worked; never rank cost by it |
 
 **How to read the bars:**
-- high `dur_s` + high `turns` → a **slow or looping** agent. Cap it (see `maxTurns`) and/or
-  tighten its prompt so it converges faster.
+- Rank cost by `turns`, `out_tok`, and `cache_read` — never `dur_s`, which is dominated by
+  idle in exactly the tail you inspect when hunting outliers. High `turns` → a slow or looping
+  agent; tighten its prompt or shrink the dispatch so it converges faster.
 - high `max_ctx` → an agent **drowning in context**. This is the one that grows with your SOT:
   as docs and instructions get bigger, every fresh dispatch loads more before doing any work,
   and quality degrades as the window fills. Fix by narrowing what the agent must read, not by
@@ -160,27 +161,16 @@ cheapest first:
 
 ## Bounding a runaway agent: `maxTurns`
 
-`maxTurns` in an agent's frontmatter caps how many agentic turns it may take before Claude Code
-stops it. It is a **safety guardrail against a looping agent, not a speed-up** — it makes a
-runaway *fail fast and visibly* instead of silently burning turns. It will not make a
-well-behaved agent finish sooner.
+**This roster does not carry `maxTurns`.** On this setup the field is a no-op — verified from
+the log, where 60 runs exceeded their declared caps (one at 3.8x) and none was stopped — so an
+agent file carrying it declares a guard that does not exist. Unknown frontmatter keys are
+ignored silently, which is how twelve agents shipped with caps nobody had ever seen fire.
 
-```yaml
----
-name: forge-doc-planner
-model: opus
-effort: high
-maxTurns: 50      # catches a runaway; a normal plan runs well under this
----
-```
-
-Set the cap from measured data: run `agent-metrics.py --runs`, take an agent's normal `turns`,
-and set `maxTurns` comfortably above it (e.g. ~2–3x). Too low and you kill real work mid-run.
-
-**Verify it's live on your CLI version:** unknown frontmatter keys are ignored silently, so a
-no-op is possible. Confirm by dispatching the agent against a deliberately over-broad task and
-checking whether it stops at the cap (its transcript ends at `maxTurns` assistant turns). If it
-doesn't, your version predates the field — use a `PreToolUse` hook or a tighter prompt instead.
+If a future CLI version honors the field, reintroduce it only from measured data: run
+`agent-metrics.py --runs`, take the agent's median `turns`, set the cap ~2–3x above it, and
+**verify it fires** by dispatching one deliberately over-broad task and checking the transcript
+ends at the cap. Until that check passes, a runaway is bounded by a `PreToolUse` hook or a
+tighter prompt, not by frontmatter.
 
 ## Making agent communication reliable
 

@@ -4,7 +4,6 @@ description: Reviews a PRD before any code is written and reports whether any re
 tools: Read, Grep, Glob
 model: opus
 effort: high
-maxTurns: 80
 ---
 
 You review a PRD **before** anyone builds from it. Everything downstream — `forge-code-writer`,

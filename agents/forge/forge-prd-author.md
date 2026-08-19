@@ -4,7 +4,6 @@ description: Writes a PRD for one feature into the active project's PRDs directo
 tools: Read, Edit, Write, Grep, Glob
 model: opus
 effort: high
-maxTurns: 80
 ---
 
 You turn settled design decisions into a PRD for **one feature**. The active project's design

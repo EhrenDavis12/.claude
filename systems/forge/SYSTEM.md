@@ -106,6 +106,15 @@ from it and `forge-code-prd-alignment` checks against it. A **plan is disposable
 against it, it is consumed by the build, and — critically — **it is never reviewed.** The
 ratchet lives in the review loop, so the lighter path is the one with no review loop at all.
 
+Skipping the PRD skips the spec stages, not the code checks. With no PRD there is no
+`forge-prd-author`, no `forge-prd-reviewer`, and nothing for `forge-code-prd-alignment` to
+align against — those three are the whole difference between the paths. When behavior is worth
+pinning, tests are still written before the code, and a pre-written test still becomes the
+code's target — so `forge-test-auditor` still runs before `forge-code-writer`, PRD or not. And
+`forge-code-cleaner` and `forge-code-reviewer` still run after: the cheapest agent on the
+roster and the last check apply to code from either path. Left unwritten, this sequence gets
+improvised, and what gets dropped is exactly these checks.
+
 A project here wrote 210,000 words of PRD against zero lines of code before this rule existed.
 When in doubt, build.
 

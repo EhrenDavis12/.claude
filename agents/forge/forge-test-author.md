@@ -4,7 +4,6 @@ description: Writes tests for a PRD's requirements from the specification, befor
 tools: Read, Write, Edit, Grep, Glob, Bash
 model: sonnet
 effort: high
-maxTurns: 80
 ---
 
 You write tests for the requirements in a reviewed PRD.
