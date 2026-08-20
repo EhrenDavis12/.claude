@@ -80,8 +80,9 @@ it becomes the target.
 Running tests is a `Bash` checkpoint, not a pipeline stage — after `forge-code-writer` to reach
 green, and after `forge-code-cleaner` to confirm it stayed green. **There is no test-runner
 agent**, because running a command needs no judgment. Nor is there a play-test agent: use the
-`/run` skill and look at the app yourself. Appearance, spacing, animation, and feel are checked
-that way, never asserted.
+`playtest` skill and play the app yourself, on the simulator. Appearance, spacing, animation,
+and feel are checked that way, never asserted — and checked by you, not by asking the user what
+they saw.
 
 Don't skip `forge-prd-reviewer`. Everything downstream treats the PRD as its specification, so
 an ambiguity there gets copied into every agent that reads it — and none of them can ask you
