@@ -59,7 +59,11 @@ Read `runs` for executions and `avg_dur_s` for runtime.
 
 1. `cd .claude/otel && docker compose up -d`
 2. Open http://localhost:3000/d/subagent-efficiency
-3. Set the time range (top right) to **Last 90 days**
+3. Set the time range (top right) — every number on this dashboard is a delta over that
+   window, so **Last 5 minutes** and **Last 30 days** give different answers. The one
+   exception is `peak context`, which the exporter keeps as an all-time high-water mark.
+   The window can only reach back as far as Prometheus has been running: it stores nothing
+   on disk, so `docker compose down` resets the history (the run log itself is untouched).
 4. Read the **Efficiency by agent** table — `runs` is executions, `avg s/run` is runtime
 5. Click any column header to re-sort
 6. Use the **Agent team** dropdown (top left) to filter to `forge`

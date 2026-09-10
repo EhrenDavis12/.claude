@@ -45,8 +45,10 @@ docs_root=$(jq -r '.docsRoot // empty' "$manifest" 2>/dev/null) || exit 0
 changed=$(git status --porcelain -- "$docs_root" 2>/dev/null) || exit 0
 [ -z "$changed" ] && exit 0
 
-# Only the hand-written design docs are forge-doc-planner's territory. PRDs belong to
-# forge-prd-author, roadmap.md is generated, and project.json is configuration.
+# Only the hand-written design docs are forge-doc-planner's territory: the .md files DIRECTLY
+# under docsRoot. Anything in a subdirectory is not a design doc (PRDs/ belongs to
+# forge-prd-author, Archived_for_deletion/ and maintenance/ are not docs at all), roadmap.md is
+# generated, and project.json is configuration.
 # Porcelain v1 is "XY " then the path, so the status is exactly the first 3 characters.
 # Renames arrive as `old -> new`; keep the new name. Paths containing spaces are quoted.
 # Note `paste -d` takes a *cyclic list* of delimiters, so ', ' would alternate comma and
@@ -54,9 +56,8 @@ changed=$(git status --porcelain -- "$docs_root" 2>/dev/null) || exit 0
 files=$(printf '%s\n' "$changed" \
   | cut -c4- \
   | sed 's/^.* -> //; s/^"//; s/"$//' \
-  | grep -v "^${docs_root}/PRDs/" \
+  | grep "^${docs_root}/[^/]*\.md$" \
   | grep -v "^${docs_root}/roadmap\.md$" \
-  | grep -v "^${docs_root}/project\.json$" \
   | paste -sd, - || true)
 
 [ -z "$files" ] && exit 0

@@ -36,6 +36,14 @@ Several `srcRoots` are git submodules. That matters when you check your own work
 from the repo root shows only a changed submodule pointer, not the changes inside it. Run
 `git -C <srcRoot> diff` and `git -C <srcRoot> status` instead.
 
+**Bound your reading before you start.** Your task is bounded by the requirements the caller
+names, and their pre-written tests name the API you must provide — you never need the whole
+feature surface in context. If the task spans more than one srcRoot, or your context passes
+~250k tokens, stop: report what is built and green, and ask to be re-split by srcRoot. Cost
+per turn grows with everything you have ever read; one run of this agent reached 668k tokens
+and cost more than its feature's entire initial build. A split costs one round trip;
+continuing costs the window.
+
 Out of scope — do not write to any of these:
 
 - **Tests.** `forge-test-author` wrote them from the PRD, before you, and they are already

@@ -1,11 +1,14 @@
 {
   "uid": "subagent-efficiency",
-  "title": "Claude Code — Subagent Efficiency (by name)",
-  "description": "Per-agent efficiency, resolved by agent NAME. Source is the agent-exporter, which serves the SubagentStop hook's run log — Claude Code's own OTEL reports every custom subagent as agent_name=\"custom\", so this is the only place the names exist.",
+  "title": "Claude Code \u2014 Subagent Efficiency (by name)",
+  "description": "Per-agent performance by NAME, over the selected time range: turns, runtime, context size and token re-read. No dollars \u2014 read those off the Agent Performance dashboard. Source is the agent-exporter serving the SubagentStop hook's run log, because Claude Code's own OTEL reports every custom subagent as agent_name=\"custom\".",
   "schemaVersion": 39,
-  "version": 1,
+  "version": 7,
   "editable": true,
-  "time": { "from": "now-30d", "to": "now" },
+  "time": {
+    "from": "now-30d",
+    "to": "now"
+  },
   "refresh": "30s",
   "templating": {
     "list": [
@@ -13,12 +16,18 @@
         "name": "system",
         "label": "Agent team",
         "type": "query",
-        "datasource": { "type": "prometheus", "uid": "prometheus" },
+        "datasource": {
+          "type": "prometheus",
+          "uid": "prometheus"
+        },
         "query": "label_values(claude_agent_runs_total, system)",
         "refresh": 1,
         "includeAll": true,
         "multi": true,
-        "current": { "text": "All", "value": "$__all" }
+        "current": {
+          "text": "All",
+          "value": "$__all"
+        }
       }
     ]
   },
@@ -26,145 +35,37 @@
     {
       "type": "row",
       "title": "Totals",
-      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 0 },
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 0
+      },
       "collapsed": false,
       "panels": []
     },
     {
       "type": "stat",
-      "title": "Runs recorded",
-      "datasource": { "type": "prometheus", "uid": "prometheus" },
-      "gridPos": { "h": 4, "w": 4, "x": 0, "y": 1 },
+      "title": "Runs",
+      "description": "Subagent dispatches that completed in the window.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 3,
+        "x": 0,
+        "y": 1
+      },
       "options": {
-        "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false },
-        "colorMode": "value",
-        "graphMode": "none",
-        "textMode": "auto"
-      },
-      "fieldConfig": {
-        "defaults": { "unit": "short", "color": { "mode": "fixed", "fixedColor": "text" } },
-        "overrides": []
-      },
-      "targets": [
-        {
-          "refId": "A",
-          "datasource": { "type": "prometheus", "uid": "prometheus" },
-          "expr": "sum(claude_agent_runs_total{system=~\"$system\"})",
-          "instant": true
-        }
-      ]
-    },
-    {
-      "type": "stat",
-      "title": "Estimated spend",
-      "description": "A floor, not a bill: output tokens plus cached re-read, priced from each agent's own model tier. The run log doesn't record fresh input or cache-creation tokens, so real spend is higher. Read exact dollars off the Agent Performance dashboard; use this one to rank agents.",
-      "datasource": { "type": "prometheus", "uid": "prometheus" },
-      "gridPos": { "h": 4, "w": 4, "x": 4, "y": 1 },
-      "options": {
-        "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false },
-        "colorMode": "value",
-        "graphMode": "none",
-        "textMode": "auto"
-      },
-      "fieldConfig": {
-        "defaults": {
-          "unit": "currencyUSD",
-          "decimals": 0,
-          "color": { "mode": "fixed", "fixedColor": "green" }
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
         },
-        "overrides": []
-      },
-      "targets": [
-        {
-          "refId": "A",
-          "datasource": { "type": "prometheus", "uid": "prometheus" },
-          "expr": "sum(claude_agent_estimated_cost_usd_total{system=~\"$system\"})",
-          "instant": true
-        }
-      ]
-    },
-    {
-      "type": "stat",
-      "title": "Agent time (worked)",
-      "description": "Excludes runs inflated by batch-and-resume waiting on a human answer.",
-      "datasource": { "type": "prometheus", "uid": "prometheus" },
-      "gridPos": { "h": 4, "w": 4, "x": 8, "y": 1 },
-      "options": {
-        "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false },
-        "colorMode": "value",
-        "graphMode": "none",
-        "textMode": "auto"
-      },
-      "fieldConfig": {
-        "defaults": { "unit": "s", "color": { "mode": "fixed", "fixedColor": "blue" } },
-        "overrides": []
-      },
-      "targets": [
-        {
-          "refId": "A",
-          "datasource": { "type": "prometheus", "uid": "prometheus" },
-          "expr": "sum(claude_agent_worked_duration_seconds_total{system=~\"$system\"})",
-          "instant": true
-        }
-      ]
-    },
-    {
-      "type": "stat",
-      "title": "Output tokens",
-      "datasource": { "type": "prometheus", "uid": "prometheus" },
-      "gridPos": { "h": 4, "w": 4, "x": 12, "y": 1 },
-      "options": {
-        "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false },
-        "colorMode": "value",
-        "graphMode": "none",
-        "textMode": "auto"
-      },
-      "fieldConfig": {
-        "defaults": { "unit": "short", "color": { "mode": "fixed", "fixedColor": "purple" } },
-        "overrides": []
-      },
-      "targets": [
-        {
-          "refId": "A",
-          "datasource": { "type": "prometheus", "uid": "prometheus" },
-          "expr": "sum(claude_agent_output_tokens_total{system=~\"$system\"})",
-          "instant": true
-        }
-      ]
-    },
-    {
-      "type": "stat",
-      "title": "Dispatch re-read tax",
-      "description": "Cached input re-read across all runs — the fixed cost of every agent starting fresh.",
-      "datasource": { "type": "prometheus", "uid": "prometheus" },
-      "gridPos": { "h": 4, "w": 4, "x": 16, "y": 1 },
-      "options": {
-        "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false },
-        "colorMode": "value",
-        "graphMode": "none",
-        "textMode": "auto"
-      },
-      "fieldConfig": {
-        "defaults": { "unit": "short", "color": { "mode": "fixed", "fixedColor": "orange" } },
-        "overrides": []
-      },
-      "targets": [
-        {
-          "refId": "A",
-          "datasource": { "type": "prometheus", "uid": "prometheus" },
-          "expr": "sum(claude_agent_cache_read_tokens_total{system=~\"$system\"})",
-          "instant": true
-        }
-      ]
-    },
-    {
-      "type": "stat",
-      "title": "Blocked & resumed",
-      "description": "Runs whose wall-clock spans a wait for a human answer. A high count means the agent keeps returning questions.",
-      "datasource": { "type": "prometheus", "uid": "prometheus" },
-      "gridPos": { "h": 4, "w": 4, "x": 20, "y": 1 },
-      "options": {
-        "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false },
         "colorMode": "value",
         "graphMode": "none",
         "textMode": "auto"
@@ -172,13 +73,346 @@
       "fieldConfig": {
         "defaults": {
           "unit": "short",
-          "color": { "mode": "thresholds" },
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "text"
+          }
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "round(sum(increase(claude_agent_runs_total{system=~\"$system\"}[$__range])))",
+          "instant": true
+        }
+      ]
+    },
+    {
+      "type": "stat",
+      "title": "Output tokens",
+      "description": "What the agents actually produced \u2014 the only tokens that represent work.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 3,
+        "x": 3,
+        "y": 1
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "value",
+        "graphMode": "none",
+        "textMode": "auto"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "purple"
+          }
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "round(sum(increase(claude_agent_output_tokens_total{system=~\"$system\"}[$__range])))",
+          "instant": true
+        }
+      ]
+    },
+    {
+      "type": "stat",
+      "title": "Context re-read",
+      "description": "Cached input re-sent on every turn. Usually 100-500x the output \u2014 see the table description.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 3,
+        "x": 6,
+        "y": 1
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "value",
+        "graphMode": "none",
+        "textMode": "auto"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "orange"
+          }
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "round(sum(increase(claude_agent_cache_read_tokens_total{system=~\"$system\"}[$__range])))",
+          "instant": true
+        }
+      ]
+    },
+    {
+      "type": "stat",
+      "title": "Re-read per output token",
+      "description": "THE efficiency number: tokens re-read for each token produced. Healthy is under ~250. Above ~400 something is looping or carrying too much context.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 3,
+        "x": 9,
+        "y": 1
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "value",
+        "graphMode": "none",
+        "textMode": "auto"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "color": {
+            "mode": "thresholds"
+          },
           "thresholds": {
             "mode": "absolute",
             "steps": [
-              { "color": "green", "value": null },
-              { "color": "orange", "value": 5 },
-              { "color": "red", "value": 20 }
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "orange",
+                "value": 400
+              },
+              {
+                "color": "red",
+                "value": 600
+              }
+            ]
+          },
+          "decimals": 0
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "sum(increase(claude_agent_cache_read_tokens_total{system=~\"$system\"}[$__range])) / (sum(increase(claude_agent_output_tokens_total{system=~\"$system\"}[$__range])) > 0)",
+          "instant": true
+        }
+      ]
+    },
+    {
+      "type": "stat",
+      "title": "Avg context per turn",
+      "description": "Mean window size the agents were carrying on a turn. Rises as agents read more and never falls \u2014 nothing leaves a context.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 3,
+        "x": 12,
+        "y": 1
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "value",
+        "graphMode": "none",
+        "textMode": "auto"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "orange",
+                "value": 150000
+              },
+              {
+                "color": "red",
+                "value": 250000
+              }
+            ]
+          },
+          "decimals": 0
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "sum(increase(claude_agent_cache_read_tokens_total{system=~\"$system\"}[$__range])) / (sum(increase(claude_agent_turns_total{system=~\"$system\"}[$__range])) > 0)",
+          "instant": true
+        }
+      ]
+    },
+    {
+      "type": "stat",
+      "title": "Agent time (worked)",
+      "description": "Wall-clock, excluding runs inflated by waiting on a human answer.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 3,
+        "x": 15,
+        "y": 1
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "value",
+        "graphMode": "none",
+        "textMode": "auto"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "blue"
+          }
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "sum(increase(claude_agent_worked_duration_seconds_total{system=~\"$system\"}[$__range]))",
+          "instant": true
+        }
+      ]
+    },
+    {
+      "type": "stat",
+      "title": "Bash calls",
+      "description": "Shell invocations. A spike here is the signature of an agent looping on a test suite or build.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 3,
+        "x": 18,
+        "y": 1
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "value",
+        "graphMode": "none",
+        "textMode": "auto"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "orange",
+                "value": 500
+              },
+              {
+                "color": "red",
+                "value": 1500
+              }
             ]
           }
         },
@@ -187,8 +421,75 @@
       "targets": [
         {
           "refId": "A",
-          "datasource": { "type": "prometheus", "uid": "prometheus" },
-          "expr": "sum(claude_agent_idle_suspect_runs_total{system=~\"$system\"})",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "round(sum(increase(claude_agent_tool_calls_by_tool_total{system=~\"$system\",tool=\"Bash\"}[$__range])))",
+          "instant": true
+        }
+      ]
+    },
+    {
+      "type": "stat",
+      "title": "Blocked & resumed",
+      "description": "Runs whose wall-clock spans a wait for a human answer. High means the agent keeps returning questions.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 3,
+        "x": 21,
+        "y": 1
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "value",
+        "graphMode": "none",
+        "textMode": "auto"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "orange",
+                "value": 3
+              },
+              {
+                "color": "red",
+                "value": 10
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "round(sum(increase(claude_agent_idle_suspect_runs_total{system=~\"$system\"}[$__range])))",
           "instant": true
         }
       ]
@@ -196,105 +497,459 @@
     {
       "type": "row",
       "title": "Per-agent breakdown",
-      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 5 },
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 5
+      },
       "collapsed": false,
       "panels": []
     },
     {
       "type": "table",
       "title": "Efficiency by agent",
-      "description": "One row per agent. avg s/run excludes resume-inflated runs; every other average is over all runs.",
-      "datasource": { "type": "prometheus", "uid": "prometheus" },
-      "gridPos": { "h": 11, "w": 24, "x": 0, "y": 6 },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "description": "One row per agent that completed a run in the selected range; idle agents drop out.\n\n**Re-read** is the key idea: every turn re-sends the whole conversation, so a run costs roughly *context x turns*. Nothing ever leaves a context.\n\n| column | meaning |\n|---|---|\n| **agent** | the subagent, by name |\n| **team** | which agent system it belongs to |\n| **runs** | dispatches completed in range |\n| **avg turns** | assistant turns per run \u2014 loop length *(orange 120, red 250)* |\n| **Bash/run** | shell calls per run \u2014 a loop on tests or a build shows here first *(orange 50, red 100)* |\n| **avg s/run** | wall-clock per run, excluding runs that waited on you *(orange 10m, red 30m)* |\n| **avg out tok** | tokens written per run \u2014 the only tokens that are real work |\n| **avg ctx/turn** | mean window carried on each turn; explains most other columns *(orange 150k, red 250k)* |\n| **peak ctx** | largest window ever reached \u2014 all-time, ignores the time picker *(orange 200k, red 400k)* |\n| **re-read** | total context re-sent across all runs in range \u2014 where the tokens went |\n| **re-read/run** | the same, per dispatch |\n| **per out tok** | re-read \u00f7 output \u2014 thought a lot, wrote little *(orange 400, red 600)* |\n| **blocked** | runs whose clock spanned a wait for a human answer *(orange 1, red 5)* |",
+      "gridPos": {
+        "h": 12,
+        "w": 24,
+        "x": 0,
+        "y": 6
+      },
       "options": {
         "showHeader": true,
         "cellHeight": "sm",
-        "footer": { "show": false, "reducer": ["sum"], "fields": "" },
-        "sortBy": [{ "displayName": "est $", "desc": true }]
+        "footer": {
+          "show": false,
+          "reducer": [
+            "sum"
+          ],
+          "fields": ""
+        },
+        "sortBy": [
+          {
+            "displayName": "re-read",
+            "desc": true
+          }
+        ]
       },
       "fieldConfig": {
         "defaults": {
-          "custom": { "align": "auto", "cellOptions": { "type": "auto" } },
-          "color": { "mode": "thresholds" },
-          "thresholds": { "mode": "absolute", "steps": [{ "color": "text", "value": null }] }
+          "custom": {
+            "align": "auto",
+            "cellOptions": {
+              "type": "auto"
+            },
+            "minWidth": 70
+          },
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "text",
+                "value": null
+              }
+            ]
+          }
         },
         "overrides": [
           {
-            "matcher": { "id": "byName", "options": "est $" },
+            "matcher": {
+              "id": "byName",
+              "options": "avg turns"
+            },
             "properties": [
-              { "id": "unit", "value": "currencyUSD" },
-              { "id": "decimals", "value": 0 },
-              { "id": "custom.cellOptions", "value": { "type": "color-background", "mode": "gradient" } },
-              { "id": "color", "value": { "mode": "continuous-GrYlRd" } },
-              { "id": "noValue", "value": "not priced" }
-            ]
-          },
-          {
-            "matcher": { "id": "byName", "options": "est $/run" },
-            "properties": [
-              { "id": "unit", "value": "currencyUSD" },
-              { "id": "decimals", "value": 2 },
-              { "id": "noValue", "value": "—" }
-            ]
-          },
-          {
-            "matcher": { "id": "byName", "options": "avg s/run" },
-            "properties": [
-              { "id": "unit", "value": "s" },
-              { "id": "decimals", "value": 0 },
-              { "id": "custom.cellOptions", "value": { "type": "color-background", "mode": "gradient" } },
-              { "id": "color", "value": { "mode": "continuous-BlYlRd" } }
-            ]
-          },
-          {
-            "matcher": { "id": "byName", "options": "avg out tokens" },
-            "properties": [
-              { "id": "decimals", "value": 0 },
-              { "id": "custom.cellOptions", "value": { "type": "color-background", "mode": "gradient" } },
-              { "id": "color", "value": { "mode": "continuous-BlPu" } }
-            ]
-          },
-          {
-            "matcher": { "id": "byName", "options": "peak context" },
-            "properties": [
-              { "id": "decimals", "value": 0 },
-              { "id": "custom.cellOptions", "value": { "type": "color-background", "mode": "gradient" } },
-              { "id": "color", "value": { "mode": "continuous-YlRd" } }
-            ]
-          },
-          {
-            "matcher": { "id": "byName", "options": "avg cache re-read" },
-            "properties": [
-              { "id": "decimals", "value": 0 },
-              { "id": "custom.cellOptions", "value": { "type": "color-background", "mode": "gradient" } },
-              { "id": "color", "value": { "mode": "continuous-GrYlRd" } }
-            ]
-          },
-          {
-            "matcher": { "id": "byName", "options": "avg turns" },
-            "properties": [{ "id": "decimals", "value": 1 }]
-          },
-          {
-            "matcher": { "id": "byName", "options": "avg tool calls" },
-            "properties": [{ "id": "decimals", "value": 1 }]
-          },
-          {
-            "matcher": { "id": "byName", "options": "blocked" },
-            "properties": [
-              { "id": "decimals", "value": 0 },
+              {
+                "id": "decimals",
+                "value": 0
+              },
               {
                 "id": "custom.cellOptions",
-                "value": { "type": "color-background", "mode": "gradient" }
+                "value": {
+                  "type": "color-background",
+                  "mode": "gradient"
+                }
               },
               {
                 "id": "thresholds",
                 "value": {
                   "mode": "absolute",
                   "steps": [
-                    { "color": "transparent", "value": null },
-                    { "color": "orange", "value": 1 },
-                    { "color": "red", "value": 10 }
+                    {
+                      "color": "transparent",
+                      "value": null
+                    },
+                    {
+                      "color": "orange",
+                      "value": 120
+                    },
+                    {
+                      "color": "red",
+                      "value": 250
+                    }
                   ]
+                }
+              },
+              {
+                "id": "color",
+                "value": {
+                  "mode": "thresholds"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Bash/run"
+            },
+            "properties": [
+              {
+                "id": "decimals",
+                "value": 0
+              },
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "color-background",
+                  "mode": "gradient"
+                }
+              },
+              {
+                "id": "thresholds",
+                "value": {
+                  "mode": "absolute",
+                  "steps": [
+                    {
+                      "color": "transparent",
+                      "value": null
+                    },
+                    {
+                      "color": "orange",
+                      "value": 50
+                    },
+                    {
+                      "color": "red",
+                      "value": 100
+                    }
+                  ]
+                }
+              },
+              {
+                "id": "color",
+                "value": {
+                  "mode": "thresholds"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "avg s/run"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "s"
+              },
+              {
+                "id": "decimals",
+                "value": 0
+              },
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "color-background",
+                  "mode": "gradient"
+                }
+              },
+              {
+                "id": "thresholds",
+                "value": {
+                  "mode": "absolute",
+                  "steps": [
+                    {
+                      "color": "transparent",
+                      "value": null
+                    },
+                    {
+                      "color": "orange",
+                      "value": 600
+                    },
+                    {
+                      "color": "red",
+                      "value": 1800
+                    }
+                  ]
+                }
+              },
+              {
+                "id": "color",
+                "value": {
+                  "mode": "thresholds"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "avg out tok"
+            },
+            "properties": [
+              {
+                "id": "decimals",
+                "value": 0
+              },
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "color-background",
+                  "mode": "gradient"
+                }
+              },
+              {
+                "id": "color",
+                "value": {
+                  "mode": "continuous-BlPu"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "avg ctx/turn"
+            },
+            "properties": [
+              {
+                "id": "decimals",
+                "value": 0
+              },
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "color-background",
+                  "mode": "gradient"
+                }
+              },
+              {
+                "id": "thresholds",
+                "value": {
+                  "mode": "absolute",
+                  "steps": [
+                    {
+                      "color": "transparent",
+                      "value": null
+                    },
+                    {
+                      "color": "orange",
+                      "value": 150000
+                    },
+                    {
+                      "color": "red",
+                      "value": 250000
+                    }
+                  ]
+                }
+              },
+              {
+                "id": "color",
+                "value": {
+                  "mode": "thresholds"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "peak ctx"
+            },
+            "properties": [
+              {
+                "id": "decimals",
+                "value": 0
+              },
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "color-background",
+                  "mode": "gradient"
+                }
+              },
+              {
+                "id": "thresholds",
+                "value": {
+                  "mode": "absolute",
+                  "steps": [
+                    {
+                      "color": "transparent",
+                      "value": null
+                    },
+                    {
+                      "color": "orange",
+                      "value": 200000
+                    },
+                    {
+                      "color": "red",
+                      "value": 400000
+                    }
+                  ]
+                }
+              },
+              {
+                "id": "color",
+                "value": {
+                  "mode": "thresholds"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "re-read"
+            },
+            "properties": [
+              {
+                "id": "decimals",
+                "value": 0
+              },
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "color-background",
+                  "mode": "gradient"
+                }
+              },
+              {
+                "id": "color",
+                "value": {
+                  "mode": "continuous-GrYlRd"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "re-read/run"
+            },
+            "properties": [
+              {
+                "id": "decimals",
+                "value": 0
+              },
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "color-background",
+                  "mode": "gradient"
+                }
+              },
+              {
+                "id": "color",
+                "value": {
+                  "mode": "continuous-GrYlRd"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "per out tok"
+            },
+            "properties": [
+              {
+                "id": "decimals",
+                "value": 0
+              },
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "color-background",
+                  "mode": "gradient"
+                }
+              },
+              {
+                "id": "thresholds",
+                "value": {
+                  "mode": "absolute",
+                  "steps": [
+                    {
+                      "color": "transparent",
+                      "value": null
+                    },
+                    {
+                      "color": "orange",
+                      "value": 400
+                    },
+                    {
+                      "color": "red",
+                      "value": 600
+                    }
+                  ]
+                }
+              },
+              {
+                "id": "color",
+                "value": {
+                  "mode": "thresholds"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "blocked"
+            },
+            "properties": [
+              {
+                "id": "decimals",
+                "value": 0
+              },
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "color-background",
+                  "mode": "gradient"
+                }
+              },
+              {
+                "id": "thresholds",
+                "value": {
+                  "mode": "absolute",
+                  "steps": [
+                    {
+                      "color": "transparent",
+                      "value": null
+                    },
+                    {
+                      "color": "orange",
+                      "value": 1
+                    },
+                    {
+                      "color": "red",
+                      "value": 5
+                    }
+                  ]
+                }
+              },
+              {
+                "id": "color",
+                "value": {
+                  "mode": "thresholds"
                 }
               }
             ]
@@ -304,124 +959,374 @@
       "targets": [
         {
           "refId": "A",
-          "datasource": { "type": "prometheus", "uid": "prometheus" },
-          "expr": "claude_agent_runs_total{system=~\"$system\"}",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "round(increase(claude_agent_runs_total{system=~\"$system\"}[$__range]) > 0)",
           "instant": true,
           "format": "table"
         },
         {
           "refId": "B",
-          "datasource": { "type": "prometheus", "uid": "prometheus" },
-          "expr": "claude_agent_worked_duration_seconds_total{system=~\"$system\"} / claude_agent_worked_runs_total{system=~\"$system\"}",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "increase(claude_agent_turns_total{system=~\"$system\"}[$__range]) / (round(increase(claude_agent_runs_total{system=~\"$system\"}[$__range])) > 0)",
           "instant": true,
           "format": "table"
         },
         {
           "refId": "C",
-          "datasource": { "type": "prometheus", "uid": "prometheus" },
-          "expr": "claude_agent_turns_total{system=~\"$system\"} / claude_agent_runs_total{system=~\"$system\"}",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "sum by (agent, system) (increase(claude_agent_tool_calls_by_tool_total{system=~\"$system\",tool=\"Bash\"}[$__range])) / (round(sum by (agent, system) (increase(claude_agent_runs_total{system=~\"$system\"}[$__range]))) > 0)",
           "instant": true,
           "format": "table"
         },
         {
           "refId": "D",
-          "datasource": { "type": "prometheus", "uid": "prometheus" },
-          "expr": "claude_agent_tool_calls_total{system=~\"$system\"} / claude_agent_runs_total{system=~\"$system\"}",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "increase(claude_agent_worked_duration_seconds_total{system=~\"$system\"}[$__range]) / (round(increase(claude_agent_worked_runs_total{system=~\"$system\"}[$__range])) > 0)",
           "instant": true,
           "format": "table"
         },
         {
           "refId": "E",
-          "datasource": { "type": "prometheus", "uid": "prometheus" },
-          "expr": "claude_agent_output_tokens_total{system=~\"$system\"} / claude_agent_runs_total{system=~\"$system\"}",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "increase(claude_agent_output_tokens_total{system=~\"$system\"}[$__range]) / (round(increase(claude_agent_runs_total{system=~\"$system\"}[$__range])) > 0)",
           "instant": true,
           "format": "table"
         },
         {
           "refId": "F",
-          "datasource": { "type": "prometheus", "uid": "prometheus" },
-          "expr": "claude_agent_max_context_tokens{system=~\"$system\"}",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "increase(claude_agent_cache_read_tokens_total{system=~\"$system\"}[$__range]) / (round(increase(claude_agent_turns_total{system=~\"$system\"}[$__range])) > 0)",
           "instant": true,
           "format": "table"
         },
         {
           "refId": "G",
-          "datasource": { "type": "prometheus", "uid": "prometheus" },
-          "expr": "claude_agent_cache_read_tokens_total{system=~\"$system\"} / claude_agent_runs_total{system=~\"$system\"}",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "max_over_time(claude_agent_max_context_tokens{system=~\"$system\"}[$__range]) and on (agent, system) (increase(claude_agent_runs_total{system=~\"$system\"}[$__range]) > 0)",
           "instant": true,
           "format": "table"
         },
         {
           "refId": "H",
-          "datasource": { "type": "prometheus", "uid": "prometheus" },
-          "expr": "claude_agent_idle_suspect_runs_total{system=~\"$system\"}",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "increase(claude_agent_cache_read_tokens_total{system=~\"$system\"}[$__range]) and on (agent, system) (increase(claude_agent_runs_total{system=~\"$system\"}[$__range]) > 0)",
           "instant": true,
           "format": "table"
         },
         {
           "refId": "I",
-          "datasource": { "type": "prometheus", "uid": "prometheus" },
-          "expr": "sum by (agent, system) (claude_agent_estimated_cost_usd_total{system=~\"$system\"})",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "increase(claude_agent_cache_read_tokens_total{system=~\"$system\"}[$__range]) / (round(increase(claude_agent_runs_total{system=~\"$system\"}[$__range])) > 0)",
           "instant": true,
           "format": "table"
         },
         {
           "refId": "J",
-          "datasource": { "type": "prometheus", "uid": "prometheus" },
-          "expr": "sum by (agent, system) (claude_agent_estimated_cost_usd_total{system=~\"$system\"}) / sum by (agent, system) (claude_agent_runs_total{system=~\"$system\"})",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "increase(claude_agent_cache_read_tokens_total{system=~\"$system\"}[$__range]) / (increase(claude_agent_output_tokens_total{system=~\"$system\"}[$__range]) > 0)",
+          "instant": true,
+          "format": "table"
+        },
+        {
+          "refId": "K",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "round(increase(claude_agent_idle_suspect_runs_total{system=~\"$system\"}[$__range])) and on (agent, system) (increase(claude_agent_runs_total{system=~\"$system\"}[$__range]) > 0)",
           "instant": true,
           "format": "table"
         }
       ],
       "transformations": [
-        { "id": "joinByField", "options": { "byField": "agent", "mode": "outer" } },
+        {
+          "id": "joinByField",
+          "options": {
+            "byField": "agent",
+            "mode": "outer"
+          }
+        },
         {
           "id": "organize",
           "options": {
             "excludeByName": {
               "Time": true,
-              "Time 1": true, "Time 2": true, "Time 3": true, "Time 4": true,
-              "Time 5": true, "Time 6": true, "Time 7": true, "Time 8": true,
-              "Time 9": true, "Time 10": true,
-              "system 2": true, "system 3": true, "system 4": true,
-              "system 5": true, "system 6": true, "system 7": true, "system 8": true,
-              "system 9": true, "system 10": true,
-              "__name__": true, "__name__ 1": true, "__name__ 2": true,
-              "__name__ 3": true, "__name__ 4": true, "__name__ 5": true,
-              "__name__ 6": true, "__name__ 7": true, "__name__ 8": true,
-              "instance": true, "instance 1": true, "instance 2": true,
-              "instance 3": true, "instance 4": true, "instance 5": true,
-              "instance 6": true, "instance 7": true, "instance 8": true,
-              "job": true, "job 1": true, "job 2": true, "job 3": true,
-              "job 4": true, "job 5": true, "job 6": true, "job 7": true, "job 8": true
+              "__name__": true,
+              "Time 1": true,
+              "system 1": false,
+              "__name__ 1": true,
+              "instance 1": true,
+              "job 1": true,
+              "tool 1": true,
+              "Time 2": true,
+              "system 2": true,
+              "__name__ 2": true,
+              "instance 2": true,
+              "job 2": true,
+              "tool 2": true,
+              "Time 3": true,
+              "system 3": true,
+              "__name__ 3": true,
+              "instance 3": true,
+              "job 3": true,
+              "tool 3": true,
+              "Time 4": true,
+              "system 4": true,
+              "__name__ 4": true,
+              "instance 4": true,
+              "job 4": true,
+              "tool 4": true,
+              "Time 5": true,
+              "system 5": true,
+              "__name__ 5": true,
+              "instance 5": true,
+              "job 5": true,
+              "tool 5": true,
+              "Time 6": true,
+              "system 6": true,
+              "__name__ 6": true,
+              "instance 6": true,
+              "job 6": true,
+              "tool 6": true,
+              "Time 7": true,
+              "system 7": true,
+              "__name__ 7": true,
+              "instance 7": true,
+              "job 7": true,
+              "tool 7": true,
+              "Time 8": true,
+              "system 8": true,
+              "__name__ 8": true,
+              "instance 8": true,
+              "job 8": true,
+              "tool 8": true,
+              "Time 9": true,
+              "system 9": true,
+              "__name__ 9": true,
+              "instance 9": true,
+              "job 9": true,
+              "tool 9": true,
+              "Time 10": true,
+              "system 10": true,
+              "__name__ 10": true,
+              "instance 10": true,
+              "job 10": true,
+              "tool 10": true,
+              "Time 11": true,
+              "system 11": true,
+              "__name__ 11": true,
+              "instance 11": true,
+              "job 11": true,
+              "tool 11": true,
+              "Time 12": true,
+              "system 12": true,
+              "__name__ 12": true,
+              "instance 12": true,
+              "job 12": true,
+              "tool 12": true,
+              "instance": true,
+              "job": true,
+              "tool": true
             },
             "renameByName": {
               "agent": "agent",
               "system 1": "team",
               "Value #A": "runs",
-              "Value #B": "avg s/run",
-              "Value #C": "avg turns",
-              "Value #D": "avg tool calls",
-              "Value #E": "avg out tokens",
-              "Value #F": "peak context",
-              "Value #G": "avg cache re-read",
-              "Value #H": "blocked",
-              "Value #I": "est $",
-              "Value #J": "est $/run"
+              "Value #B": "avg turns",
+              "Value #C": "Bash/run",
+              "Value #D": "avg s/run",
+              "Value #E": "avg out tok",
+              "Value #F": "avg ctx/turn",
+              "Value #G": "peak ctx",
+              "Value #H": "re-read",
+              "Value #I": "re-read/run",
+              "Value #J": "per out tok",
+              "Value #K": "blocked"
             },
             "indexByName": {
               "agent": 0,
               "system 1": 1,
               "Value #A": 2,
-              "Value #I": 3,
-              "Value #J": 4,
-              "Value #B": 5,
-              "Value #C": 6,
-              "Value #D": 7,
-              "Value #E": 8,
-              "Value #F": 9,
-              "Value #G": 10,
-              "Value #H": 11
+              "Value #B": 3,
+              "Value #C": 4,
+              "Value #D": 5,
+              "Value #E": 6,
+              "Value #F": 7,
+              "Value #G": 8,
+              "Value #H": 9,
+              "Value #I": 10,
+              "Value #J": 11,
+              "Value #K": 12
+            }
+          }
+        }
+      ]
+    },
+    {
+      "type": "barchart",
+      "title": "Context re-read",
+      "description": "Total cached input re-sent, per agent. This is where the tokens went.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "h": 9,
+        "w": 12,
+        "x": 0,
+        "y": 18
+      },
+      "options": {
+        "orientation": "horizontal",
+        "showValue": "auto",
+        "xTickLabelRotation": 0,
+        "legend": {
+          "showLegend": false,
+          "displayMode": "list",
+          "placement": "bottom"
+        }
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "decimals": 0,
+          "color": {
+            "mode": "continuous-GrYlRd"
+          },
+          "custom": {
+            "lineWidth": 1,
+            "fillOpacity": 80
+          }
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "sort_desc(increase(claude_agent_cache_read_tokens_total{system=~\"$system\"}[$__range]) and on (agent, system) (increase(claude_agent_runs_total{system=~\"$system\"}[$__range]) > 0))",
+          "instant": true,
+          "format": "table"
+        }
+      ],
+      "transformations": [
+        {
+          "id": "organize",
+          "options": {
+            "excludeByName": {
+              "Time": true,
+              "system": true,
+              "job": true,
+              "instance": true,
+              "__name__": true,
+              "tool": true
+            },
+            "renameByName": {
+              "agent": "agent",
+              "Value": "Context re-read"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "type": "barchart",
+      "title": "Re-read per output token",
+      "description": "Efficiency: tokens re-read for each token produced. Tall bars are agents that thought a lot and wrote little \u2014 usually looping.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "h": 9,
+        "w": 12,
+        "x": 12,
+        "y": 18
+      },
+      "options": {
+        "orientation": "horizontal",
+        "showValue": "auto",
+        "xTickLabelRotation": 0,
+        "legend": {
+          "showLegend": false,
+          "displayMode": "list",
+          "placement": "bottom"
+        }
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "decimals": 0,
+          "color": {
+            "mode": "continuous-YlRd"
+          },
+          "custom": {
+            "lineWidth": 1,
+            "fillOpacity": 80
+          }
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "sort_desc(increase(claude_agent_cache_read_tokens_total{system=~\"$system\"}[$__range]) / (increase(claude_agent_output_tokens_total{system=~\"$system\"}[$__range]) > 0))",
+          "instant": true,
+          "format": "table"
+        }
+      ],
+      "transformations": [
+        {
+          "id": "organize",
+          "options": {
+            "excludeByName": {
+              "Time": true,
+              "system": true,
+              "job": true,
+              "instance": true,
+              "__name__": true,
+              "tool": true
+            },
+            "renameByName": {
+              "agent": "agent",
+              "Value": "Re-read per output token"
             }
           }
         }
@@ -430,40 +1335,69 @@
     {
       "type": "barchart",
       "title": "Average seconds per run",
-      "description": "Resume-inflated runs excluded. High duration alongside high turns means an agent that wanders.",
-      "datasource": { "type": "prometheus", "uid": "prometheus" },
-      "gridPos": { "h": 9, "w": 12, "x": 0, "y": 17 },
+      "description": "Resume-inflated runs excluded. High duration next to high turns means an agent that wanders.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "h": 9,
+        "w": 12,
+        "x": 0,
+        "y": 27
+      },
       "options": {
         "orientation": "horizontal",
         "showValue": "auto",
-        "legend": { "showLegend": false, "displayMode": "list", "placement": "bottom" },
-        "xTickLabelRotation": 0
+        "xTickLabelRotation": 0,
+        "legend": {
+          "showLegend": false,
+          "displayMode": "list",
+          "placement": "bottom"
+        }
       },
       "fieldConfig": {
         "defaults": {
           "unit": "s",
           "decimals": 0,
-          "color": { "mode": "continuous-BlYlRd" },
-          "custom": { "lineWidth": 1, "fillOpacity": 80 }
+          "color": {
+            "mode": "continuous-BlYlRd"
+          },
+          "custom": {
+            "lineWidth": 1,
+            "fillOpacity": 80
+          }
         },
         "overrides": []
       },
       "targets": [
         {
           "refId": "A",
-          "datasource": { "type": "prometheus", "uid": "prometheus" },
-          "expr": "sort_desc(claude_agent_worked_duration_seconds_total{system=~\"$system\"} / claude_agent_worked_runs_total{system=~\"$system\"})",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "sort_desc(increase(claude_agent_worked_duration_seconds_total{system=~\"$system\"}[$__range]) / (round(increase(claude_agent_worked_runs_total{system=~\"$system\"}[$__range])) > 0))",
           "instant": true,
-          "format": "table",
-          "legendFormat": "{{agent}}"
+          "format": "table"
         }
       ],
       "transformations": [
         {
           "id": "organize",
           "options": {
-            "excludeByName": { "Time": true, "system": true, "job": true, "instance": true, "__name__": true },
-            "renameByName": { "agent": "agent", "Value": "avg s/run" }
+            "excludeByName": {
+              "Time": true,
+              "system": true,
+              "job": true,
+              "instance": true,
+              "__name__": true,
+              "tool": true
+            },
+            "renameByName": {
+              "agent": "agent",
+              "Value": "Average seconds per run"
+            }
           }
         }
       ]
@@ -471,93 +1405,68 @@
     {
       "type": "barchart",
       "title": "Peak context reached",
-      "description": "The signal that an agent is drowning in context — it grows as the design docs grow. Fix by narrowing what the agent must read, not by making it smarter.",
-      "datasource": { "type": "prometheus", "uid": "prometheus" },
-      "gridPos": { "h": 9, "w": 12, "x": 12, "y": 17 },
+      "description": "All-time high-water mark, shown only for agents that ran in range. The bar height does not follow the time picker \u2014 only which bars appear does.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "h": 9,
+        "w": 12,
+        "x": 12,
+        "y": 27
+      },
       "options": {
         "orientation": "horizontal",
         "showValue": "auto",
-        "legend": { "showLegend": false, "displayMode": "list", "placement": "bottom" },
-        "xTickLabelRotation": 0
+        "xTickLabelRotation": 0,
+        "legend": {
+          "showLegend": false,
+          "displayMode": "list",
+          "placement": "bottom"
+        }
       },
       "fieldConfig": {
         "defaults": {
           "unit": "short",
           "decimals": 0,
-          "color": { "mode": "continuous-YlRd" },
-          "custom": { "lineWidth": 1, "fillOpacity": 80 }
-        },
-        "overrides": []
-      },
-      "targets": [
-        {
-          "refId": "A",
-          "datasource": { "type": "prometheus", "uid": "prometheus" },
-          "expr": "sort_desc(claude_agent_max_context_tokens{system=~\"$system\"})",
-          "instant": true,
-          "format": "table",
-          "legendFormat": "{{agent}}"
-        }
-      ],
-      "transformations": [
-        {
-          "id": "organize",
-          "options": {
-            "excludeByName": { "Time": true, "system": true, "job": true, "instance": true, "__name__": true },
-            "renameByName": { "agent": "agent", "Value": "peak context" }
+          "color": {
+            "mode": "continuous-YlRd"
+          },
+          "custom": {
+            "lineWidth": 1,
+            "fillOpacity": 80
           }
-        }
-      ]
-    },
-    {
-      "type": "barchart",
-      "title": "Estimated spend by agent",
-      "description": "Output tokens plus cached re-read, at each agent's own model rate. A floor on real spend — see the panel description on \"Estimated spend\" above.",
-      "datasource": { "type": "prometheus", "uid": "prometheus" },
-      "gridPos": { "h": 9, "w": 24, "x": 0, "y": 26 },
-      "options": {
-        "orientation": "horizontal",
-        "showValue": "auto",
-        "legend": { "showLegend": true, "displayMode": "list", "placement": "bottom" },
-        "xTickLabelRotation": 0,
-        "stacking": "normal"
-      },
-      "fieldConfig": {
-        "defaults": {
-          "unit": "currencyUSD",
-          "decimals": 0,
-          "custom": { "lineWidth": 1, "fillOpacity": 80 }
         },
         "overrides": []
       },
       "targets": [
         {
           "refId": "A",
-          "datasource": { "type": "prometheus", "uid": "prometheus" },
-          "expr": "sort_desc(sum by (agent) (claude_agent_estimated_output_cost_usd_total{system=~\"$system\"}))",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "sort_desc(max_over_time(claude_agent_max_context_tokens{system=~\"$system\"}[$__range]) and on (agent, system) (increase(claude_agent_runs_total{system=~\"$system\"}[$__range]) > 0))",
           "instant": true,
-          "format": "table",
-          "legendFormat": "output tokens"
-        },
-        {
-          "refId": "B",
-          "datasource": { "type": "prometheus", "uid": "prometheus" },
-          "expr": "sort_desc(sum by (agent) (claude_agent_estimated_cache_read_cost_usd_total{system=~\"$system\"}))",
-          "instant": true,
-          "format": "table",
-          "legendFormat": "cached re-read"
+          "format": "table"
         }
       ],
       "transformations": [
-        { "id": "joinByField", "options": { "byField": "agent", "mode": "outer" } },
         {
           "id": "organize",
           "options": {
-            "excludeByName": { "Time": true, "Time 1": true, "Time 2": true },
+            "excludeByName": {
+              "Time": true,
+              "system": true,
+              "job": true,
+              "instance": true,
+              "__name__": true,
+              "tool": true
+            },
             "renameByName": {
               "agent": "agent",
-              "Value #A": "output tokens",
-              "Value #B": "cached re-read"
+              "Value": "Peak context reached"
             }
           }
         }
@@ -565,22 +1474,43 @@
     },
     {
       "type": "timeseries",
-      "title": "Cumulative runs by agent",
-      "description": "Where dispatches are actually going over time.",
-      "datasource": { "type": "prometheus", "uid": "prometheus" },
-      "gridPos": { "h": 9, "w": 24, "x": 0, "y": 35 },
+      "title": "Context re-read over time",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "description": "When the tokens were spent. A wall here is an agent in a loop \u2014 cross-reference the Bash/run column.",
+      "gridPos": {
+        "h": 9,
+        "w": 24,
+        "x": 0,
+        "y": 36
+      },
       "options": {
-        "legend": { "showLegend": true, "displayMode": "table", "placement": "right", "calcs": ["lastNotNull"] },
-        "tooltip": { "mode": "multi", "sort": "desc" }
+        "legend": {
+          "showLegend": true,
+          "displayMode": "table",
+          "placement": "right",
+          "calcs": [
+            "sum"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
       },
       "fieldConfig": {
         "defaults": {
           "unit": "short",
           "custom": {
-            "drawStyle": "line",
-            "lineInterpolation": "stepAfter",
-            "lineWidth": 2,
-            "fillOpacity": 8,
+            "drawStyle": "bars",
+            "fillOpacity": 70,
+            "lineWidth": 1,
+            "stacking": {
+              "mode": "normal",
+              "group": "A"
+            },
             "showPoints": "never"
           }
         },
@@ -589,8 +1519,67 @@
       "targets": [
         {
           "refId": "A",
-          "datasource": { "type": "prometheus", "uid": "prometheus" },
-          "expr": "claude_agent_runs_total{system=~\"$system\"}",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "sum by (agent) (increase(claude_agent_cache_read_tokens_total{system=~\"$system\"}[$__rate_interval])) > 0",
+          "legendFormat": "{{agent}}"
+        }
+      ]
+    },
+    {
+      "type": "timeseries",
+      "title": "Runs by agent over time",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "description": "Runs completed per bucket, not a running total \u2014 a quiet window reads as quiet.",
+      "gridPos": {
+        "h": 9,
+        "w": 24,
+        "x": 0,
+        "y": 45
+      },
+      "options": {
+        "legend": {
+          "showLegend": true,
+          "displayMode": "table",
+          "placement": "right",
+          "calcs": [
+            "sum"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "custom": {
+            "drawStyle": "bars",
+            "fillOpacity": 70,
+            "lineWidth": 1,
+            "stacking": {
+              "mode": "normal",
+              "group": "A"
+            },
+            "showPoints": "never"
+          }
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "sum by (agent) (increase(claude_agent_runs_total{system=~\"$system\"}[$__rate_interval])) > 0",
           "legendFormat": "{{agent}}"
         }
       ]

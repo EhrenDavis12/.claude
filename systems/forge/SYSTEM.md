@@ -77,12 +77,35 @@ later.
 will be built to satisfy whatever these tests demand, so a weak test does not merely miss a bug,
 it becomes the target.
 
+**One dispatch per stage, and let it finish.** Splitting a stage across parallel agents looks
+like throughput and is not: every agent pays the same fixed cost — the PRD, the design docs,
+the existing suite — and pays it independently, because none of them can see what the others
+read. Three `forge-test-author`s fanned out over one PRD spent 462M tokens of context re-read,
+58% of that day's total, on work one agent would have done once. Split a stage only where the
+fixed cost genuinely differs, which in practice means by `srcRoot` — and that split has a
+bright line: **one writer per srcRoot, the srcRoot named in its prompt, never a second live
+`forge-test-author` or `forge-code-writer` whose scope overlaps it.** Two agents each handed
+the whole feature is neither one-per-stage nor one-per-srcRoot: two days after the fan-out
+above bought this rule, two test-authors dispatched that way each read a five-srcRoot feature
+whole, reached ~930k context, and burned 532M tokens — more than the incident the rule came
+from. Both agents now self-bound at ~250k context and hand back asking to be re-split; honor
+that request rather than resuming them past it.
+
+Starting the next stage before the current one returns costs the same way twice over. Code
+written while `forge-test-author` is still running is code built against tests that do not
+exist yet, so `forge-code-writer` gets re-dispatched once per test that lands late — twelve
+times, in the run that produced the number above. The pipeline is a sequence because each
+stage's output is the next stage's specification.
+
 Running tests is a `Bash` checkpoint, not a pipeline stage — after `forge-code-writer` to reach
 green, and after `forge-code-cleaner` to confirm it stayed green. **There is no test-runner
-agent**, because running a command needs no judgment. Nor is there a play-test agent: use the
-`playtest` skill and play the app yourself, on the simulator. Appearance, spacing, animation,
-and feel are checked that way, never asserted — and checked by you, not by asking the user what
-they saw.
+agent**, because running a command needs no judgment. The same checkpoint gates a re-review:
+before re-dispatching `forge-code-reviewer` on a fix round, confirm the diff actually moved
+(`git -C <srcRoot> diff`) — opus spent on a byte-identical diff only re-confirms the previous
+report. Nor is there a play-test agent: run the app
+yourself, however this project's stack runs it, and look. Appearance,
+spacing, animation, and feel are checked that way, never asserted — and checked by you, not by
+asking the user what they saw.
 
 Don't skip `forge-prd-reviewer`. Everything downstream treats the PRD as its specification, so
 an ambiguity there gets copied into every agent that reads it — and none of them can ask you
@@ -118,6 +141,13 @@ improvised, and what gets dropped is exactly these checks.
 
 A project here wrote 210,000 words of PRD against zero lines of code before this rule existed.
 When in doubt, build.
+
+**Say the triage out loud.** Before dispatching `forge-prd-author`, state in the conversation
+what a wrong guess would cost and why that earns a PRD — one sentence, e.g. "PRD: this changes
+a schema, a wrong guess is a migration." If the sentence can't be written, the feature didn't
+earn a PRD and the light path applies. Stating it is what keeps "default to build" from being
+skipped silently — the cost of the full spec loop on a trivial change is three opus stages
+that pin nothing.
 
 ## Closing out a PRD
 
@@ -223,7 +253,7 @@ correctness comes first and deletion waits.
    nothing older to supersede. Not `forge-doc-planner` — that one tidies docs against each
    other and is instructed never to resolve a contradiction.
 3. **Check the invariant:** no decision may exist only in a PRD. The planner's
-   **Harvest complete?** line states this directly, and it accounts for *every* doc the PRD
+   **Ready to delete** line states this directly, and it accounts for *every* doc the PRD
    owes, not just the one this run targeted. If it does not read clean, the harvest is not
    finished and nothing gets deleted.
 4. **Delete it** — `git rm`. Git keeps the history; an archive folder becomes a second source
@@ -232,29 +262,39 @@ correctness comes first and deletion waits.
 
 ### Migrating a backlog written before this system
 
-One-time, and not part of the flow above. A project arriving with PRDs full of decisions —
-because they were written when the SOT could not be trusted — is migrated wholesale rather than
-converted one at a time:
+One-time, and not part of the flow above. The previous system's PRDs — per-service and
+cross-service sprint folders, over a million words — already sit in
+`<docsRoot>/Archived_for_deletion/`, outside the manifest's `prds` path on purpose so nothing
+globbing that directory picks one up. They are harvested from there and deleted from there:
 
 1. **Tidy each design doc** so the SOT is structurally sound before anything lands in it.
-2. **Harvest each doc** from every PRD that feeds it. One run per doc, not per PRD.
-3. **Verify** every PRD's **Harvest complete?** reads clean across *every* doc it owes. This is
-   the gate, and it is the only irreversible step's only protection.
-4. **Archive as you go, delete deliberately.** When a run reports a PRD **Ready to archive**,
-   `git mv` it to `<docsRoot>/Archived_for_deletion/`. That folder sits outside the manifest's
-   `prds` path on purpose, so no agent globbing that directory can pick up a retired PRD.
-
-   The move is the main loop's, never an agent's — `forge-harvest-planner` holds no write tools
-   by design, and retiring a PRD is exactly the kind of act that should not happen as a side
-   effect of a planning run. It reports; you move.
-
-   Staging rather than deleting outright keeps the irreversible step in the user's hands and
-   makes progress visible: what is left in `prds` is what still owes something. **Empty the
-   folder** — a staging area that never drains becomes the second source of truth this
-   migration exists to remove.
+2. **Harvest one topic at a time** — a design doc, or a section of one. Dispatch
+   `forge-harvest-planner` with the target; it greps the archive for the PRDs that touch the
+   topic rather than reading it whole. **It is a 20% harvest**: only decisions the running code
+   confirms and a maintainer would need to know reach the SOT. Build instructions, test plans,
+   and never-shipped intentions are dropped, and the report lists each dropped claim in a line.
+3. **Apply** the plan with `forge-doc-writer`; relay **Contradicts the code** and **Needs your
+   call** to the user.
+4. **Delete what the report names.** `git rm` exactly the paths under **Ready to delete** —
+   a PRD, or a whole `sprint_N/` folder once every PRD in it is covered. A PRD marked **Still
+   owed** stays until the doc it owes has had its run. The deletion is the main loop's, never
+   an agent's: `forge-harvest-planner` holds no write tools by design. **Empty the folder** —
+   a staging area that never drains becomes a second source of truth.
 5. **Regenerate just-in-time** — one PRD, for the feature about to be built, and only when that
    feature earns a PRD at all. Regenerating the whole backlog rebuilds the problem: this project
-   reached 210,000 words precisely by writing every PRD before any code existed.
+   reached over a million words of PRD under the previous system.
+
+**Running it unattended: `/forge-harvest-backlog`.** Steps 2 through 4 are the same loop
+dozens of times over, and on a backlog this size that is a walk-away job rather than a session.
+That command drives the loop from an authored topic list at
+`<docsRoot>/maintenance/harvest/topics.json`: it dispatches the planner and the writer per
+topic, `git rm`s exactly what each report marks **Ready to delete**, commits once per topic as
+its checkpoint, and resumes from `progress.json` if the session dies. It never asks anything —
+every **Contradicts the code** and **Needs your call** lands in
+`<docsRoot>/maintenance/harvest/REVIEW-ME.md` for the user to read afterwards. It belongs to
+forge (it dispatches forge agents and is listed in `system.json`'s `commands[]`), and it
+deviates from step 1 deliberately: the tidy runs once at the *end*, where it also sees what the
+harvest added, instead of reading every design doc before a single decision has been recovered.
 
 Most of a migrated backlog should never come back. Under the triage rule above, the majority of
 features are built and looked at rather than specified.
@@ -273,7 +313,7 @@ design docs or in the code, not in a citation between two documents that are bot
 | Agent | Job (one sentence) | Model / Effort | Writes | Wiring |
 |---|---|---|---|---|
 | `forge-doc-planner` | Plans the tidying work on the active project's design docs and hands forge-doc-writer a precise list. | opus / high | no | Tier 2 — this file + `SessionStart` hook (`docs-pending.sh`) |
-| `forge-harvest-planner` | Plans how a body of existing PRDs folds into one source-of-truth doc, resolving which decisions superseded which. | opus / high | no | Tier 1 |
+| `forge-harvest-planner` | Plans how the archived PRD backlog folds into one source-of-truth doc — only the decisions the code confirms and the SOT needs — and names what is then safe to delete. | opus / high | no | Tier 1 |
 | `forge-doc-writer` | Applies a `forge-doc-planner` plan to the source-of-truth docs, changing nothing the plan didn't name. | sonnet / medium | **yes** | Tier 1 |
 | `forge-prd-author` | Turns settled design decisions into a PRD for one feature. | opus / high | **yes** | Tier 1 |
 | `forge-prd-reviewer` | Reports whether a PRD is buildable without guessing, before anyone builds from it. | opus / high | no | Tier 1 |

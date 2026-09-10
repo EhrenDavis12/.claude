@@ -120,7 +120,7 @@ Measure before you theorize. The three suspects leave different fingerprints:
 
 3. **The code.** Fingerprint: only the code agents (`forge-code-writer`, `-cleaner`,
    `-reviewer`) are slow, and their `tool_calls`/`max_ctx` scale with the size of the source
-   tree they grep. (Today the tic-tac-toe submodule is ~empty, so this is *not* your current
+   tree they grep. (A nearly-empty submodule makes this *not* your current
    cause — which is itself a useful finding: a doc-heavy slowdown is a SOT or agent problem,
    not a code problem.)
 
