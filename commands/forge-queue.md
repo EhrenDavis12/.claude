@@ -64,7 +64,7 @@ through `forge-test-author`. You are the driver, not an author.
 item above it. Titles identify items — match them case-insensitively with tags stripped.
 
 ```
-Inbox / Ready:   - <title> [prd|look] [S|M|L]              (tags optional in Inbox)
+Inbox / Ready:   - <title> [prd|look|research] [S|M|L]     (tags optional in Inbox)
 Processing:      - <title> [prd|look] · started <UTC ISO> · branch <name> · session <link or name>
 Blocked:         - <title> [prd|look] · branch <name or none>
                    - Q: <question written for the user — see below>
@@ -156,6 +156,16 @@ author once; a second blocking finding sends the item to Blocked) → `forge-tes
 → `forge-harvest-planner` for this PRD → `forge-doc-writer` → `git rm` the PRD once the
 planner's **Ready to delete** line reads clean.
 
+**`[research]`:** no code and no branch. Answer the question the item asks, with sources:
+read the design docs and code first, then `WebSearch`/`WebFetch` for anything outside the
+repo — or dispatch the built-in `general-purpose` agent when the reading is broad enough to
+crowd the main loop. The output is a recommendation, and a recommendation is a decision only
+the user can make, so a research item **always closes into Blocked**: the findings as an
+indented block under the item (what was found, the options, the recommendation and why,
+what each option would mean for the app), then one `Q:` per decision. If the findings
+contradict a design doc, say which passage and leave the doc alone — the answer lands there
+through `forge-tidy-docs` when the user answers, like any Blocked answer.
+
 **`[look]`:** built-in `Plan` agent → `forge-test-author` and `forge-test-auditor` only if
 there is behavior worth pinning → `forge-code-writer` → **tests pass** → `forge-code-cleaner`
 → **tests still pass** → `forge-code-reviewer` → `Skill(playtest)`: run the app and look at
@@ -186,7 +196,8 @@ to change later. One question per `Q:`.
 For each Inbox line, in order: read the design docs and code it touches. Decide the path by
 the cost of a wrong guess — `[prd]` for rules, engine semantics, persistence, money, or a
 contract other features depend on; `[look]` for layout, animation, menus, settings, theming,
-copy. A tag the user already wrote wins. Size it `[S|M|L]`.
+copy; `[research]` when the line asks a question rather than for a change. A tag the user
+already wrote wins. Size it `[S|M|L]`.
 
 If it can be built without a decision only the user can make → add it to the **bottom** of
 Ready with its tags, then remove it from Inbox. Otherwise → add it to Blocked with its
@@ -254,6 +265,8 @@ Blocked, each in one line the user can answer from the terminal.
 
 - **Never asks.** Restated because it is the whole point.
 - **Never writes a design doc, a PRD, source, or a test.** Only the owning agent does.
+- **Never turns research into a decision.** Findings end as a question in Blocked; the user
+  answers, and the answer reaches the docs through the tidy pipeline.
 - **Never edits a file's header block**, a user's item line, or Goal.md at all.
 - **Never re-picks a stale Processing item**, and never deletes a branch.
 - **Never runs the goal engine on a fresh goal without `--propose`.**

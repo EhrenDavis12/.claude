@@ -352,7 +352,10 @@ before it is armed.
 
 **Building an item** is the feature pipeline above, chosen by the same triage rule: `[prd]`
 where a wrong guess is expensive, `[look]` where it is visible on screen and cheap. The cost
-sentence is said out loud either way. Code goes on a `queue/<slug>` branch in the srcRoot so
+sentence is said out loud either way. A third tag, `[research]`, is for a line that asks a
+question rather than for a change: it is answered with sources and always closes into Blocked
+as findings plus the decision the user has to make — research never becomes a decision on
+its own. Code goes on a `queue/<slug>` branch in the srcRoot so
 the user reviews before it reaches main (`--on-main` to skip that). A question no agent can
 settle by reading sends the item to Blocked with the question written for the user — no
 identifiers, the concrete options, how hard it is to change — and the tick moves to the next
