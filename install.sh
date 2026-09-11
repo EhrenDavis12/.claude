@@ -9,9 +9,13 @@
 #                       fresh clone of the host repo has an empty .claude/ until
 #                       `git submodule update --init`, and that first session runs with no
 #                       agents, no skills, and no hooks.
+#   --link              the host keeps its own .claude/ (with files it never sends upstream)
+#                       and this repo sits beside it as a submodule; .claude/ entries become
+#                       symlinks into it. Idempotent — re-run after adding a shared skill or
+#                       command, or let hooks/link-shared.sh do it at every session start.
 #
 # Usage:
-#   ./install.sh <target-dir> [--submodule] [--force]
+#   ./install.sh <target-dir> [--submodule | --link] [--force]
 #   curl -fsSL https://raw.githubusercontent.com/EhrenDavis12/.claude/main/install.sh | sh -s -- .
 set -eu
 
@@ -23,6 +27,7 @@ FORCE=0
 for arg in "$@"; do
   case "$arg" in
     --submodule) MODE="submodule" ;;
+    --link)      MODE="link" ;;
     --force)     FORCE=1 ;;
     -h|--help)   sed -n '2,17p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
     -*)          echo "install.sh: unknown option $arg" >&2; exit 2 ;;
@@ -30,11 +35,24 @@ for arg in "$@"; do
   esac
 done
 
-[ -n "$TARGET" ] || { echo "usage: install.sh <target-dir> [--submodule] [--force]" >&2; exit 2; }
+[ -n "$TARGET" ] || { echo "usage: install.sh <target-dir> [--submodule | --link] [--force]" >&2; exit 2; }
 [ -d "$TARGET" ] || { echo "install.sh: no such directory: $TARGET" >&2; exit 1; }
 
 TARGET=$(cd "$TARGET" && pwd)
 DEST="$TARGET/.claude"
+
+if [ "$MODE" = "link" ]; then
+  # This checkout must already be a submodule (or any subdirectory) of the target.
+  SELF=$(cd -P "$(dirname -- "$0")" && pwd -P)
+  case "$SELF" in "$TARGET"/*) ;; *)
+    echo "install.sh: --link needs this checkout to live inside $TARGET (e.g. as a submodule)." >&2; exit 1 ;;
+  esac
+  mkdir -p "$DEST"
+  "$SELF/hooks/link-shared.sh" "$TARGET"
+  echo "Linked $DEST into ${SELF#"$TARGET"/} — real files already there were left alone."
+  echo "Register hooks/link-shared.sh as a SessionStart hook so new shared entries link themselves."
+  exit 0
+fi
 
 if [ -e "$DEST" ] && [ "$FORCE" -ne 1 ]; then
   echo "install.sh: $DEST already exists. Move it aside, or pass --force to replace it." >&2

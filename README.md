@@ -19,7 +19,7 @@ not in context at all — see [`systems/README.md`](systems/README.md).
 agents/        subagent definitions, namespaced by system (agents/forge/…)
 commands/      slash commands — /set-project, /set-system, /create-pr, and forge's unattended
                drivers /forge-queue and /forge-harvest-backlog
-hooks/         SessionStart and SubagentStop shell hooks
+hooks/         SessionStart and SubagentStop shell hooks (link-shared.sh keeps a --link host synced)
 metrics/       where captured agent-run metrics land (contents gitignored)
 otel/          optional OpenTelemetry + Prometheus + Grafana stack for agent telemetry
 project/       active.json — the pointer to the active project
@@ -45,6 +45,34 @@ is tuned to a specific repo. Pick **`--submodule`** when you want fixes to flow 
 that a fresh clone of the host repo then has an empty `.claude/` until
 `git submodule update --init`, which means the first session in that clone runs with no agents,
 no skills, and no hooks.
+
+### `--link`: sharing this repo while keeping project-only files
+
+A submodule *is* the whole `.claude/` directory, and git cannot track a file inside a
+submodule from the parent — so a project with skills or commands of its own that must never
+come upstream cannot use `--submodule` as-is. `--link` is for that case:
+
+```sh
+git submodule add git@github.com:EhrenDavis12/.claude.git src/claude-repo
+src/claude-repo/install.sh . --link
+```
+
+`.claude/` stays a real directory the host owns. Every entry this repo ships becomes a symlink
+into the submodule — whole directories where the host has nothing of its own there (`agents/`,
+`hooks/`, …), entry by entry where it does (`skills/`, `commands/`), so the host's real files sit
+beside the links. Real files always win and are never touched; `settings.json`,
+`project/active.json`, and `metrics/` are per-host state and never linked.
+
+`hooks/link-shared.sh` is the same operation, written to run as a `SessionStart` hook: it links
+any new shared entry, removes a link whose upstream target has gone, prints one line only when
+it changed something, and never deletes a real file. Register it first in the host's
+`settings.json` so the other hooks resolve through fresh links. Entries the host does not want —
+`skills/playtest` on a server project, say — go in `.claude/.linkignore`, one path per line
+relative to `.claude/`; that file is the host's.
+
+The trade: editing a shared file now edits the submodule, so it needs a commit and push there
+and a pointer bump in the host, like any other submodule. And a fresh clone has dangling links
+until `git submodule update --init`.
 
 ## After installing: the three things that are not optional
 
