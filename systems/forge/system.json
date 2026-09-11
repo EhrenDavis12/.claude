@@ -1,7 +1,7 @@
 {
   "name": "forge",
   "title": "The forge pipeline — design docs → PRD → code → tests",
-  "summary": "Pure delegation. The main loop coordinates and never writes a project artifact; twelve prefixed agents own one territory each.",
+  "summary": "Pure delegation. The main loop coordinates and never writes a project artifact; thirteen prefixed agents own one territory each, and a work queue in front of the pipeline decides what is next.",
   "agents": [
     "forge-doc-planner",
     "forge-harvest-planner",
@@ -14,15 +14,18 @@
     "forge-code-prd-alignment",
     "forge-test-author",
     "forge-test-auditor",
-    "forge-retro-planner"
+    "forge-retro-planner",
+    "forge-queue-planner"
   ],
   "skills": [
     "forge-tidy-docs"
   ],
   "commands": [
-    "forge-harvest-backlog"
+    "forge-harvest-backlog",
+    "forge-queue"
   ],
   "hooks": [
-    ".claude/hooks/docs-pending.sh"
+    ".claude/hooks/docs-pending.sh",
+    ".claude/hooks/queue-pending.sh"
   ]
 }

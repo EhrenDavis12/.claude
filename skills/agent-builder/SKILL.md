@@ -80,6 +80,7 @@ contracts belong in `Tech Design.md` or in the code.
 | | `forge-code-prd-alignment` | "Did we build what we said?" |
 | **Tests** | `forge-test-author` | Writes tests from the spec, not the code |
 | | `forge-test-auditor` | "Do these tests actually test anything?" |
+| **Queue** | `forge-queue-planner` | "What stands between here and the goal?" — proposes; never builds |
 
 The pattern repeats per territory: **one agent thinks, one agent writes, one agent checks.**
 The thinker never holds a pen, so a bad idea cannot reach a file directly. Agent names carry
@@ -172,6 +173,35 @@ Two things people get wrong here:
   keeps docs from arguing with themselves.
 - **Resume, never re-dispatch.** `SendMessage` keeps the agent's partial work. A fresh `Agent`
   call re-reads everything and discards what it figured out: full price twice, for less.
+
+## The queue in front of the pipeline
+
+The three layers say what is being built and how. None of them says **what is next** — that
+came from the user, every session. The work queue (`<docsRoot>/queue/`, driven by
+`/forge-queue`, described in forge's `SYSTEM.md`) is the intake layer in front of the
+pipeline, and it was checked against every question in "Using this file" before it was built:
+
+- **Which layer?** None of the three. It is coordination state, the same class as git, and
+  the main loop holds its pen. That is the one carve-out it needed, and it is limited to
+  moving lines, writing notes and questions, and copying a planner's report.
+- **Does it add a loop?** Yes — build the top Ready item, repeat. The exit is Ready empty and
+  every remaining item Blocked. A tick that finds nothing prints one summary and stops.
+- **Does it add a place where content accumulates?** Three, each with a named deleter. Done
+  keeps 30 days and the tick prunes it. Proposed is replaced wholesale by the next engine run.
+  Blocked drains back to Ready when the user answers. Nothing is checked off; finished
+  things leave.
+- **Does it overlap the roster?** `forge-queue-planner` proposes work against a goal — the
+  built-in `Plan` plans one task, `forge-doc-planner` tidies docs. No trigger or territory
+  shared. Triage and bookkeeping are main-loop research and stay there.
+- **Is it a system?** No. Systems are exclusive, and the queue's whole job is to dispatch
+  forge agents — a peer system would be denied every one of them. It is a phase word, not a
+  prefix: `forge-queue-*`.
+
+Two decisions worth remembering the reason for. **A fresh goal's first proposal run is on
+request, never on the empty-queue trigger** — the most expensive dispatch on the roster
+should be judged once before it is armed. And **an answer written under a Blocked question
+goes to the design docs before the item resumes** — otherwise the queue becomes the only
+place a decision lives, which is principle 7 broken by a file that was meant to be scaffolding.
 
 ## Principles
 

@@ -30,6 +30,17 @@
             "statusMessage": "Checking the active project's docs for untidied changes"
           }
         ]
+      },
+      {
+        "matcher": "*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/queue-pending.sh",
+            "timeout": 10,
+            "statusMessage": "Reading the active project's work queue"
+          }
+        ]
       }
     ],
     "SubagentStop": [

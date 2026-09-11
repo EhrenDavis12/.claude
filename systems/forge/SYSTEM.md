@@ -3,8 +3,9 @@
 > **Active.** This file is in context because `CLAUDE.md` imports it. If you are reading these
 > rules, forge is the system in force. See `.claude/systems/README.md` to swap.
 
-The forge pipeline: design docs → PRD → code → tests. Twelve agents, one territory each, and a
-main loop that coordinates rather than builds.
+The forge pipeline: design docs → PRD → code → tests. Thirteen agents, one territory each, and a
+main loop that coordinates rather than builds. In front of the pipeline sits the work queue —
+see "The queue" below — which decides *what is next* so the pipeline can decide *how*.
 
 Paths below are **manifest keys**, resolved from the active project (see `CLAUDE.md`). No agent
 holds a hardcoded path.
@@ -25,6 +26,10 @@ Three carve-outs, because they aren't project artifacts:
 - **`.claude/**` and `CLAUDE.md`** — the agent system itself, via `/agent-creator`. Delegating
   it would need an agent to build agents.
 - **Git operations** — commits and branches are coordination, not authorship.
+- **The queue files** under `<docsRoot>/queue/` — coordination state, bookkept by
+  `/forge-queue`. Moving a line between them, writing a note or a question, copying a
+  planner's report into `Proposed.md`. Never inventing a task, never editing a line the user
+  wrote except to move it.
 - **Anything the user explicitly asks you to do inline** — their call overrides this.
 
 Neither ambiguity nor tight iteration is a reason to keep work inline: the first is handled by
@@ -308,6 +313,69 @@ Short-lived PRDs also can't form the cross-reference web the current set has, wh
 cites another's numbered requirements and renumbering cascades. Shared contracts belong in the
 design docs or in the code, not in a citation between two documents that are both temporary.
 
+## The queue — what is next
+
+The pipeline decides *how* work gets done. Nothing above decides *what is next* without the
+user in the chair, and that is what the queue is for: the user hands over goals and tasks, and
+`/forge-queue` works them unattended — one tick at a time, or on a timer with
+`/loop 30m /forge-queue`.
+
+It lives at `<docsRoot>/queue/`, one file per section, so the pen is a file boundary rather
+than a rule about headings. The folder is a subfolder of `docsRoot`, so by the manifest's own
+definition it holds no design docs and no tidying touches it. `/forge-queue --init` creates it
+from `queue-templates/` beside this file; each file opens with a header that says what it is
+and who owns it, and no agent edits that header.
+
+| File | Owner | Holds |
+|---|---|---|
+| `Goal.md` | user | Where the project is headed, plus a "Not included" list |
+| `Proposed.md` | queue | What `forge-queue-planner` thinks the goal still needs. Never built from |
+| `Later.md` | user | Work coming later; the queue leaves one refined note under each item |
+| `Inbox.md` | user | New work, untriaged. Triage moves it to Ready or Blocked |
+| `Ready.md` | user | Authorized work, in priority order. Picked from the top |
+| `Processing.md` | queue | The claim: start time, branch, session. Hands off |
+| `Blocked.md` | shared | The queue's questions, the user's answers |
+| `Done.md` | queue | Last 30 days: date, duration, commit, Grafana link. Pruned each tick |
+
+**The pen.** The user owns Goal, Later, Inbox, Ready. The queue owns the rest, and it is the
+main loop that holds that pen — the files are coordination state, the same carve-out as git,
+so a bookkeeping move does not cost a dispatch. The two exceptions run the other way: the
+queue writes the note under a Later item, and the user writes the `A:` under a Blocked
+question. Neither ever moves the other's lines.
+
+**One tick.** Housekeeping first — heal a title that sits in two files, flag a Processing item
+whose branch has gone quiet, prune Done, return answered Blocked items to the top of Ready.
+Then the first that applies: build the top Ready item; triage Inbox; refine up to three Later
+items; run the goal engine. The engine runs only when Ready and Inbox are both empty and a
+goal is set — and a fresh goal's first run is on request (`--propose`), so the user judges it
+before it is armed.
+
+**Building an item** is the feature pipeline above, chosen by the same triage rule: `[prd]`
+where a wrong guess is expensive, `[look]` where it is visible on screen and cheap. The cost
+sentence is said out loud either way. Code goes on a `queue/<slug>` branch in the srcRoot so
+the user reviews before it reaches main (`--on-main` to skip that). A question no agent can
+settle by reading sends the item to Blocked with the question written for the user — no
+identifiers, the concrete options, how hard it is to change — and the tick moves to the next
+item. Nothing ever waits on an answer.
+
+**Done means a row, then a prune.** A finished item becomes one line in `Done.md` — date,
+duration from the claim, commit, and a Grafana link built from the claim's time range — and
+rows older than 30 days are removed each tick. Git holds the rest. This is the one place the
+queue keeps history, and the cap plus `forge-retro-planner` as its named reader are what stop
+it becoming the second source of truth the failure log warns about.
+
+**An answer that settles a design question lands in the design docs first**, through
+`forge-tidy-docs`, before the item resumes. The queue never becomes the only place a decision
+lives.
+
+```
+Agent(subagent_type: "forge-queue-planner", prompt: "Target: the goal in <docsRoot>/queue/Goal.md. Refine the existing Proposed rows. Queue: <docsRoot>/queue. Design docs: <docsRoot>. Source: <srcRoots>. PRDs: <prds>.")
+```
+
+`/forge-queue` builds that prompt itself; dispatch by hand only when the user asks for
+proposals outside a tick. Its report's **Proposed** section is copied into `Proposed.md`
+verbatim, and **Needs your call** is relayed.
+
 ## The roster
 
 | Agent | Job (one sentence) | Model / Effort | Writes | Wiring |
@@ -324,11 +392,12 @@ design docs or in the code, not in a citation between two documents that are bot
 | `forge-test-author` | Writes tests from the PRD's requirements rather than from the implementation. | sonnet / high | **yes** | Tier 1 |
 | `forge-test-auditor` | Reports which tests assert real behavior and which only assert that the code runs. | sonnet / high | no | Tier 1 |
 | `forge-retro-planner` | Runs a retrospective on the forge process itself and routes each lesson to where it belongs. | opus / high | no | Tier 1 |
+| `forge-queue-planner` | Reports what stands between the project's current state and a target — the queue's goal, or one Later item — as an ordered list of proposed work. | opus / high | no | Tier 2 — this file + `SessionStart` hook (`queue-pending.sh`) |
 
 Files live in `.claude/agents/forge/` and carry the `forge-` prefix. Both are required, and for
 different reasons — see `.claude/agents/README.md`, which holds the doctrine that outlives this
 system. Add or change an agent only through `/agent-creator`, and update this table when you do:
-`system.json` beside this file lists the same twelve names, and `/set-system` reads it to know what
+`system.json` beside this file lists the same thirteen names, and `/set-system` reads it to know what
 to deny when forge is inactive. A roster row without a `system.json` entry is an agent that
 stays dispatchable after a swap.
 
@@ -361,12 +430,17 @@ decides nothing), and explains what to expect from each.
 `roadmap.md` is generated by `forge-doc-writer` and does not follow the house style in
 `CLAUDE.md` — it is an index of where things live, not a doc to hand-edit.
 
-## This system's hook
+## This system's hooks
 
 `.claude/hooks/docs-pending.sh` (`SessionStart`) flags uncommitted design-doc changes in the
 active project's `docsRoot`, skipping `PRDs/`, `roadmap.md`, and `project.json`, which are not
 `forge-doc-planner`'s territory.
 
-It is registered in `settings.json`, which this file has no say over, so it **self-gates**: it
-reads `CLAUDE.md`'s import line and exits silently unless forge is the active system. That gate
-is what stops it firing into a system with no `forge-doc-planner` to dispatch.
+`.claude/hooks/queue-pending.sh` (`SessionStart`) prints the state of `<docsRoot>/queue/` —
+counts per section, what is claimed, what is blocked on the user, and any claim whose branch
+has gone quiet — and says whether `/forge-queue` has work. Silent when the folder does not
+exist.
+
+Both are registered in `settings.json`, which this file has no say over, so they **self-gate**:
+each reads `CLAUDE.md`'s import line and exits silently unless forge is the active system. That gate
+is what stops them firing into a system with no forge agents to dispatch.

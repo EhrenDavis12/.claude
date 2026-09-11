@@ -10,14 +10,15 @@ not in context at all — see [`systems/README.md`](systems/README.md).
 
 | System | What it is |
 |---|---|
-| `forge` | Pure delegation. Twelve agents, one territory each; the main loop never writes a project artifact. |
+| `forge` | Pure delegation. Thirteen agents, one territory each; the main loop never writes a project artifact. A work queue in front of the pipeline decides what is next. |
 | `direct` | Off, made explicit. No pipeline; the main loop does the work inline. |
 
 ## What's in here
 
 ```
 agents/        subagent definitions, namespaced by system (agents/forge/…)
-commands/      user-only slash commands — /set-project, /set-system, /create-pr
+commands/      slash commands — /set-project, /set-system, /create-pr, and forge's unattended
+               drivers /forge-queue and /forge-harvest-backlog
 hooks/         SessionStart and SubagentStop shell hooks
 metrics/       where captured agent-run metrics land (contents gitignored)
 otel/          optional OpenTelemetry + Prometheus + Grafana stack for agent telemetry
