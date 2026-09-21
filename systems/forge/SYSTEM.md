@@ -172,6 +172,10 @@ state kept in two places is state that goes stale.
 | In process | tests for it exist under `srcRoots` | Spec is executable; code underway |
 | Done | **the file is gone** | Harvested and deleted |
 
+A PRD that has sat "In design" for weeks is not being revised — check whether the world moved
+under it before assuming it is still wanted. Likewise one "In process" for weeks is usually a
+finished build whose close-out never ran.
+
 **State is derived, not stored.** Only `forge-prd-author` can write a PRD, and
 `forge-prd-reviewer` is read-only by design — so a `Status: Ready` stamp would need an extra
 opus dispatch to flip one line, and would go stale the moment anything moved. The three states
@@ -261,9 +265,14 @@ correctness comes first and deletion waits.
    **Ready to delete** line states this directly, and it accounts for *every* doc the PRD
    owes, not just the one this run targeted. If it does not read clean, the harvest is not
    finished and nothing gets deleted.
-4. **Delete it** — `git rm`. Git keeps the history; an archive folder becomes a second source
-   of truth again. Deletion is a git operation, so it is the main loop's, not an agent's.
-   `git log --diff-filter=D -- <prds>/` lists every retired PRD if you need one back.
+4. **Commit the PRD if it is untracked, then delete it.** `git rm` fails outright on an
+   untracked file (`fatal: pathspec ... did not match any files`), and a PRD that was never
+   committed cannot be recovered after deletion — "git keeps the history" is only true once it
+   does. Check `git ls-files <prd path>`; if it comes back empty, `git add` the PRD and commit
+   it on its own first. Then `git rm` it. An archive folder instead becomes a second source of
+   truth again. Both are git operations, so both are the main loop's, not an agent's. The
+   PRD's whole life is then one add-then-remove pair, which is what makes
+   `git log --diff-filter=D -- <prds>/` able to list every retired PRD if you need one back.
 
 ### Migrating a backlog written before this system
 

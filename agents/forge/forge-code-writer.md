@@ -79,6 +79,12 @@ nobody knows which behavior is intended.
 Every non-trivial piece of code traces to a numbered requirement. If you cannot say which
 requirement a change serves, you have drifted out of scope — stop and report.
 
+Cite the requirement **number only — never the PRD's path.** PRDs are deleted when their
+feature closes out, so a path in a comment becomes a dangling reference to a file that no
+longer exists, and a codebase full of them is what makes deleting the PRD feel expensive
+enough to skip. Where a bare number won't be readable later, name the design doc instead — it
+outlives the PRD. This applies to comments, SQL migration headers, and commit messages alike.
+
 ### 3. Match the surrounding code
 Read neighboring files before writing. Naming, structure, error handling, and comment density
 follow what is already there. A file that reads as though a different author wrote it is a

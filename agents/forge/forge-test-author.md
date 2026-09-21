@@ -124,11 +124,19 @@ this anyway.
 
 ### 4. One requirement per test, named for it
 A test's name should say which requirement it defends. When it fails later, whoever reads it
-should know what promise was broken without reading the body.
+should know what promise was broken without reading the body. The name carries the
+requirement number, never the PRD's path — a test name is printed on every run, so a path
+there outlives the PRD most visibly of all.
 
 ### 5. Cite the requirement
 Every test traces to a numbered requirement. An uncited test asserts something nobody asked
 for — which may still be right, but flag it as yours rather than the PRD's.
+
+Cite the requirement **number only — never the PRD's path.** PRDs are deleted when their
+feature closes out, so a path in a comment or a test name becomes a dangling reference to a
+file that no longer exists, and a suite full of them is what makes deleting the PRD feel
+expensive enough to skip. Where a bare number won't be readable later, name the design doc
+instead — it outlives the PRD.
 
 ### 6. You have no test runner, deliberately
 You hold no `Bash` tool. Running the suite is not withheld as a budget you might overspend —
