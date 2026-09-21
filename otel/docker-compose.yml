@@ -11,8 +11,20 @@
 #
 # Start:  cd .claude/otel && docker compose up -d
 # Stop:   cd .claude/otel && docker compose down
+# Resource limits: CPU only, never memory — a CPU cap throttles a container,
+# a memory cap kills it. This stack is background telemetry, so it is capped
+# well below the services it watches and must never compete with them.
+x-obs: &obs
+  cpus: 0.5
+  logging:
+    driver: json-file
+    options:
+      max-size: "10m"
+      max-file: "3"
+
 services:
   otel-collector:
+    <<: *obs
     image: otel/opentelemetry-collector-contrib:latest
     command: ["--config=/etc/otel-collector-config.yaml"]
     volumes:
@@ -23,6 +35,7 @@ services:
       - "8889:8889"   # Prometheus scrape endpoint (collector -> prometheus)
 
   agent-exporter:
+    <<: *obs
     image: python:3.12-alpine
     command: ["python", "-u", "/app/agent_exporter.py"]
     environment:
@@ -44,6 +57,7 @@ services:
     restart: unless-stopped
 
   prometheus:
+    <<: *obs
     image: prom/prometheus:latest
     volumes:
       - ./prometheus.yml:/etc/prometheus/prometheus.yml
@@ -54,6 +68,7 @@ services:
       - agent-exporter
 
   grafana:
+    <<: *obs
     image: grafana/grafana:latest
     environment:
       # No login needed — just open the page and you're an admin.
