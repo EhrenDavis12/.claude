@@ -156,10 +156,14 @@ the best known way, not rediscover it. Entries are newest first.
 
 - **2026-09-23 — A burst that reaches the frame edge plays as a square.** The first six
   bursts flew their shards past the cell border in most frames; on screen the cut-off
-  edge drew a box around every impact. The prompt now keeps the burst within the middle
-  two thirds with an empty margin, and the review's `--contained` gate fails any frame
-  with foreground in the outer 4% of the frame before a mask is paid for. Cost: six
-  videos regenerated.
+  edge drew a box around every impact. Prompting "stay inside the frame" alone did not
+  fix it: a burst that starts from an effect filling two thirds of the frame has nowhere
+  to expand. The burst now starts from `skill_small.png`, the reference shrunk to 42% on
+  its own background (with the shrunk image's background flattened to the exact colour,
+  or the paste leaves a seam the model keeps), and the app draws the burst larger. The
+  review's `--contained` gate fails a frame whose border is more than 2% solid foreground
+  after a 2-pixel erosion — a cut shard, not the spray of dots every burst throws. Cost:
+  seven videos, one of them a wasted roll before the shrunken start.
 - **2026-09-23 — A burst needs its own matte.** The character matte trusts the mask body and
   colour-keys a three-pixel band around it. On a burst of hundreds of shards the mask model
   loses most of the small ones (a band cannot reach them), fills the holes between dense
