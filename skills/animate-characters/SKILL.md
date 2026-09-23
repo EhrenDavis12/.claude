@@ -151,6 +151,19 @@ that fixed a recurring defect — update the script or the default that embodies
 dated line here saying what changed and what it cost to learn. The next run must start from
 the best known way, not rediscover it. Entries are newest first.
 
+- **2026-09-23 — A burst needs its own matte.** The character matte trusts the mask body and
+  colour-keys a three-pixel band around it. On a burst of hundreds of shards the mask model
+  loses most of the small ones (a band cannot reach them), fills the holes between dense
+  ones with flat background (which rides along at full alpha), and its shrunken ring makes
+  the "fully foreground" measure wrong, so edges un-blend into pale rims. Two dead ends
+  first: keying the whole body proportionally dimmed every light colour (a white band, a
+  pale centre, steel blades at 22 colour-distance from the grey), and a hard cutoff inside
+  the body alone fixed nothing visible. What works is `matte: {effect: true}`: keep the
+  body, drop only exact background inside it, and outside it key every pixel by colour with
+  a narrow ramp around the threshold. Then the late frames came out fully opaque: `auto`
+  background was read per frame from the corners, and shards were in the corners. The
+  framework now measures it once from the first frame. Cost: three framework rounds and
+  four local rebuilds; no video was regenerated for any of it.
 - **2026-09-23 — Do not ask the video model to spin a thrown weapon.** A dagger and an axe
   asked to "spin one full turn" came back turning slowly, off-centre, short of a full turn,
   and the dagger wandered a sixth of the frame. A spin is the one motion code does perfectly:
