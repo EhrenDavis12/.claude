@@ -8,8 +8,15 @@ background that stops being flat. Each of those becomes a visible defect
 several paid steps later, so this script measures them on the raw video and
 says pass or fail, with a contact sheet to look at.
 
-  review_video.py <video.mp4> [--trim-end N] [--loop] [--sheet out.png]
-                  [--json out.json] [--background auto|#rrggbb]
+  review_video.py <video.mp4> [--trim-end N] [--loop] [--strict-motion]
+                  [--ends-empty] [--sheet out.png] [--json out.json]
+                  [--background auto|#rrggbb]
+
+`--strict-motion` turns the loop's drift warning into a failure: a
+projectile effect that travels inside its own clip cannot be used, because
+the app supplies the travel. `--ends-empty` is for a burst that must vanish:
+the end-flash check is skipped (the end *is* a change) and instead the clip
+fails if its last kept frame still holds foreground, or its first has none.
 
 `--trim-end N` ignores the last N frames, because the sheet will too: a
 first-and-last-frame conditioned model blends toward its last frame over the
@@ -47,6 +54,7 @@ DRIFT_FRACTION = 0.06      # bbox centre travel as a fraction of frame width: wa
 SIZE_FRACTION = 0.12       # bbox height change as a fraction of its first value: warn (loop only)
 BACKGROUND_STD = 8.0       # colour std-dev of the corner regions: fail
 FG_DISTANCE = 45.0         # colour distance from the background that counts as foreground
+EMPTY_FRACTION = 0.005     # foreground pixels left in a burst's last kept frame: fail (--ends-empty)
 
 
 def _frames(path: Path) -> list[np.ndarray]:
@@ -72,17 +80,19 @@ def _background(rgb: np.ndarray, spec: str) -> np.ndarray:
     return np.median(_corners(rgb), axis=0)
 
 
-def review(path: Path, background_spec: str, trim_end: int, loop: bool) -> dict:
+def review(path: Path, background_spec: str, trim_end: int, loop: bool,
+           strict_motion: bool = False, ends_empty: bool = False) -> dict:
     frames = _frames(path)
     background = _background(frames[0], background_spec)
     h, w = frames[0].shape[:2]
     kept = frames[: max(1, len(frames) - trim_end)]
 
-    lum, boxes, bg_std = [], [], 0.0
+    lum, boxes, fg_fraction, corner_std = [], [], [], []
     for rgb in kept:
         dist = np.sqrt(((rgb.astype(float) - background) ** 2).sum(-1))
         fg = dist > FG_DISTANCE
-        bg_std = max(bg_std, float(_corners(rgb).std()))
+        corner_std.append(float(_corners(rgb).std()))
+        fg_fraction.append(float(fg.mean()))
         if not fg.any():
             lum.append(0.0)
             continue
@@ -93,12 +103,25 @@ def review(path: Path, background_spec: str, trim_end: int, loop: bool) -> dict:
     lum = np.array(lum)
 
     failures, warnings = [], []
-    body = float(np.median(lum[10:-4])) if len(lum) > 20 else float(np.median(lum))
-    end_delta = float(lum[-3:].mean() - body)
-    if end_delta > END_FLASH_DELTA:
-        failures.append({"flag": "end_flash", "end_minus_body": round(end_delta, 1),
-                         "remedy": "raise trim_end, or regenerate the video"})
-    spikes = [i + 1 for i, v in enumerate(lum) if abs(v - np.median(lum)) > SPIKE_DELTA]
+    # A burst's shards legitimately cross the corners mid-clip, so its background is
+    # judged where nothing should be: the first frame and the empty tail.
+    bg_std = max(corner_std[:1] + corner_std[-5:]) if ends_empty else max(corner_std)
+    if ends_empty:
+        if fg_fraction[-1] > EMPTY_FRACTION:
+            failures.append({"flag": "not_empty_at_end", "foreground_fraction": round(fg_fraction[-1], 4),
+                             "remedy": "regenerate; ask for the burst to vanish sooner"})
+        if fg_fraction[0] <= EMPTY_FRACTION:
+            failures.append({"flag": "first_frame_empty", "remedy": "regenerate; the effect must be there at the start"})
+        with_fg = lum[np.array(fg_fraction) > EMPTY_FRACTION]
+        lum_for_spikes = with_fg if len(with_fg) else lum
+    else:
+        body = float(np.median(lum[10:-4])) if len(lum) > 20 else float(np.median(lum))
+        end_delta = float(lum[-3:].mean() - body)
+        if end_delta > END_FLASH_DELTA:
+            failures.append({"flag": "end_flash", "end_minus_body": round(end_delta, 1),
+                             "remedy": "raise trim_end, or regenerate the video"})
+        lum_for_spikes = lum
+    spikes = [i + 1 for i, v in enumerate(lum_for_spikes) if abs(v - np.median(lum_for_spikes)) > SPIKE_DELTA]
     if spikes:
         warnings.append({"flag": "luminance_spikes", "frames": spikes[:12], "count": len(spikes),
                          "note": "an intended effect (glow, flash) looks like this too; check the sheet"})
@@ -115,17 +138,24 @@ def review(path: Path, background_spec: str, trim_end: int, loop: bool) -> dict:
             warnings.append({"flag": "loop_gap", "first_vs_last_kept": round(gap, 1)})
         if boxes:
             cx = np.array([(b[0] + b[2]) / 2 for b in boxes])
-            heights = np.array([b[3] - b[1] for b in boxes])
+            # The box's longer side: a thin horizontal projectile doubles its *height*
+            # by tilting a few degrees, which is not a change of size.
+            extents = np.array([max(b[2] - b[0], b[3] - b[1]) for b in boxes])
             drift = float((cx.max() - cx.min()) / w)
-            size = float((heights.max() - heights.min()) / max(1, heights[0]))
+            size = float((extents.max() - extents.min()) / max(1, extents[0]))
+            # Travel is what makes a projectile clip unusable; a flapping tassel or
+            # licking flame changes the box's size without moving it, so that stays a warning.
             if drift > DRIFT_FRACTION:
-                warnings.append({"flag": "drift", "centre_travel_fraction": round(drift, 3)})
+                (failures if strict_motion else warnings).append(
+                    {"flag": "drift", "centre_travel_fraction": round(drift, 3)})
             if size > SIZE_FRACTION:
-                warnings.append({"flag": "size_change", "height_change_fraction": round(size, 3)})
+                warnings.append({"flag": "size_change", "extent_change_fraction": round(size, 3)})
 
     return {
         "video": str(path), "frames": len(frames), "kept": len(kept), "size": [w, h],
         "background": [int(v) for v in background], "loop": loop,
+        "strict_motion": strict_motion, "ends_empty": ends_empty,
+        "foreground_fraction": [round(v, 4) for v in fg_fraction],
         "luminance": [round(float(v), 1) for v in lum],
         "failures": failures, "warnings": warnings, "ok": not failures,
     }
@@ -148,9 +178,12 @@ def main() -> int:
     ap.add_argument("--background", default="auto")
     ap.add_argument("--trim-end", type=int, default=0, help="ignore the last N frames, as the sheet will")
     ap.add_argument("--loop", action="store_true", help="this clip must loop: check closure and drift")
+    ap.add_argument("--strict-motion", action="store_true", help="drift and size change fail instead of warn")
+    ap.add_argument("--ends-empty", action="store_true", help="the clip must end on the empty background")
     args = ap.parse_args()
 
-    report = review(args.video, args.background, args.trim_end, args.loop)
+    report = review(args.video, args.background, args.trim_end, args.loop,
+                    strict_motion=args.strict_motion, ends_empty=args.ends_empty)
     if args.sheet:
         contact_sheet(args.video, args.sheet)
         report["sheet"] = str(args.sheet)

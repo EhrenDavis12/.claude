@@ -76,6 +76,46 @@ repeats until the chains complete. Rerunning is idempotent: it skips whatever is
 Approval is separate and human: `approve.py` copies sheets into the app and rewrites the
 catalog. Nothing reaches the app any other way, and the framework can never write there.
 
+## Skills: a projectile and its burst
+
+A character with a `skill:` block (name, `look`, in-place `motion`, optional `noun` and
+`burst`) gets two more sheets, drawn in its own style, so a game can show it attacking
+across the screen:
+
+1. **Effect reference** — the same image model, the effect style bible plus the `look`, with
+   the *character's own* reference as the init image and a prefix that says "match this
+   style, draw only this effect, no character". `--action skill --stage reference` makes
+   just these; look at them before spending on video. Six came back right first time.
+2. **`skill` video** — a loop, like idle: the effect animates *in place*, centred, pointing
+   right. The app supplies the travel, flips it for the other direction and rotates it to
+   the flight angle, so the review runs `--loop --strict-motion` and **fails** a clip whose
+   effect drifts or changes size instead of warning.
+3. **`burst` video** — one-shot, from the same reference: the effect bursts apart into
+   solid shards and vanishes. Its `last_image` is `characters/<id>/blank.png`, a flat frame
+   in the reference's background colour that `animate.py` writes locally the moment the
+   reference lands, so Wan is pulled to an empty frame. The review runs `--ends-empty`:
+   no end-flash check (the end *is* a change), and it fails if the last kept frame still
+   holds foreground or the first holds none. The sheet keeps its trailing empty frames;
+   the catalog plays it at `effect.burst_fps` (32) so the burst reads as a hit, not a clip.
+4. Mask, frames and sheet as for an action, with one difference: the frames step runs the
+   framework's **effect matte** (`matte: {effect: true}`, from `effect.matte` in the config).
+   A burst is hundreds of small shards and the mask model loses most of them, so outside the
+   mask body the frame is keyed by colour alone — a narrow ramp around the threshold, the
+   background share un-blended — and inside the body only exact background is dropped (the
+   model fills holes between dense shards). Characters never use it: silver armour is too
+   close to the grey background to survive a colour key. Drafts: `skill_reference.png`,
+   `blank.png`, `skill.*`, `burst.*`; `approve.py` copies `skill.png` and `burst.png` beside
+   the action sheets and writes `skill: {name, spin, animation, impact}` into the catalog.
+
+A `hurt` action (the character flinches and returns to pose) is what the target plays when
+the burst lands; it is an ordinary action, one motion line per character, and the motion
+should say "half a step" and "staying in place" so the character stays in frame.
+
+Every `look` for an effect says solid, opaque, chunky, no glow or transparency: the matte
+turns anything see-through into a white blob (see the lessons), so glows belong in code. A
+thrown weapon is never asked to spin: give it a subtle in-place motion and `spin: true`, and
+the app rotates the sprite in flight (see the lessons).
+
 ## Judging the result
 
 Look, do not assert. After approving, build a review strip (frame 0, 5, 10 … of every sheet
@@ -111,6 +151,21 @@ that fixed a recurring defect — update the script or the default that embodies
 dated line here saying what changed and what it cost to learn. The next run must start from
 the best known way, not rediscover it. Entries are newest first.
 
+- **2026-09-23 — Do not ask the video model to spin a thrown weapon.** A dagger and an axe
+  asked to "spin one full turn" came back turning slowly, off-centre, short of a full turn,
+  and the dagger wandered a sixth of the frame. A spin is the one motion code does perfectly:
+  the clip now shows a subtle in-place motion, `spin: true` goes into the catalog, and the
+  app rotates the sprite in flight. Cost: two videos regenerated.
+- **2026-09-23 — "Blades glint" paints a white halo.** Asked for a glint, the axe came back
+  with a soft white glow around it, which is a see-through effect the matte cannot carry.
+  The motion now says "no glow, no shine and no glint". Cost: one video.
+- **2026-09-23 — The review's motion gates were tuned on characters; effects broke them
+  three ways.** A burst's shards cross the corners, so the flatness check read them as an
+  unflat background: in `--ends-empty` mode it now judges only the first frame and the empty
+  tail. A thin arrow doubles its bounding-box *height* by tilting a few degrees, so size is
+  now measured on the box's longer side. And a flapping tassel changes size without moving,
+  so `--strict-motion` escalates only drift; size stays a warning. Three false blocks, each
+  found by looking at the contact sheet before regenerating anything.
 - **2026-09-23 — A light rim around the outline means background is still in the edge.**
   Two causes, both in the frames step. Every edge pixel of the video is a blend of outline
   and background, so keeping it at full alpha paints the blend as a pale line; and resizing

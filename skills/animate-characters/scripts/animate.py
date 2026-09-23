@@ -19,6 +19,23 @@ entries exist yet. The framework refuses a manifest naming a file that is not
 there, so the manifest is rewritten with only the entries whose inputs exist,
 the pending ones are generated, and that repeats until the chains complete.
 
+A character with a `skill:` block also gets an effect -- a projectile it can
+throw -- as two more chains from one more reference image:
+
+  <id>-skill-reference   the effect alone, drawn in the character's style
+                         (the character's own reference is the init image)
+  <id>-skill-*           a looping clip of the effect animating in place;
+                         the app moves it, so the review fails a clip that
+                         travels (--strict-motion)
+  <id>-burst-*           a one-shot clip of the effect bursting apart and
+                         vanishing: its last_image is characters/<id>/blank.png,
+                         a flat-background frame this script writes locally,
+                         so the clip is pulled to empty (--ends-empty)
+
+`--action skill --stage reference` is the cheap first look at the effects;
+`--action skill --action burst --action hurt` generates only new work, since
+references are always included.
+
 The review is the one step that is not a framework entry: after a video
 lands it is measured (see review_video.py) and a failing video blocks its
 chain -- a `<action>.review.json` with "ok": false sits beside it until the
@@ -69,7 +86,38 @@ DEFAULTS = {
         "grow": 3, "threshold": 60, "feather": 0, "background": "auto",
     },
     "sheet": {"frame": 256, "columns": 7, "rows": 6},
+    "effect": {
+        "style": ("Clean 2D game effect art. One single solid opaque object, flat cel shading with "
+                  "two tones per color and no gradients, thick uniform dark-charcoal outline, chunky "
+                  "bold shapes with no thin lines, a vibrant but limited palette. No glow, no "
+                  "transparency, no motion blur, no particles, no smoke. Centered in the frame with "
+                  "even margins, pointing toward the viewer's right. Solid flat light-gray background "
+                  "(#D9D9D9), nothing else in the scene: no character, no figure, no floor, no shadow, "
+                  "no text."),
+        "match": ("Match the exact art style, line weight, cel shading, outline thickness and colour "
+                  "palette of the reference image, but draw only this effect and no character or "
+                  "figure at all: "),
+        "template": ("2D cartoon game animation of a single magic effect. {motion} It ends in exactly "
+                     "the starting pose so the clip loops. The effect stays centered at the same size "
+                     "and never travels, drifts or leaves the frame. The camera is completely static "
+                     "with no zoom or pan. The flat background stays plain and unchanged. No character "
+                     "appears. No text."),
+        "burst_template": ("2D cartoon game animation of a magic impact. The {noun} bursts apart on the "
+                           "spot into a big round explosion of solid opaque chunky shards and rings in "
+                           "the same colours with thick outlines, which fly outward, shrink and vanish "
+                           "completely by the middle of the clip, leaving only the plain flat "
+                           "background, completely empty, for the rest of the clip. No fading, no "
+                           "glow, no smoke, no transparency. The burst stays centered. The camera is "
+                           "completely static. The flat background stays plain and unchanged. No "
+                           "character appears. No text."),
+        "burst_fps": 32,
+        # Effects get the framework's effect matte: the mask model loses small
+        # shards and fills holes between dense ones, so outside the mask body the
+        # frame is keyed by colour alone and inside it exact background is dropped.
+        "matte": True,
+    },
 }
+RESERVED_ACTIONS = {"skill", "burst", "reference"}   # taken by the <id>-<action>-<stage> naming
 
 
 def merged(section: str, cfg: dict) -> dict:
@@ -96,7 +144,11 @@ class Plan:
         self.video = merged("video", cfg)
         self.mask = merged("mask", cfg)
         self.sheet = merged("sheet", cfg)
+        self.effect = merged("effect", cfg)
         self.actions = cfg["actions"]
+        taken = RESERVED_ACTIONS & set(self.actions)
+        if taken:
+            raise SystemExit(f"action names {sorted(taken)} are reserved by the skill chains")
         self.characters = cfg["characters"]
         self.style_anchor = cfg.get("style_anchor") or self.characters[0]["id"]
         v = self.video
@@ -118,35 +170,108 @@ class Plan:
             entry["prompt"] = f"{self.style} {r['match']}{c['look']}"
             entry["input_files"] = {"init_images": [f"drafts:characters/{self.style_anchor}/reference.png"]}
         out = [entry]
-        v, m, s = self.video, self.mask, self.sheet
+        v = self.video
         for action, spec in self.actions.items():
             spec = spec or {}
             motion = spec.get("motion") or v["one_shot"].format(motion=c[action])
-            video = f"characters/{cid}/{action}.mp4"
-            mask = f"characters/{cid}/{action}_mask.mp4"
-            frames_dir = f"characters/{cid}/{action}_frames"
-            out += [
-                {"name": f"{cid}-{action}-video", "type": "video", "model": v["model"],
-                 "prompt": v["template"].format(motion=motion),
-                 "inputs": {"num_frames": v["frames"], "frames_per_second": v["fps"], **v["inputs"]},
-                 "input_files": {"image": f"drafts:{ref}", "last_image": f"drafts:{ref}"},
-                 "output": video, "format": "mp4"},
-                {"name": f"{cid}-{action}-mask", "type": "video", "model": m["model"],
-                 "inputs": dict(m["inputs"]), "input_files": {"video": f"drafts:{video}"},
-                 "output": mask, "format": "mp4"},
-                {"name": f"{cid}-{action}-frames", "type": "image", "operation": "extract_frames",
-                 "source": f"drafts:{video}", "frame_count": v["frames"],
-                 "matte": {"mask": f"drafts:{mask}", "background": m["background"], "grow": m["grow"],
-                           "threshold": m["threshold"], "feather": m["feather"]},
-                 "resize": [s["frame"], s["frame"]],
-                 "output": f"{frames_dir}/frame_{{n:02d}}.png", "format": "png"},
-                {"name": f"{cid}-{action}-sheet", "type": "sprite_sheet", "operation": "assemble_sheet",
-                 "frame_count": len(self.kept), "frame_size": [s["frame"], s["frame"]],
-                 "layout": {"columns": s["columns"], "rows": s["rows"]},
-                 "frames": [f"drafts:{frames_dir}/frame_{n:02d}.png" for n in self.kept],
-                 "output": f"characters/{cid}/{action}.png", "format": "png"},
-            ]
+            out += self.chain(cid, action, ref, v["template"].format(motion=motion))
+        skill = c.get("skill")
+        if skill:
+            k = self.effect
+            sref = f"characters/{cid}/skill_reference.png"
+            out.append({"name": f"{cid}-skill-reference", "type": "image", "model": r["model"],
+                        "prompt_key": r["prompt_key"],
+                        "prompt": f"{k['style']} {k['match']}{skill['look']}",
+                        "inputs": dict(r["inputs"]),
+                        "input_files": {"init_images": [f"drafts:{ref}"]},
+                        "output": sref, "format": "png"})
+            out += self.chain(cid, "skill", sref, k["template"].format(motion=skill["motion"]),
+                              effect=k["matte"])
+            noun = skill.get("noun") or skill["name"].lower()
+            burst = skill.get("burst") or k["burst_template"].format(noun=noun)
+            out += self.chain(cid, "burst", sref, burst, last_image=self.blank_path(cid),
+                              effect=k["matte"])
         return out
+
+    def chain(self, cid: str, action: str, ref: str, prompt: str, last_image: str | None = None,
+              effect: bool = False) -> list[dict]:
+        """The four framework entries that turn one reference image into one
+        sheet: video (conditioned on `ref` first and `last_image` last, which
+        defaults to `ref` so the clip returns to its pose), mask, frames, sheet."""
+        v, m, s = self.video, self.mask, self.sheet
+        video = f"characters/{cid}/{action}.mp4"
+        mask = f"characters/{cid}/{action}_mask.mp4"
+        frames_dir = f"characters/{cid}/{action}_frames"
+        matte = {"mask": f"drafts:{mask}", "background": m["background"], "grow": m["grow"],
+                 "threshold": m["threshold"], "feather": m["feather"]}
+        if effect:
+            matte["effect"] = True
+        return [
+            {"name": f"{cid}-{action}-video", "type": "video", "model": v["model"],
+             "prompt": prompt,
+             "inputs": {"num_frames": v["frames"], "frames_per_second": v["fps"], **v["inputs"]},
+             "input_files": {"image": f"drafts:{ref}", "last_image": f"drafts:{last_image or ref}"},
+             "output": video, "format": "mp4"},
+            {"name": f"{cid}-{action}-mask", "type": "video", "model": m["model"],
+             "inputs": dict(m["inputs"]), "input_files": {"video": f"drafts:{video}"},
+             "output": mask, "format": "mp4"},
+            {"name": f"{cid}-{action}-frames", "type": "image", "operation": "extract_frames",
+             "source": f"drafts:{video}", "frame_count": v["frames"],
+             "matte": matte,
+             "resize": [s["frame"], s["frame"]],
+             "output": f"{frames_dir}/frame_{{n:02d}}.png", "format": "png"},
+            {"name": f"{cid}-{action}-sheet", "type": "sprite_sheet", "operation": "assemble_sheet",
+             "frame_count": len(self.kept), "frame_size": [s["frame"], s["frame"]],
+             "layout": {"columns": s["columns"], "rows": s["rows"]},
+             "frames": [f"drafts:{frames_dir}/frame_{n:02d}.png" for n in self.kept],
+             "output": f"characters/{cid}/{action}.png", "format": "png"},
+        ]
+
+    # ------------------------------------------------------------ per-action
+    def loop_of(self, action: str) -> bool:
+        if action in ("skill", "burst"):
+            return action == "skill"
+        return bool((self.actions.get(action) or {}).get("loop"))
+
+    def fps_of(self, action: str, c: dict | None = None) -> int:
+        """Playback fps written to the catalog; the video is always made at video.fps."""
+        if action == "burst":
+            return int(((c or {}).get("skill") or {}).get("burst_fps") or self.effect["burst_fps"])
+        return int((self.actions.get(action) or {}).get("fps") or self.video["fps"])
+
+    def review_flags(self, action: str) -> list[str]:
+        if action == "skill":
+            return ["--loop", "--strict-motion"]
+        if action == "burst":
+            return ["--ends-empty"]
+        return ["--loop"] if self.loop_of(action) else []
+
+    @staticmethod
+    def blank_path(cid: str) -> str:
+        return f"characters/{cid}/blank.png"
+
+    def ensure_blanks(self) -> None:
+        """A burst is pulled to nothing by conditioning its last frame on a
+        flat-background image. The framework only accepts references that exist
+        on disk, so that image is written here, beside the skill reference it
+        matches, the moment the reference lands."""
+        from PIL import Image
+        for c in self.characters:
+            if not c.get("skill"):
+                continue
+            ref = self.drafts / "characters" / c["id"] / "skill_reference.png"
+            blank = self.drafts / self.blank_path(c["id"])
+            if not ref.exists() or blank.exists():
+                continue
+            with Image.open(ref) as im:
+                rgb = im.convert("RGB")
+                w, h = rgb.size
+                m = max(4, min(w, h) // 25)
+                px = [rgb.getpixel((x, y)) for box in ((0, 0), (w - m, 0), (0, h - m), (w - m, h - m))
+                      for x in range(box[0], box[0] + m) for y in range(box[1], box[1] + m)]
+                colour = tuple(sorted(ch[i] for ch in px)[len(px) // 2] for i in range(3))
+                Image.new("RGB", (w, h), colour).save(blank)
+            print(f"  wrote {blank.relative_to(self.drafts)} ({'#%02x%02x%02x' % colour})")
 
     # ------------------------------------------------------------- readiness
     def refs_of(self, entry: dict) -> list[str]:
@@ -207,13 +332,10 @@ class Plan:
     def review(self, entry: dict) -> bool:
         cid, action = entry["name"].split("-")[0], entry["name"].split("-")[1]
         video = self.drafts / "characters" / cid / f"{action}.mp4"
-        loop = bool((self.actions.get(action) or {}).get("loop"))
         cmd = [sys.executable, str(HERE / "review_video.py"), str(video),
                "--trim-end", str(self.video["trim_end"]),
                "--sheet", str(video.with_suffix(".review.png")),
-               "--json", str(self.review_path(entry))]
-        if loop:
-            cmd.append("--loop")
+               "--json", str(self.review_path(entry)), *self.review_flags(action)]
         if self.mask["background"] != "auto":
             cmd += ["--background", self.mask["background"]]
         proc = subprocess.run(cmd, capture_output=True, text=True)
@@ -230,6 +352,39 @@ class Plan:
             print(f"  {entry['name']} is blocked; look at {video.with_suffix('.review.png')} and "
                   f"regenerate with --regenerate {entry['name']}")
         return report["ok"]
+
+    # ---------------------------------------------------------- regenerate
+    def downstream_of(self, target: dict, entries: list[dict]) -> list[dict]:
+        """Every entry that was built from `target`, so its draft is stale once
+        the target is redone. A character's reference feeds everything of theirs;
+        a skill reference feeds the skill and burst chains; any other entry feeds
+        the later stages of its own action."""
+        cid, rest = target["name"].split("-", 1)
+        mine = [e for e in entries if e["name"].startswith(f"{cid}-") and e is not target]
+        if rest == "reference":
+            return mine
+        if rest == "skill-reference":
+            return [e for e in mine if e["name"].split("-")[1] in ("skill", "burst")]
+        action, stage = rest.rsplit("-", 1)
+        return [e for e in mine if e["name"].startswith(f"{cid}-{action}-")
+                and STAGES.index(stage_of(e)) > STAGES.index(stage)]
+
+    def remove_stale(self, target: dict, entries: list[dict]) -> None:
+        for e in self.downstream_of(target, entries):
+            path = self.drafts / e["output"]
+            victim = path.parent if "{n" in e["output"] else path
+            if victim.exists():
+                shutil.rmtree(victim) if victim.is_dir() else victim.unlink()
+                print(f"  removed stale {victim.relative_to(self.drafts)}")
+            if stage_of(e) == "video":
+                self.review_path(e).unlink(missing_ok=True)
+        if stage_of(target) == "video":
+            self.review_path(target).unlink(missing_ok=True)
+        if target["name"].endswith("skill-reference") or target["name"].endswith("-reference"):
+            blank = self.drafts / self.blank_path(target["name"].split("-")[0])
+            if blank.exists():
+                blank.unlink()
+                print(f"  removed stale {blank.relative_to(self.drafts)}")
 
 
 def stage_of(entry: dict) -> str:
@@ -265,19 +420,8 @@ def main() -> int:
         if target is None:
             raise SystemExit(f"no entry named {args.regenerate!r} in this selection")
         # Everything downstream of it is now stale: delete those drafts so the loop rebuilds them.
-        cid, rest = args.regenerate.split("-", 1)
-        action = rest.split("-")[0] if "-" in rest else None
-        for e in entries:
-            same_chain = e["name"].startswith(f"{cid}-") and (
-                stage_of(target) == "reference" or e["name"].startswith(f"{cid}-{action}-"))
-            if same_chain and STAGES.index(stage_of(e)) > STAGES.index(stage_of(target)):
-                path = plan.drafts / e["output"]
-                victim = path.parent if "{n" in e["output"] else path
-                if victim.exists():
-                    shutil.rmtree(victim) if victim.is_dir() else victim.unlink()
-                    print(f"  removed stale {victim.relative_to(plan.drafts)}")
-        if stage_of(target) == "video":
-            plan.review_path(target).unlink(missing_ok=True)
+        plan.remove_stale(target, entries)
+        plan.ensure_blanks()
         plan.write_manifest([e for e in entries if plan.ready(e)])
         result = plan.agf_run("regenerate", args.regenerate)
         if "error" in result:
@@ -289,6 +433,7 @@ def main() -> int:
         # fall through into the loop so the chain rebuilds
 
     while True:
+        plan.ensure_blanks()
         ready = [e for e in entries if plan.ready(e)]
         plan.write_manifest(ready)
         if args.dry_run:

@@ -32,7 +32,18 @@ sheet:
   columns: 7
   rows: 6
 
-# Actions become buttons in the app, in this order. `idle` must loop.
+# Effects (a character's `skill:` below). Every key has a default in
+# DEFAULTS["effect"]: the effect style bible, the "draw only this effect" prefix,
+# the in-place video prompt and the burst prompt. `burst_fps` is the playback
+# rate written to the catalog for the impact sheet, so a burst plays fast.
+effect:
+  burst_fps: 32
+  matte: true       # the framework's effect matte: colour-keyed outside the mask body
+                    # (the mask loses small shards), exact background dropped inside it
+
+# Actions become buttons in the app, in this order. `idle` must loop. An action
+# may set `fps:` to be played faster or slower than it was generated. The names
+# skill, burst and reference are reserved.
 actions:
   idle:
     loop: true
@@ -42,9 +53,21 @@ actions:
       loops.
   attack: {}
   defend: {}
+  hurt: {}
 
 # One entry per character. `look` finishes the style bible's sentence; each
 # action key holds what the character does, finishing "The character briskly ...".
+#
+# `skill:` gives the character a projectile effect drawn in its own style (its
+# reference image is the init image): a looping sheet of the effect animating in
+# place -- the app supplies the travel -- and a burst sheet of it shattering to
+# nothing. The `look` must describe one solid opaque object with the same thick
+# outline and no glow, transparency, blur or particles: the matte cannot carry
+# half-transparency, and anything see-through comes back as a white blob.
+# `noun` names it in the burst prompt; `burst:` replaces that prompt's motion.
+# A thrown weapon should not be asked to spin: the video model turns it slowly,
+# off-centre and short of a full turn. Give it a subtle in-place motion and set
+# `spin: true`; the app rotates the sprite in flight, perfectly and forever.
 characters:
   - id: knight
     name: Knight
@@ -54,6 +77,23 @@ characters:
       right side and a kite shield on the left arm.
     attack: swings the longsword in one big overhead-to-diagonal slash
     defend: raises the kite shield up front and braces behind it
+    hurt: >-
+      recoils half a step backward as if struck, the shield arm jolting and the
+      plume whipping, then straightens back up, staying in place
+    skill:
+      name: Sword Wave
+      noun: crescent slash wave
+      look: >-
+        A single large crescent-shaped slash wave of solid pale-blue energy with a
+        white inner band, shaped like a bold C opening toward the viewer's right,
+        chunky and thick with no thin lines, solid opaque flat colours in two tones,
+        the same thick dark-charcoal outline, no glow, no transparency, no motion
+        blur, no particles, no character or figure, centered and filling about two
+        thirds of the frame, on a solid flat light-gray background (#D9D9D9),
+        nothing else.
+      motion: >-
+        the crescent pulses slightly larger and smaller and its white inner band
+        ripples along its length
 
 # For approve.py: where the Flutter app keeps sheets and the catalog.
 app:

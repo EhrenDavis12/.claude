@@ -63,27 +63,49 @@ class App:
         missing = [a for a, p in sheets.items() if not p.exists()]
         if missing:
             raise SystemExit(f"{cid}: no drafted sheet for {missing}; run animate.py first")
+        skill = spec.get("skill")
+        if skill:
+            effects = {a: plan.drafts / "characters" / cid / f"{a}.png" for a in ("skill", "burst")}
+            missing = [a for a, p in effects.items() if not p.exists()]
+            if missing:
+                raise SystemExit(f"{cid}: no drafted sheet for {missing}; run animate.py --action skill --action burst")
         dest = self.assets / cid
         dest.mkdir(parents=True, exist_ok=True)
-        s = plan.sheet
         animations = {}
         for action, path in sheets.items():
             shutil.copyfile(path, dest / f"{action}.png")
-            animations[action] = {
-                "sheet": f"{self.asset_prefix}/{cid}/{action}.png",
-                "frameWidth": s["frame"], "frameHeight": s["frame"],
-                "columns": s["columns"], "rows": s["rows"],
-                "frameCount": len(plan.kept), "fps": plan.video["fps"],
-                "loop": bool((plan.actions[action] or {}).get("loop")),
-            }
+            animations[action] = self.animation_json(cid, action, spec)
+        entry = {"id": cid, "name": spec.get("name", cid.title()), "animations": animations}
+        approved = list(plan.actions)
+        if skill:
+            for action, path in effects.items():
+                shutil.copyfile(path, dest / f"{action}.png")
+            entry["skill"] = {"name": skill["name"],
+                              "spin": bool(skill.get("spin")),
+                              "animation": self.animation_json(cid, "skill", spec),
+                              "impact": self.animation_json(cid, "burst", spec)}
+            approved += [f"skill({skill['name']})", "burst"]
+        else:
+            for stale in ("skill", "burst"):
+                (dest / f"{stale}.png").unlink(missing_ok=True)
         catalog = self.load()
         catalog["characters"] = [c for c in catalog["characters"] if c["id"] != cid]
-        catalog["characters"].append({"id": cid, "name": spec.get("name", cid.title()), "animations": animations})
+        catalog["characters"].append(entry)
         order = {c["id"]: i for i, c in enumerate(plan.characters)}
         catalog["characters"].sort(key=lambda c: order.get(c["id"], len(order)))
         self.save(catalog)
         self.pubspec_add(cid)
-        print(f"approved {cid}: {', '.join(plan.actions)} -> {dest.relative_to(plan.root)}")
+        print(f"approved {cid}: {', '.join(approved)} -> {dest.relative_to(plan.root)}")
+
+    def animation_json(self, cid: str, action: str, spec: dict) -> dict:
+        s = self.plan.sheet
+        return {
+            "sheet": f"{self.asset_prefix}/{cid}/{action}.png",
+            "frameWidth": s["frame"], "frameHeight": s["frame"],
+            "columns": s["columns"], "rows": s["rows"],
+            "frameCount": len(self.plan.kept), "fps": self.plan.fps_of(action, spec),
+            "loop": self.plan.loop_of(action),
+        }
 
     def drop(self, cid: str) -> None:
         catalog = self.load()
@@ -109,7 +131,8 @@ def main() -> int:
     ids = list(args.ids)
     if args.all:
         ids = [c["id"] for c in plan.characters
-               if all((plan.drafts / "characters" / c["id"] / f"{a}.png").exists() for a in plan.actions)]
+               if all((plan.drafts / "characters" / c["id"] / f"{a}.png").exists()
+                      for a in [*plan.actions, *(("skill", "burst") if c.get("skill") else ())])]
     for cid in ids:
         app.approve(cid)
     return 0
