@@ -45,7 +45,7 @@ from pathlib import Path
 
 import av
 import numpy as np
-from PIL import Image
+from PIL import Image, ImageFilter
 
 # Thresholds. Measured on clean clips the foreground luminance wobbles by
 # about +-1 per frame; a lighting flash moved it +5 to +7.
@@ -57,7 +57,9 @@ SIZE_FRACTION = 0.12       # bbox height change as a fraction of its first value
 BACKGROUND_STD = 8.0       # colour std-dev of the corner regions: fail
 FG_DISTANCE = 45.0         # colour distance from the background that counts as foreground
 EMPTY_FRACTION = 0.005     # foreground pixels left in a burst's last kept frame: fail (--ends-empty)
-BORDER_FRACTION = 0.04     # width of the frame border that must stay empty: fail (--contained)
+BORDER_FRACTION = 0.04     # width of the frame border judged by --contained
+BORDER_DENSITY = 0.02      # share of that border still foreground after eroding 2px: fail
+                           # (a spray of dots erodes to nothing; a cut shard is ~1% of the border)
 
 
 def _frames(path: Path) -> list[np.ndarray]:
@@ -97,7 +99,10 @@ def review(path: Path, background_spec: str, trim_end: int, loop: bool,
         fg = dist > FG_DISTANCE
         corner_std.append(float(_corners(rgb).std()))
         fg_fraction.append(float(fg.mean()))
-        if fg[:b].any() or fg[-b:].any() or fg[:, :b].any() or fg[:, -b:].any():
+        border = np.zeros_like(fg)
+        border[:b], border[-b:], border[:, :b], border[:, -b:] = True, True, True, True
+        solid = np.array(Image.fromarray((fg & border).astype(np.uint8) * 255).filter(ImageFilter.MinFilter(5))) > 0
+        if float(solid.sum()) / float(border.sum()) > BORDER_DENSITY:
             touching.append(i + 1)
         if not fg.any():
             lum.append(0.0)

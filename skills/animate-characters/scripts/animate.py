@@ -113,6 +113,10 @@ DEFAULTS = {
                            "stays centered. The camera is completely static with no zoom. The flat "
                            "background stays plain and unchanged. No character appears. No text."),
         "burst_fps": 32,
+        # The burst starts from the effect shrunk to this fraction of the frame, so
+        # it has room to expand without reaching the cell edge; the app draws the
+        # burst sheet larger than the projectile to compensate.
+        "burst_start": 0.42,
         # Effects get the framework's effect matte: the mask model loses small
         # shards and fills holes between dense ones, so outside the mask body the
         # frame is keyed by colour alone and inside it exact background is dropped.
@@ -191,8 +195,8 @@ class Plan:
                               effect=k["matte"])
             noun = skill.get("noun") or skill["name"].lower()
             burst = skill.get("burst") or k["burst_template"].format(noun=noun)
-            out += self.chain(cid, "burst", sref, burst, last_image=self.blank_path(cid),
-                              effect=k["matte"])
+            out += self.chain(cid, "burst", self.small_path(cid), burst,
+                              last_image=self.blank_path(cid), effect=k["matte"])
         return out
 
     def chain(self, cid: str, action: str, ref: str, prompt: str, last_image: str | None = None,
@@ -252,18 +256,26 @@ class Plan:
     def blank_path(cid: str) -> str:
         return f"characters/{cid}/blank.png"
 
+    @staticmethod
+    def small_path(cid: str) -> str:
+        return f"characters/{cid}/skill_small.png"
+
     def ensure_blanks(self) -> None:
-        """A burst is pulled to nothing by conditioning its last frame on a
-        flat-background image. The framework only accepts references that exist
-        on disk, so that image is written here, beside the skill reference it
-        matches, the moment the reference lands."""
+        """Two locally made images a burst needs, written beside the skill
+        reference the moment it lands (the framework only accepts references
+        that exist on disk). `blank.png` is a flat frame in the reference's
+        background colour: conditioning the burst's last frame on it pulls the
+        clip to empty. `skill_small.png` is the reference shrunk to less than half
+        size on that background: a burst that starts from the full-size effect
+        expands past the frame edge, and a cell cuts it off there."""
         from PIL import Image
         for c in self.characters:
             if not c.get("skill"):
                 continue
             ref = self.drafts / "characters" / c["id"] / "skill_reference.png"
             blank = self.drafts / self.blank_path(c["id"])
-            if not ref.exists() or blank.exists():
+            small = self.drafts / self.small_path(c["id"])
+            if not ref.exists() or (blank.exists() and small.exists()):
                 continue
             with Image.open(ref) as im:
                 rgb = im.convert("RGB")
@@ -272,8 +284,24 @@ class Plan:
                 px = [rgb.getpixel((x, y)) for box in ((0, 0), (w - m, 0), (0, h - m), (w - m, h - m))
                       for x in range(box[0], box[0] + m) for y in range(box[1], box[1] + m)]
                 colour = tuple(sorted(ch[i] for ch in px)[len(px) // 2] for i in range(3))
-                Image.new("RGB", (w, h), colour).save(blank)
-            print(f"  wrote {blank.relative_to(self.drafts)} ({'#%02x%02x%02x' % colour})")
+                if not blank.exists():
+                    Image.new("RGB", (w, h), colour).save(blank)
+                    print(f"  wrote {blank.relative_to(self.drafts)} ({'#%02x%02x%02x' % colour})")
+                if not small.exists():
+                    scale = self.effect["burst_start"]
+                    shrunk = rgb.resize((max(1, int(w * scale)), max(1, int(h * scale))), Image.LANCZOS)
+                    # Flatten the shrunk image's own background to the exact canvas colour,
+                    # or the paste leaves a faint square seam the video model may keep.
+                    data = shrunk.load()
+                    for y in range(shrunk.height):
+                        for x in range(shrunk.width):
+                            r, g, b = data[x, y]
+                            if abs(r - colour[0]) + abs(g - colour[1]) + abs(b - colour[2]) <= 45:
+                                data[x, y] = colour
+                    canvas = Image.new("RGB", (w, h), colour)
+                    canvas.paste(shrunk, ((w - shrunk.width) // 2, (h - shrunk.height) // 2))
+                    canvas.save(small)
+                    print(f"  wrote {small.relative_to(self.drafts)} (x{scale})")
 
     # ------------------------------------------------------------- readiness
     def refs_of(self, entry: dict) -> list[str]:
@@ -382,11 +410,13 @@ class Plan:
                 self.review_path(e).unlink(missing_ok=True)
         if stage_of(target) == "video":
             self.review_path(target).unlink(missing_ok=True)
-        if target["name"].endswith("skill-reference") or target["name"].endswith("-reference"):
-            blank = self.drafts / self.blank_path(target["name"].split("-")[0])
-            if blank.exists():
-                blank.unlink()
-                print(f"  removed stale {blank.relative_to(self.drafts)}")
+        if target["name"].endswith("-reference"):
+            cid = target["name"].split("-")[0]
+            for derived in (self.blank_path(cid), self.small_path(cid)):
+                path = self.drafts / derived
+                if path.exists():
+                    path.unlink()
+                    print(f"  removed stale {path.relative_to(self.drafts)}")
 
 
 def stage_of(entry: dict) -> str:
