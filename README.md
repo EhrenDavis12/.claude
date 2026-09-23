@@ -130,6 +130,7 @@ Not everything here is generic. Delete what does not apply before the first sess
 |---|---|
 | `skills/playtest/`, `tools/sim.sh` | an iOS app and the iOS Simulator |
 | `skills/generate-asset/` | the Asset-Gen-Framework CLI checked out under `src/` |
+| `skills/animate-characters/` | the Asset-Gen-Framework CLI under `src/`, a Replicate token, and a Flutter app to approve into |
 | `commands/create-pr.md` | a mono repo whose sources are git submodules |
 | `otel/` | Docker, and wanting a Grafana stack for agent telemetry |
 | `agents/forge/`, `systems/forge/` | that you want the twelve-agent delegation pipeline at all |

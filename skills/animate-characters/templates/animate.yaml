@@ -1,0 +1,62 @@
+# animate-characters config. Lives beside assetgen.yaml in the calling project.
+# Every key under reference/video/mask/sheet has a default (see scripts/animate.py
+# DEFAULTS); write only what you change.
+
+# Where the Asset-Gen-Framework CLI is, relative to this file.
+agf: ../Asset-Gen-Framework/.venv/bin/agf
+
+# The style bible: prefixed to every character prompt. The character after
+# "The character:" changes; nothing here does. Keep the background flat and
+# a single light colour -- the matte and the outline restoration depend on it.
+style: >-
+  Clean 2D game character art. Chibi proportions with a large head and a compact
+  body, flat cel shading with two tones per color and no gradients, thick uniform
+  dark-charcoal outlines, a vibrant but limited palette. Full body, standing in a
+  relaxed idle pose, facing three-quarter toward the viewer's right, feet planted
+  and fully visible, centered in the frame with even margins. Solid flat light-gray
+  background (#D9D9D9), nothing else in the scene: no floor, no shadow, no props on
+  the ground, no text.
+
+# The first character is generated from text alone and becomes the style
+# reference every later character is generated against. Name another with
+# style_anchor: <id> once you have one you love.
+
+video:
+  frames: 81        # Wan 2.2 refuses fewer
+  fps: 16
+  trim_end: 6       # the last frames brighten toward the last-frame image; dropped
+  keep_every: 2     # every second frame -> 38 frames, played at 16 fps = 2.4 s
+
+sheet:
+  frame: 256
+  columns: 7
+  rows: 6
+
+# Actions become buttons in the app, in this order. `idle` must loop.
+actions:
+  idle:
+    loop: true
+    motion: >-
+      The character stands in place breathing calmly, a gentle subtle idle sway,
+      weight shifting slightly, and ends in exactly the starting pose so the clip
+      loops.
+  attack: {}
+  defend: {}
+
+# One entry per character. `look` finishes the style bible's sentence; each
+# action key holds what the character does, finishing "The character briskly ...".
+characters:
+  - id: knight
+    name: Knight
+    look: >-
+      A knight in polished blue-and-silver plate armor with a red plume on the
+      helmet, visor up showing a determined face, holding a longsword down at the
+      right side and a kite shield on the left arm.
+    attack: swings the longsword in one big overhead-to-diagonal slash
+    defend: raises the kite shield up front and braces behind it
+
+# For approve.py: where the Flutter app keeps sheets and the catalog.
+app:
+  assets: assets/characters
+  catalog: assets/characters/characters.json
+  pubspec: pubspec.yaml
