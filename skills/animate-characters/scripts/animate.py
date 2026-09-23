@@ -66,7 +66,7 @@ DEFAULTS = {
         "model": "sprited/birefnet-video:d4fd02a2eaddddfd6fbe77570e7408b3f15ee4dcf2ded407ace7a0f9d114ae87",
         "inputs": {"variant": "toonout", "output_format": "mask", "video_output_type": "mp4",
                    "video_quality": "maximum"},
-        "grow": 3, "threshold": 60, "feather": 0.7, "background": "auto",
+        "grow": 3, "threshold": 60, "feather": 0, "background": "auto",
     },
     "sheet": {"frame": 256, "columns": 7, "rows": 6},
 }

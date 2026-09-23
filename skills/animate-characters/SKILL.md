@@ -63,8 +63,9 @@ by hand (Flutter does not bundle directories recursively); `approve.py` adds the
 5. **Frames** — the framework's `extract_frames` with `matte:` and `resize:`. The alpha comes
    from the mask, and the outline the matte shaved off is **restored by colour**: the mask is
    grown three pixels and, in that band, only pixels clearly unlike the flat background are
-   kept. The body is the model's; the edge is decided by colour, identically on every frame.
-   Then a light feather and a fit to the cell size.
+   kept, with alpha from its colour distance and the background's share subtracted from its
+   colour. The body is the model's; the edge is decided by colour, identically on every frame,
+   and carries no background. Then a premultiplied fit to the cell size.
 6. **Sheet** — the framework's `assemble_sheet`: the kept frames (every second one, the last
    six dropped — see the lessons) in a row-major grid, one PNG.
 
@@ -81,6 +82,10 @@ Look, do not assert. After approving, build a review strip (frame 0, 5, 10 … o
 composited on green) and read it as an image; then run the app and record a tap through the
 playtest skill. What to look for:
 
+- **A pale line outside the outline** is background left in the edge pixels. Check on the
+  darkest background the game uses; a light one hides it. The difference key removes it when
+  the background is flat and known — if it is back, the background was not flat (check the
+  review's corner std) or `mask.threshold` is far from the outline's distance.
 - **Outline weight** should be identical from frame to frame. If it breathes, the matte is
   eating it: raise `mask.grow` by one, or lower `mask.threshold` if the outline colour is
   close to the background.
@@ -106,6 +111,16 @@ that fixed a recurring defect — update the script or the default that embodies
 dated line here saying what changed and what it cost to learn. The next run must start from
 the best known way, not rediscover it. Entries are newest first.
 
+- **2026-09-23 — A light rim around the outline means background is still in the edge.**
+  Two causes, both in the frames step. Every edge pixel of the video is a blend of outline
+  and background, so keeping it at full alpha paints the blend as a pale line; and resizing
+  straight RGBA lets the (background-coloured) transparent pixels bleed into their neighbours.
+  The matte is now a difference key against the flat background — alpha in the edge band is
+  the pixel's colour distance relative to a fully-foreground pixel, and the colour is
+  un-blended by subtracting the background's share — transparent pixels are forced to black,
+  and the resize is premultiplied. No feather: antialiasing comes from the key and the
+  downscale. Seen on the mage's hat on the app's dark background; invisible on a light one,
+  so check edges on the darkest background the game has.
 - **2026-09-23 — A burst of short jobs trips Replicate's rate limit.** Eighteen mask jobs in
   a row got a 429 on the fourth, which killed the run mid-chain. `animate.py` now waits
   30 s, then 60, 120, 240, and retries the same entry before giving up.
