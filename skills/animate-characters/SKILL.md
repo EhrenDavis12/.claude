@@ -93,10 +93,13 @@ across the screen:
 3. **`burst` video** — one-shot, from the same reference: the effect bursts apart into
    solid shards and vanishes. Its `last_image` is `characters/<id>/blank.png`, a flat frame
    in the reference's background colour that `animate.py` writes locally the moment the
-   reference lands, so Wan is pulled to an empty frame. The review runs `--ends-empty`:
-   no end-flash check (the end *is* a change), and it fails if the last kept frame still
-   holds foreground or the first holds none. The sheet keeps its trailing empty frames;
-   the catalog plays it at `effect.burst_fps` (32) so the burst reads as a hit, not a clip.
+   reference lands, so Wan is pulled to an empty frame. The review runs `--ends-empty
+   --contained`: no end-flash check (the end *is* a change), it fails if the last kept
+   frame still holds foreground or the first holds none, and it fails any frame whose
+   foreground touches the border — a cell cuts the burst off there, and the cut reads as
+   a square box on screen. The prompt asks for a compact burst within the middle two thirds
+   of the frame. The sheet keeps its trailing empty frames; the catalog plays it at
+   `effect.burst_fps` (32) so the burst reads as a hit, not a clip.
 4. Mask, frames and sheet as for an action, with one difference: the frames step runs the
    framework's **effect matte** (`matte: {effect: true}`, from `effect.matte` in the config).
    A burst is hundreds of small shards and the mask model loses most of them, so outside the
@@ -151,6 +154,12 @@ that fixed a recurring defect — update the script or the default that embodies
 dated line here saying what changed and what it cost to learn. The next run must start from
 the best known way, not rediscover it. Entries are newest first.
 
+- **2026-09-23 — A burst that reaches the frame edge plays as a square.** The first six
+  bursts flew their shards past the cell border in most frames; on screen the cut-off
+  edge drew a box around every impact. The prompt now keeps the burst within the middle
+  two thirds with an empty margin, and the review's `--contained` gate fails any frame
+  with foreground in the outer 4% of the frame before a mask is paid for. Cost: six
+  videos regenerated.
 - **2026-09-23 — A burst needs its own matte.** The character matte trusts the mask body and
   colour-keys a three-pixel band around it. On a burst of hundreds of shards the mask model
   loses most of the small ones (a band cannot reach them), fills the holes between dense

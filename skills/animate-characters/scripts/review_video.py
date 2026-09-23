@@ -12,6 +12,8 @@ says pass or fail, with a contact sheet to look at.
                   [--ends-empty] [--sheet out.png] [--json out.json]
                   [--background auto|#rrggbb]
 
+`--contained` fails a clip whose foreground touches the frame border in any
+kept frame: a sheet cell cuts it off there, and the cut edge reads as a box.
 `--strict-motion` turns the loop's drift warning into a failure: a
 projectile effect that travels inside its own clip cannot be used, because
 the app supplies the travel. `--ends-empty` is for a burst that must vanish:
@@ -55,6 +57,7 @@ SIZE_FRACTION = 0.12       # bbox height change as a fraction of its first value
 BACKGROUND_STD = 8.0       # colour std-dev of the corner regions: fail
 FG_DISTANCE = 45.0         # colour distance from the background that counts as foreground
 EMPTY_FRACTION = 0.005     # foreground pixels left in a burst's last kept frame: fail (--ends-empty)
+BORDER_FRACTION = 0.04     # width of the frame border that must stay empty: fail (--contained)
 
 
 def _frames(path: Path) -> list[np.ndarray]:
@@ -81,18 +84,21 @@ def _background(rgb: np.ndarray, spec: str) -> np.ndarray:
 
 
 def review(path: Path, background_spec: str, trim_end: int, loop: bool,
-           strict_motion: bool = False, ends_empty: bool = False) -> dict:
+           strict_motion: bool = False, ends_empty: bool = False, contained: bool = False) -> dict:
     frames = _frames(path)
     background = _background(frames[0], background_spec)
     h, w = frames[0].shape[:2]
     kept = frames[: max(1, len(frames) - trim_end)]
 
-    lum, boxes, fg_fraction, corner_std = [], [], [], []
-    for rgb in kept:
+    lum, boxes, fg_fraction, corner_std, touching = [], [], [], [], []
+    b = max(2, int(round(min(h, w) * BORDER_FRACTION)))
+    for i, rgb in enumerate(kept):
         dist = np.sqrt(((rgb.astype(float) - background) ** 2).sum(-1))
         fg = dist > FG_DISTANCE
         corner_std.append(float(_corners(rgb).std()))
         fg_fraction.append(float(fg.mean()))
+        if fg[:b].any() or fg[-b:].any() or fg[:, :b].any() or fg[:, -b:].any():
+            touching.append(i + 1)
         if not fg.any():
             lum.append(0.0)
             continue
@@ -127,6 +133,9 @@ def review(path: Path, background_spec: str, trim_end: int, loop: bool,
                          "note": "an intended effect (glow, flash) looks like this too; check the sheet"})
     if bg_std > BACKGROUND_STD:
         failures.append({"flag": "background_not_flat", "max_corner_std": round(bg_std, 1)})
+    if contained and touching:
+        failures.append({"flag": "touches_edge", "frames": touching[:12], "count": len(touching),
+                         "remedy": "regenerate; the effect must stay inside the frame, or it is cut off by the cell"})
 
     if loop:
         small = lambda f: np.array(Image.fromarray(f).resize((64, 64), Image.BOX)).astype(float)
@@ -180,10 +189,11 @@ def main() -> int:
     ap.add_argument("--loop", action="store_true", help="this clip must loop: check closure and drift")
     ap.add_argument("--strict-motion", action="store_true", help="drift and size change fail instead of warn")
     ap.add_argument("--ends-empty", action="store_true", help="the clip must end on the empty background")
+    ap.add_argument("--contained", action="store_true", help="no frame may have foreground at the border")
     args = ap.parse_args()
 
     report = review(args.video, args.background, args.trim_end, args.loop,
-                    strict_motion=args.strict_motion, ends_empty=args.ends_empty)
+                    strict_motion=args.strict_motion, ends_empty=args.ends_empty, contained=args.contained)
     if args.sheet:
         contact_sheet(args.video, args.sheet)
         report["sheet"] = str(args.sheet)

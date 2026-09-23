@@ -103,13 +103,15 @@ DEFAULTS = {
                      "with no zoom or pan. The flat background stays plain and unchanged. No character "
                      "appears. No text."),
         "burst_template": ("2D cartoon game animation of a magic impact. The {noun} bursts apart on the "
-                           "spot into a big round explosion of solid opaque chunky shards and rings in "
-                           "the same colours with thick outlines, which fly outward, shrink and vanish "
-                           "completely by the middle of the clip, leaving only the plain flat "
-                           "background, completely empty, for the rest of the clip. No fading, no "
-                           "glow, no smoke, no transparency. The burst stays centered. The camera is "
-                           "completely static. The flat background stays plain and unchanged. No "
-                           "character appears. No text."),
+                           "spot into a compact round explosion of solid opaque chunky shards and rings in "
+                           "the same colours with thick outlines, which fly a short way outward, shrink "
+                           "and vanish completely by the middle of the clip, leaving only the plain flat "
+                           "background, completely empty, for the rest of the clip. The whole burst stays "
+                           "well inside the frame at all times, within the middle two thirds, with a wide "
+                           "empty margin on every side: no shard, ring or spark ever reaches or leaves the "
+                           "edge of the frame. No fading, no glow, no smoke, no transparency. The burst "
+                           "stays centered. The camera is completely static with no zoom. The flat "
+                           "background stays plain and unchanged. No character appears. No text."),
         "burst_fps": 32,
         # Effects get the framework's effect matte: the mask model loses small
         # shards and fills holes between dense ones, so outside the mask body the
@@ -243,7 +245,7 @@ class Plan:
         if action == "skill":
             return ["--loop", "--strict-motion"]
         if action == "burst":
-            return ["--ends-empty"]
+            return ["--ends-empty", "--contained"]
         return ["--loop"] if self.loop_of(action) else []
 
     @staticmethod

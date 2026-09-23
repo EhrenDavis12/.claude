@@ -130,14 +130,16 @@ cmd_tap() {
 
 # --- swipe ------------------------------------------------------------------
 cmd_swipe() {
-  [ $# -ge 4 ] || die "usage: sim.sh swipe <x1> <y1> <x2> <y2> [steps]"
+  [ $# -ge 4 ] || die "usage: sim.sh swipe <x1> <y1> <x2> <y2> [steps] [hold_ms]"
   load_cache; focus
-  local from to steps i fx fy tx ty cx cy nx ny
-  from=$(to_screen "$1" "$2"); to=$(to_screen "$3" "$4"); steps="${5:-12}"
+  local from to steps hold i fx fy tx ty cx cy nx ny
+  from=$(to_screen "$1" "$2"); to=$(to_screen "$3" "$4"); steps="${5:-12}"; hold="${6:-40}"
   fx=${from%,*}; fy=${from#*,}; tx=${to%,*}; ty=${to#*,}
 
   move_to "$from"
-  cliclick -w 40 dd:.
+  # hold_ms is how long the finger rests before it moves: 40 reads as a swipe,
+  # 700 or more as a long-press drag (LongPressDraggable waits 500 ms).
+  cliclick -w "$hold" dd:.
   # Once the drag is underway the cursor must never leave the path — so each
   # intermediate point is a delta from the last one, not another hop via the
   # origin. Hopping mid-drag traces a zig-zag through 0,0 that no gesture
@@ -237,7 +239,7 @@ sim.sh — see and touch the booted iOS Simulator. All coordinates are screensho
   shot [path]               screenshot to path (prints the path)
   view <shot> [maxdim]      shrink a screenshot for viewing, print the coordinate multiplier
   tap <x> <y>               tap at a screenshot pixel
-  swipe <x1> <y1> <x2> <y2> [steps]   drag across the screen
+  swipe <x1> <y1> <x2> <y2> [steps] [hold_ms]   drag across the screen; hold 700+ for a long-press drag
   type <text>               type text into the focused field
   key <name>                press a key (return, esc, space, ...)
   home                      press the Home button
