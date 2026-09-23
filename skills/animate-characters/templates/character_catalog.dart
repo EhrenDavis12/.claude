@@ -67,12 +67,57 @@ class AnimationDef {
       Duration(microseconds: frameCount * Duration.microsecondsPerSecond ~/ fps);
 }
 
+/// A character's optional special attack: an effect sprite that flies from
+/// attacker to target, and a one-shot impact played on arrival.
+class SkillDef {
+  const SkillDef({
+    required this.name,
+    this.spin = false,
+    required this.animation,
+    required this.impact,
+  });
+
+  factory SkillDef.fromJson(Map<String, dynamic> json, String owner) {
+    final name = _string(json, 'name', owner);
+    final animationRaw = json['animation'];
+    if (animationRaw is! Map<String, dynamic>) {
+      throw FormatException('character "$owner": skill "animation" must be an object');
+    }
+    final impactRaw = json['impact'];
+    if (impactRaw is! Map<String, dynamic>) {
+      throw FormatException('character "$owner": skill "impact" must be an object');
+    }
+    final impact = AnimationDef.fromJson('impact', impactRaw);
+    if (impact.loop) {
+      throw FormatException('character "$owner": skill "impact" must not loop');
+    }
+    final spinRaw = json['spin'];
+    if (spinRaw != null && spinRaw is! bool) {
+      throw FormatException('character "$owner": skill "spin" must be a boolean');
+    }
+    return SkillDef(
+      name: name,
+      spin: spinRaw == true,
+      animation: AnimationDef.fromJson('skill', animationRaw),
+      impact: impact,
+    );
+  }
+
+  final String name;
+
+  /// Whether the flying effect sprite spins continuously in flight.
+  final bool spin;
+  final AnimationDef animation;
+  final AnimationDef impact;
+}
+
 class CharacterDef {
   const CharacterDef({
     required this.id,
     required this.name,
     required this.idle,
     required this.actions,
+    this.skill,
   });
 
   factory CharacterDef.fromJson(Map<String, dynamic> json) {
@@ -98,11 +143,20 @@ class CharacterDef {
     if (idle == null) {
       throw FormatException('character "$id": an "idle" animation is required');
     }
+    final skillRaw = json['skill'];
+    SkillDef? skill;
+    if (skillRaw != null) {
+      if (skillRaw is! Map<String, dynamic>) {
+        throw FormatException('character "$id": "skill" must be an object');
+      }
+      skill = SkillDef.fromJson(skillRaw, id);
+    }
     return CharacterDef(
       id: id,
       name: _string(json, 'name', id),
       idle: idle,
       actions: actions,
+      skill: skill,
     );
   }
 
@@ -110,8 +164,21 @@ class CharacterDef {
   final String name;
   final AnimationDef idle;
 
-  /// Every non-idle animation, in the order the JSON listed them.
+  /// Every non-idle animation, in the order the JSON listed them. "hurt" is
+  /// an ordinary entry here like any other, not special-cased.
   final List<AnimationDef> actions;
+
+  /// The character's special attack, or null if it has none.
+  final SkillDef? skill;
+
+  /// Finds an action by its key. Never matches "idle", which isn't in
+  /// [actions].
+  AnimationDef? byKey(String key) {
+    for (final action in actions) {
+      if (action.key == key) return action;
+    }
+    return null;
+  }
 }
 
 /// Parses the catalog JSON text into characters, in file order.

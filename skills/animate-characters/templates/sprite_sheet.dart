@@ -63,12 +63,16 @@ class SpritePlayer extends StatefulWidget {
     required this.sheets,
     this.playId = 0,
     this.onFinished,
+    this.flipX = false,
   });
 
   final AnimationDef animation;
   final SheetCache sheets;
   final int playId;
   final VoidCallback? onFinished;
+
+  /// Mirrors the sprite horizontally when true.
+  final bool flipX;
 
   @override
   State<SpritePlayer> createState() => SpritePlayerState();
@@ -135,6 +139,13 @@ class SpritePlayerState extends State<SpritePlayer>
       onError: (Object error) {
         if (!mounted || id != _loadId) return;
         setState(() => _error = error);
+        // A clip that can never decode can never reach its last frame either,
+        // so treat the error as the one-shot's completion: a caller waiting
+        // on onFinished (e.g. ImpactBurst) must not wait on it forever.
+        if (!_finished) {
+          _finished = true;
+          widget.onFinished?.call();
+        }
       },
     );
   }
@@ -179,6 +190,7 @@ class SpritePlayerState extends State<SpritePlayer>
             image: image,
             animation: widget.animation,
             frame: frame,
+            flipX: widget.flipX,
           ),
         ),
       ),
@@ -193,11 +205,15 @@ class SpriteFrame extends StatelessWidget {
     required this.animation,
     required this.sheets,
     this.frameIndex = 0,
+    this.flipX = false,
   });
 
   final AnimationDef animation;
   final SheetCache sheets;
   final int frameIndex;
+
+  /// Mirrors the sprite horizontally when true.
+  final bool flipX;
 
   @override
   Widget build(BuildContext context) {
@@ -223,6 +239,7 @@ class SpriteFrame extends StatelessWidget {
           image: image,
           animation: animation,
           frame: ValueNotifier<int>(frameIndex),
+          flipX: flipX,
         ),
       ),
     );
@@ -235,11 +252,15 @@ class SpriteFramePainter extends CustomPainter {
     required this.image,
     required this.animation,
     required this.frame,
+    this.flipX = false,
   }) : super(repaint: frame);
 
   final ui.Image image;
   final AnimationDef animation;
   final ValueListenable<int> frame;
+
+  /// Mirrors the painted frame about the vertical centre when true.
+  final bool flipX;
 
   static final Paint _paint = Paint()..filterQuality = FilterQuality.medium;
 
@@ -258,12 +279,21 @@ class SpriteFramePainter extends CustomPainter {
     final dw = fw * scale;
     final dh = fh * scale;
     final dst = Rect.fromLTWH((size.width - dw) / 2, (size.height - dh) / 2, dw, dh);
+    if (flipX) {
+      canvas.save();
+      canvas.translate(size.width, 0);
+      canvas.scale(-1, 1);
+    }
     canvas.drawImageRect(image, src, dst, _paint);
+    if (flipX) canvas.restore();
   }
 
   @override
   bool shouldRepaint(SpriteFramePainter old) =>
-      old.image != image || old.animation != animation || old.frame != frame;
+      old.image != image ||
+      old.animation != animation ||
+      old.frame != frame ||
+      old.flipX != flipX;
 }
 
 class _Loading extends StatelessWidget {
