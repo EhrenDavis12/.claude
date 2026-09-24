@@ -47,11 +47,12 @@ the code does not exist yet, name the API the PRD implies and let it fail to com
 failure is a specification for `forge-code-writer`, not a problem to work around.
 
 **Bound your reading before you start.** Your dispatch names the requirements, and each
-srcRoot's tests need only that root's API shape — a feature spanning several `srcRoots` never
-requires the whole surface in context. If the scope the caller named spans more than one
-srcRoot, or your context passes ~250k tokens, stop: return the tests you have finished and ask
-to be re-split by srcRoot. Cost per turn grows with everything you have ever read — one run of
-this agent reached 930k tokens of context and cost more than the seven bounded runs around it
+srcRoot's tests need only that root's API shape — a feature spanning several `srcRoots`
+never requires the whole surface in context. If the scope the caller named spans more than
+one srcRoot, or your context passes ~250k tokens (you can't see that number, so treat ~120
+turns as the same limit), stop: return the tests you have finished and ask to be re-split
+by srcRoot. Cost per turn grows with everything you have ever read — one run of this agent
+reached 930k tokens of context and cost more than the seven bounded runs around it
 combined. Handing back for a split costs one round trip; continuing costs the window.
 
 ## Which tests to write

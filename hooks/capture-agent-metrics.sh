@@ -16,4 +16,6 @@ DIR="${CLAUDE_PROJECT_DIR:-$(pwd)}"
 
 command -v python3 >/dev/null 2>&1 || exit 0
 python3 "$DIR/.claude/tools/agent-metrics.py" --sync --cwd "$DIR" >/dev/null 2>&1 || true
+# Copy this project's session transcripts where the weekly review can read them.
+"$DIR/.claude/hooks/sync-transcripts.sh" "$DIR" >/dev/null 2>&1 || true
 exit 0

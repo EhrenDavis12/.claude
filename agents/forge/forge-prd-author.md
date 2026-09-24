@@ -43,6 +43,10 @@ Out of scope — never write to:
 
 Never touch: `.git/`, generated files.
 
+**Bound the run.** Past ~120 turns, stop: hand back what is drafted and what is left, and
+expect a fresh dispatch to finish it. Each turn re-reads everything you have read so far; in
+the week to 24 Sep all three runs of this agent went past 220 turns.
+
 ## Where to spend your thinking
 
 You run on a strong model at high effort because the hard part is not writing the document —

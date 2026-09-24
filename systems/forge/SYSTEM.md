@@ -94,7 +94,11 @@ the whole feature is neither one-per-stage nor one-per-srcRoot: two days after t
 above bought this rule, two test-authors dispatched that way each read a five-srcRoot feature
 whole, reached ~930k context, and burned 532M tokens — more than the incident the rule came
 from. Both agents now self-bound at ~250k context and hand back asking to be re-split; honor
-that request rather than resuming them past it.
+that request rather than resuming them past it. **Resume a writer at most twice.** After the
+second `SendMessage`, or once it asks to be re-split, dispatch a fresh instance with a hand-off
+brief: goal, files touched, what is built and green, what is left. The bound alone did not
+hold: in the week to 24 Sep, 10 of 27 `forge-code-writer` runs and 11 of 24 `forge-test-author`
+runs passed 250k context, and one of each reached ~960k.
 
 Starting the next stage before the current one returns costs the same way twice over. Code
 written while `forge-test-author` is still running is code built against tests that do not

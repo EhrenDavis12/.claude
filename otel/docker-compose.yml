@@ -29,6 +29,8 @@ services:
     command: ["--config=/etc/otel-collector-config.yaml"]
     volumes:
       - ./otel-collector-config.yaml:/etc/otel-collector-config.yaml
+      # OTEL log events written by the file/events exporter (read by the weekly review).
+      - ../metrics/otel-events:/events
     ports:
       - "4317:4317"   # OTLP gRPC  <- Claude Code sends here
       - "4318:4318"   # OTLP HTTP  (alternative)
@@ -61,6 +63,12 @@ services:
     image: prom/prometheus:latest
     volumes:
       - ./prometheus.yml:/etc/prometheus/prometheus.yml
+      # History survives `docker compose down`; keep 30 days for the weekly review.
+      - prom-data:/prometheus
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+      - --storage.tsdb.path=/prometheus
+      - --storage.tsdb.retention.time=30d
     ports:
       - "9090:9090"
     depends_on:
@@ -82,3 +90,6 @@ services:
       - ./grafana/dashboards:/var/lib/grafana/dashboards
     depends_on:
       - prometheus
+
+volumes:
+  prom-data:
