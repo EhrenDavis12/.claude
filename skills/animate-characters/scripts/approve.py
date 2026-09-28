@@ -98,12 +98,25 @@ class App:
         print(f"approved {cid}: {', '.join(approved)} -> {dest.relative_to(plan.root)}")
 
     def animation_json(self, cid: str, action: str, spec: dict) -> dict:
-        s = self.plan.sheet
+        """The sheet's shape comes from the `<action>.sheet.json` animate.py writes
+        beside it (frame counts differ per action now). A sheet from before that
+        sidecar existed is read as a full grid of the config's cell size."""
+        from PIL import Image
+        drafts = self.plan.drafts / "characters" / cid
+        side = drafts / f"{action}.sheet.json"
+        if side.exists():
+            shape = json.loads(side.read_text())
+            frame, columns, rows, count = shape["frame"], shape["columns"], shape["rows"], shape["frames"]
+        else:
+            frame = self.plan.sheet["frame"]
+            with Image.open(drafts / f"{action}.png") as sheet:
+                columns, rows = sheet.width // frame, sheet.height // frame
+            count = columns * rows
         return {
             "sheet": f"{self.asset_prefix}/{cid}/{action}.png",
-            "frameWidth": s["frame"], "frameHeight": s["frame"],
-            "columns": s["columns"], "rows": s["rows"],
-            "frameCount": len(self.plan.kept), "fps": self.plan.fps_of(action, spec),
+            "frameWidth": frame, "frameHeight": frame,
+            "columns": columns, "rows": rows,
+            "frameCount": count, "fps": self.plan.fps_of(action, spec),
             "loop": self.plan.loop_of(action),
         }
 

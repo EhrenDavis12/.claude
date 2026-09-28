@@ -1,14 +1,15 @@
 ---
 name: animate-characters
-description: Generate a set of game characters as transparent, style-consistent sprite-sheet animations (idle, attack, defend, any action) through Replicate via the Asset-Gen-Framework, review each video before spending on it, matte it with the outline intact, and approve finished sheets into a Flutter app with a drop-in sprite player. Use when a project wants animated characters generated rather than drawn, when a new character or action is added to one that already has them, or when a generated animation looks wrong and someone asks why.
+description: Generate game characters as transparent, style-consistent sprite-sheet animations (idle, attack, defend, hurt, a projectile and its burst) through Replicate via the Asset-Gen-Framework — reference image on a chroma backdrop, Kling image-to-video with a negative prompt, held-frame detection and FILM interpolation, anime upscale, mask and colour-keyed matte, per-action sheets with settle trimming and loop closing — then approve finished sheets into a Flutter app or hand them to Unity. Use when a project wants animated characters generated rather than drawn, when a new character or action is added, when an animation looks wrong (fuzzy edge, halo, flicker, talking face, choppy or bouncing motion, loop pop) and someone asks why, or when a new video model is being tried.
 ---
 
 # Animating characters
 
-One config file, one command, and a character comes back as three (or more) transparent
-sprite sheets that play smoothly in Flutter and match every other character generated the
-same way. This is the pipeline that built the Asset Animation Demo (`src/asset-animation-demo`),
-made project-agnostic: everything a project decides lives in its `animate.yaml`; everything
+One config file, one command, and a character comes back as transparent sprite sheets that
+play at real speed, match every other character generated the same way, and survive a
+dark game background without a halo. This is the pipeline that built the Asset Animation
+Demo (`src/asset-animation-demo`) and the Unity showcase (`src/unity-side-scroler`), made
+project-agnostic: everything a project decides lives in its `animate.yaml`; everything
 that was learned the hard way lives in the scripts and at the bottom of this file.
 
 The scripts run with the framework's python and need `REPLICATE_API_TOKEN` in the environment:
@@ -17,61 +18,108 @@ The scripts run with the framework's python and need `REPLICATE_API_TOKEN` in th
 PY=../Asset-Gen-Framework/.venv/bin/python
 SK=../../.claude/skills/animate-characters/scripts      # from the app directory
 $PY $SK/animate.py animate.yaml                          # generate everything
-$PY $SK/approve.py animate.yaml --all                    # copy finished sheets into the app
+$PY $SK/animate.py animate.yaml --character knight --action idle          # one chain
+$PY $SK/animate.py animate.yaml --character knight --stage reference      # just the reference
+$PY $SK/animate.py animate.yaml --regenerate knight-idle-video            # re-roll one clip
+$PY $SK/approve.py animate.yaml knight                   # copy finished sheets into the app
 ```
+
+**Iterate one character, one action at a time.** A roll costs a dollar and four minutes of
+video plus a quarter of an hour of upscale, interpolation and matte. Get the reference
+right (look at it), then the idle right (measure it, look at it in the engine), then the
+one-shots. Every roll is archived (see below), so nothing is lost when the next roll wins.
 
 ## What a project supplies
 
 Copy `templates/animate.yaml` next to the project's `assetgen.yaml` (the framework config: a
 manifest path, a drafts folder, a record file) and fill in:
 
-- **the style bible** — one paragraph that every character prompt starts with. It fixes the
-  proportions, the shading, the line weight, the pose, the framing, and a flat single-colour
-  background. The background must be flat and light: the matte and the outline restoration
-  both depend on it.
-- **the characters** — an id, a name, a `look` that finishes the bible's sentence, and one line
-  per action saying what that character does.
-- **the actions** — `idle` (must `loop: true`) and any one-shot actions. Each becomes a button.
+- **the style bible** — one paragraph every character prompt starts with. It fixes the
+  proportions, shading, line weight, stance, framing and the `{background}` placeholder,
+  which `animate.py` fills from `background:` (chroma green by default: the matte keys by
+  colour distance and silver armour sits only ~50 from a light grey but ~300 from green).
+  Say which way the character faces in image terms; models read body-relative left and
+  right the wrong way round often enough that the reference is mirrored afterwards when
+  needed (a mirror is deterministic; a re-roll is not).
+- **the characters** — an id, a name, a `look` that finishes the bible's sentence, and one
+  line per one-shot action. The `look` should describe the pose in image terms too ("the
+  shield is on the LEFT side of the image, held out in front").
+- **the actions** — `idle` (`loop: true`, usually `end_frame: false`, see below) and the
+  one-shots. Each becomes a button or an animator state.
+- **`archive:`** — a directory where every roll is kept: raw clip, review, finished sheet,
+  a `notes.md` you write. The evolution of an animation stays visible after the drafts are
+  overwritten. The Unity project keeps its under `Automation_animation_drafts/`.
 
-The first character in the list is generated from text alone and becomes the **style anchor**:
-every later character is generated with that image as an init image and a prompt that says
-"match this style, draw a different character". That one reference is what keeps six
-characters looking like one artist. If the first one is not loved, regenerate it before
-generating anyone else, or point `style_anchor:` at a better one.
+The first character in the list is the **style anchor**: every later character is generated
+with that image as an init image and "match this style, draw a different character".
 
 For the Flutter side, copy `templates/sprite_sheet.dart` and `templates/character_catalog.dart`
-into the app. The player decodes a sheet once, draws one cell per frame with `drawImageRect`
-from a ticker, loops or plays once and calls back. The catalog JSON that `approve.py` writes
-is what `loadCatalog()` reads. Each character's asset folder has to be listed in `pubspec.yaml`
-by hand (Flutter does not bundle directories recursively); `approve.py` adds the line.
+into the app; `approve.py` copies sheets, rewrites the catalog and adds the pubspec line.
+For Unity, copy the action sheets into `Assets/Characters/<id>/`, put the shape from each
+`<action>.sheet.json` into `characters.json`, and run Characters/Import Sheets; the importer
+reads pixels-per-unit and the grid per sheet, allows 8192px sources, imports sprites with a
+tight mesh, and packs the atlas at high quality (BC7 / ASTC 4x4) — default-quality block
+compression greys the outline's antialiasing.
 
 ## What the pipeline does, per character
 
-1. **Reference image** — `sourceful/riverflow-2.0-pro`, square, 1K, PNG, flat background baked
-   in (not transparent: it is only an input to the video model, and a flat background is what
-   the matte removes cleanly).
-2. **One video per action** — `wan-video/wan-2.2-i2v-fast`, image-to-video from the reference,
-   81 frames at 16 fps (the model's minimum), the same reference passed as the last frame so
-   the action returns to its pose and an idle closes into a loop. The prompt asks for a brisk
-   action, a static camera, a centred character of unchanging size, an unchanged background.
-3. **Review** — `review_video.py` measures the video before anything is spent on it. A failing
-   video blocks its chain (a `<action>.review.json` beside it says why) and the run moves on;
-   `--regenerate <id>-<action>-video` redoes it. Warnings print and do not block; look at the
-   `<action>.review.png` contact sheet.
-4. **Mask** — `sprited/birefnet-video` (`toonout` variant, `mask` output) gives a grayscale
-   alpha video, tracked across frames so the edge does not flicker.
-5. **Frames** — the framework's `extract_frames` with `matte:` and `resize:`. The alpha comes
-   from the mask, and the outline the matte shaved off is **restored by colour**: the mask is
-   grown three pixels and, in that band, only pixels clearly unlike the flat background are
-   kept, with alpha from its colour distance and the background's share subtracted from its
-   colour. The body is the model's; the edge is decided by colour, identically on every frame,
-   and carries no background. Then a premultiplied fit to the cell size.
-6. **Sheet** — the framework's `assemble_sheet`: the kept frames (every second one, the last
-   six dropped — see the lessons) in a row-major grid, one PNG.
+1. **Reference image** — `sourceful/riverflow-2.0-pro`, square, 1K, PNG, the flat backdrop
+   baked in. The moment it lands, its background is flattened: every pixel reachable from
+   the corners within `reference.flatten_tolerance` becomes the exact corner colour, which
+   removes the ground shadow the model paints regardless of the prompt and leaves the
+   outlined character untouched (`.flat` marker beside it). Look at it; mirror it if it
+   faces the wrong way; re-roll it only if the pose is wrong.
+2. **One video per action** — `kwaivgi/kling-v3-video` (pro, 5 s, 1440px square, 24 fps)
+   from the reference as the start frame, with a **negative prompt** ("talking, speaking,
+   mouth opening, grimace, squinting, bouncing, hopping …"). The video model is configurable
+   (`video.model`, `video.keys` naming its first/last-frame inputs, `video.inputs`); Wan 2.2
+   fast is the cheap path but has no negative prompt and animates the mouth no matter what.
+   The reference is also the **end frame** unless the action says `end_frame: false`: pinned
+   to end where it started, Kling barely moves; unpinned it lives, and the sheet closes the
+   loop itself (step 8). One-shots keep the pin so they return to pose.
+3. **Review** — `review_video.py` measures the raw clip before anything else is spent: a
+   brightness step at the end, a background that stops being flat (per channel — a
+   saturated colour has a huge spread across channels), the loop gap, drift and size for
+   loops, the border for bursts, the **settled frame** of a one-shot (`--settle`), and the
+   **hold period** — Kling draws 8 frames a second and repeats each one three times. A
+   failing clip blocks its chain (`<action>.review.json` says why); warnings print; the
+   `<action>.review.png` contact sheet is what to look at.
+4. **Unique frames** — when the review found held frames, `animate.py` writes
+   `<action>_unique.mp4`: only the moving frames, at the drawing rate (8 fps). Local.
+5. **Upscale** — `lucataco/real-esrgan-video` (`RealESRGAN_x4plus_anime_6B`, `2k`) on the
+   unique clip (or the raw one when nothing was held): 2560px with hard line-art edges.
+   The clip is sent inline (`inline_inputs`); the model fails on Replicate file URLs. It
+   also dies on a long clip — 161 frames, every time — which is why it runs before the
+   interpolation, on 41 frames.
+6. **Interpolate** — `zsxkib/film-frame-interpolation-for-large-motion` fills four frames
+   per drawn one at full resolution (15 minutes a clip), so the 8 fps drawing plays back
+   at 32 fps with even motion instead of a jump every third frame. Skipped when the clip
+   holds no frames.
+7. **Mask and frames** — `sprited/birefnet-video` (`toonout`, mask output) reads a local
+   1024px copy of the cut clip (`_maskin.mp4`: the interpolated one is 100 MB, over the
+   upload limit, and the model infers at 1024 anyway). Then the framework's
+   `extract_frames` with the matte: the mask body is eroded three pixels (its edge sits in
+   the background blend outside the outline) and grown twelve; in that band alpha comes
+   from colour distance to the backdrop, saturating at twice the threshold; every band
+   pixel below full confidence takes the colour of the nearest body pixel (its own colour
+   carries background and, un-blended, noise — this is what killed the halo); a premultiplied
+   fit to the 512px cell antialiases. Measure the ring of pixels just outside the opaque
+   outline: its mean luminance should be within a few points of the outline's.
+8. **Sheet** — the framework's `assemble_sheet`, one PNG, a grid as square as the count
+   allows. Every frame is kept at the clip's own rate, so motion runs at real speed. A
+   one-shot is cut `video.hold` frames after the review's settled frame. A loop that was
+   not pinned is **closed**: the best-matching early/late frame pair bounds it and
+   `video.loop_blend` frames are crossfaded across the join (`<action>.loop.json` records
+   the choice); the seam ends up smaller than an ordinary step. Each sheet's shape goes to
+   `<action>.sheet.json`, which `approve.py` and the Unity catalog use.
 
 The framework checks every entry's inputs before doing anything, so `animate.py` writes the
 manifest with only the entries whose inputs already exist, generates the pending ones, and
-repeats until the chains complete. Rerunning is idempotent: it skips whatever is drafted.
+repeats until the chains complete — rebuilding the chain each pass, because a reviewed clip
+that holds frames gains stages. Rerunning is idempotent; `--regenerate <entry>` deletes
+everything downstream of one entry (unique, smooth, mask input, loop choice included) and
+rebuilds. Transient Replicate failures (429, output-upload errors, "Prediction interrupted")
+are retried with backoff.
 
 Approval is separate and human: `approve.py` copies sheets into the app and rewrites the
 catalog. Nothing reaches the app any other way, and the framework can never write there.
@@ -85,66 +133,68 @@ across the screen:
 1. **Effect reference** — the same image model, the effect style bible plus the `look`, with
    the *character's own* reference as the init image and a prefix that says "match this
    style, draw only this effect, no character". `--action skill --stage reference` makes
-   just these; look at them before spending on video. Six came back right first time.
+   just these; look at them before spending on video.
 2. **`skill` video** — a loop, like idle: the effect animates *in place*, centred, pointing
    right. The app supplies the travel, flips it for the other direction and rotates it to
    the flight angle, so the review runs `--loop --strict-motion` and **fails** a clip whose
    effect drifts or changes size instead of warning.
-3. **`burst` video** — one-shot, from the same reference: the effect bursts apart into
-   solid shards and vanishes. Its `last_image` is `characters/<id>/blank.png`, a flat frame
-   in the reference's background colour that `animate.py` writes locally the moment the
-   reference lands, so Wan is pulled to an empty frame. The review runs `--ends-empty
-   --contained`: no end-flash check (the end *is* a change), it fails if the last kept
-   frame still holds foreground or the first holds none, and it fails any frame whose
-   foreground touches the border — a cell cuts the burst off there, and the cut reads as
-   a square box on screen. The prompt asks for a compact burst within the middle two thirds
-   of the frame. The sheet keeps its trailing empty frames; the catalog plays it at
-   `effect.burst_fps` (32) so the burst reads as a hit, not a clip.
-4. Mask, frames and sheet as for an action, with one difference: the frames step runs the
-   framework's **effect matte** (`matte: {effect: true}`, from `effect.matte` in the config).
-   A burst is hundreds of small shards and the mask model loses most of them, so outside the
-   mask body the frame is keyed by colour alone — a narrow ramp around the threshold, the
-   background share un-blended — and inside the body only exact background is dropped (the
-   model fills holes between dense shards). Characters never use it: silver armour is too
-   close to the grey background to survive a colour key. Drafts: `skill_reference.png`,
-   `blank.png`, `skill.*`, `burst.*`; `approve.py` copies `skill.png` and `burst.png` beside
-   the action sheets and writes `skill: {name, spin, animation, impact}` into the catalog.
+3. **`burst` video** — one-shot, from the reference shrunk to 42% (`skill_small.png`): the
+   effect bursts apart into solid shards and vanishes. Its end frame is `blank.png`, a flat
+   frame in the backdrop colour, so the clip is pulled to empty. The review runs
+   `--ends-empty --contained`: it fails if the last kept frame still holds foreground, the
+   first holds none, or any frame's foreground touches the border (a cell cuts it off there
+   and the cut reads as a square box). The catalog plays it at `effect.burst_fps` (32).
+4. The rest as for an action, with the framework's **effect matte** (`matte: {effect: true}`):
+   a burst is hundreds of shards the mask model loses, so outside the mask body the frame is
+   keyed by colour alone and inside it only exact backdrop is dropped.
 
 A `hurt` action (the character flinches and returns to pose) is what the target plays when
-the burst lands; it is an ordinary action, one motion line per character, and the motion
-should say "half a step" and "staying in place" so the character stays in frame.
+the burst lands; its motion should say "half a step" and "staying in place".
 
 Every `look` for an effect says solid, opaque, chunky, no glow or transparency: the matte
-turns anything see-through into a white blob (see the lessons), so glows belong in code. A
-thrown weapon is never asked to spin: give it a subtle in-place motion and `spin: true`, and
-the app rotates the sprite in flight (see the lessons).
+turns anything see-through into a white blob, so glows belong in code. A thrown weapon is
+never asked to spin: give it a subtle in-place motion and `spin: true`, and the app rotates
+the sprite in flight.
 
-## Judging the result
+## Judging the result — measure, then look
 
-Look, do not assert. After approving, build a review strip (frame 0, 5, 10 … of every sheet
-composited on green) and read it as an image; then run the app and record a tap through the
-playtest skill. What to look for:
+Numbers first, from the sheet frames (a script in the session, or the review), then the
+engine. What each means and what fixes it:
 
-- **A pale line outside the outline** is background left in the edge pixels. Check on the
-  darkest background the game uses; a light one hides it. The difference key removes it when
-  the background is flat and known — if it is back, the background was not flat (check the
-  review's corner std) or `mask.threshold` is far from the outline's distance.
-- **Outline weight** should be identical from frame to frame. If it breathes, the matte is
-  eating it: raise `mask.grow` by one, or lower `mask.threshold` if the outline colour is
-  close to the background.
+- **Edge halo** — mean luminance of the ring of pixels just outside the opaque outline vs
+  the outline's own (about 5). Above ~10 on a dark outline is a visible grey rim on a dark
+  background and it sparkles because it differs per frame. Fix is in the matte, never in
+  the engine: the band colour rule, the erosion, or a backdrop too close to a body colour.
+- **Flicker** — the count of opaque pixels in a waist-high band, frame to frame. Under 0.1%
+  change on a calm idle. Larger means the mask is losing a low-contrast region: change the
+  backdrop colour, not the threshold.
+- **Choppiness** — the share of all frame-to-frame change carried by the busiest 10% of
+  frames. A clip with held frames measures ~40%; interpolated, ~24%; real footage 10–15%.
+- **Life** — horizontal sway of the body's centre and vertical bob of the helmet top across
+  the clip, in pixels of the raw frame. On the 1440px knight: 2 px is dead, 44/52 alive,
+  81/70 bouncing, 53/38 calm and ready. Steer with words ("small, slow, controlled",
+  "knees bend with each breath") and negatives ("bouncing, hopping, excited").
+- **Face** — mean change per second in the head region; a sealed mouth stays under ~10 on
+  the 1440px clip. Look at a face strip (every 9th frame, head crop) regardless.
+- **Loop seam** — difference between the last and first sheet frames vs a typical step.
+  After loop closing it should be below a step; if it is not, the clip has no two frames
+  that match and needs a re-roll.
 - **A brightness step** in the last frames means `video.trim_end` is too low for that clip.
-- **A white blob** where a translucent effect should be (a barrier, a glow) is the matte
-  flattening it: a matte cannot carry half-transparency. Put see-through effects in code or in
-  their own layer, not in the character's video.
-- **Loop closure**: a `loop_gap` warning on an idle means the last kept frame differs from the
-  first. Usually harmless at 16 fps; if the loop visibly pops, regenerate that video.
+- **A white blob** where a translucent effect should be is the matte flattening it; put
+  see-through effects in code.
+
+Then look: a strip of every 20th frame on the darkest background the game uses, a face
+strip, the join frames of a loop, and the sprite running in the engine. Never judge from the
+engine alone — it may still be showing the previous build.
 
 ## Cost and size
 
-Per character with three actions: one image call, three video calls, three mask calls, and
-local work — a few dollars for six characters, about ten minutes each, run sequentially
-(the framework holds one lock per record). A 256px, 7x6 sheet is 1.5–2 MB as PNG; six
-characters came to 33 MB of assets.
+Per character with one idle and three one-shots: one image call, four video calls (Kling
+pro about a dollar each), four upscales, four interpolations (the slow part, 15 minutes
+each), four masks, and local work, run sequentially. A 512px sheet is 11x11 to 13x13 for a
+five-second clip at 32 fps, 6–30 MB as PNG, and needs an 8192px source texture in the
+engine; a 512px cell renders at native size on a 1080p screen where the old 256px cell was
+scaled up two to three times.
 
 ## Lessons — keep this section current
 
@@ -154,6 +204,96 @@ that fixed a recurring defect — update the script or the default that embodies
 dated line here saying what changed and what it cost to learn. The next run must start from
 the best known way, not rediscover it. Entries are newest first.
 
+- **2026-09-28 — Close the loop in the sheet, not the prompt.** With no end frame the idle
+  never returns to its first frame and the loop popped (the review's gap 23 where 8 warns).
+  Pinning it back costs the motion. Instead the sheet keeps the stretch between the
+  best-matching early and late frames (search j in the first quarter, i at least 70% later)
+  and crossfades ten frames across the join, in premultiplied space, from the frames that
+  would have followed the end. Measured on the sheet: the jump at the loop point went from
+  3.4 to 1.2 while a typical step is 2.7, and the join frames show no double image. The
+  choice is stored in `<action>.loop.json` and redone when the clip is re-rolled. Cost: one
+  local rebuild.
+- **2026-09-27 — Kling draws 8 frames a second and holds each one three times; interpolate,
+  do not play it.** The Kling 3 clip is 24 fps on paper, but every third frame moves and the
+  two between are copies (frame-to-frame difference 7 / 1 / 1 / 7 …), so on screen it is an
+  8 fps animation and reads as choppy. The review now measures the hold period and which
+  phase moves; `animate.py` writes `<action>_unique.mp4` (the moving frames at the drawing
+  rate), upscales *that* short clip, and `zsxkib/film-frame-interpolation-for-large-motion`
+  fills in four frames per drawn one at full resolution, played at 32 fps. Order matters:
+  the upscaler died every time on the 161-frame interpolated clip and never on the 41-frame
+  one, and FILM handles 2560px frames (15 min a clip). The interpolated clip is 100 MB, over
+  Replicate's upload limit, so the mask reads a local 1024px copy (`_maskin.mp4`); the mask
+  model infers at 1024 anyway. RIFE on Replicate is retired (410); ST-MFNet was bursty. Cost:
+  five failed upscales and a day's iteration to find the order.
+- **2026-09-27 — Kling 3 pro holds the face still when told the character is a silent,
+  solitary sentinel, and no end frame is what gives the body life.** Wan 2.2 fast has no
+  negative prompt and animated the mouth in every roll. Kling 3 takes one; with "talking,
+  speaking, mouth opening/moving, grimace, squinting …" and a prompt framing the knight as a
+  lone sentinel who never speaks, the mouth stays sealed in most frames. Pinning the last
+  frame to the reference made Kling barely move (2 px of sway); dropping the end frame
+  (`end_frame: false` on the action) gave a living body at the price of a loop seam the
+  review warns about. Motion is steered by words like "small, slow, controlled", "knees bend
+  with each breath", and negatives like "bouncing, hopping, excited"; measured as sway and
+  helmet-bob in pixels per roll, kept in the archive notes. Every roll is archived under the
+  config's `archive:` path so the evolution stays visible.
+- **2026-09-26 — The image model draws a ground shadow no matter what the prompt says.** Two
+  rolls of the knight reference, both asked for "no floor, no ground shadow or drop shadow of
+  any kind", both came back with a soft grey ellipse under the feet, and one faced the wrong
+  way. The shadow would have gone through the whole chain: the video model copies it, the
+  matte keys it as a grey blob. `flatten_backgrounds` now flood-fills from the corners
+  (tolerance 300 as a sum of channel differences: a shadow's darkest core is ~200 from the
+  background, the outline ~600) and sets everything reached to the corner colour. Two Pillow
+  traps cost three attempts: `floodfill` returns without doing anything when the fill colour is
+  within `thresh` of the seed, so fill a copy with a far-off sentinel and copy the reached set
+  back; and its `thresh` is a sum over channels, not a per-channel bound. Facing is now in the
+  bible ("the weapon hand toward the viewer's right") because "facing three-quarter toward the
+  viewer's right" alone was read the other way once. Cost: two image rolls.
+- **2026-09-25 — Every second frame reads as twitching, and the model talks unless told not
+  to.** Keeping every second frame made every clip play at double speed; on a body that reads
+  as snappy, on a face it reads as a seizure, and the video model animates the mouth on its
+  own, so the character also seemed to be talking. Two changes. Every prompt now says the
+  face stays calm and steady with the mouth closed, never talking — it reduces the mouth
+  motion a lot but does not remove every grimace. And every frame is kept and played at
+  16 fps, real speed; because a one-shot then spends most of its five seconds holding the
+  final pose, the review reports `settled_frame` (the last frame that still moves, measured
+  like the loop gap) and the sheet stops four frames after it. Sheets became per-action
+  grids (idle 9x9 at 512px is 4608px wide, so Unity's source-texture cap went to 8192 and
+  sprites import with a tight mesh so the atlas packs silhouettes, not full cells). Head
+  motion per second of playback fell from 166 to 105 on the idle. Cost: six clips re-rolled.
+- **2026-09-24 — A pale rim survives the upscale; it is two things, both at the edge.** After
+  the 2560px rebuild the knight still showed a faint light band outside the outline on a
+  dark background, plainest in a zoomed Scene view. Measured on the sheet: the opaque
+  outline ring was pure black, but the antialiasing pixel just outside it averaged
+  luminance 73 at alpha 64. Two causes. The band's un-blend `(rgb - (1-a)*bg)/a` amplifies
+  codec chroma noise at low alpha into light grey, so band pixels now take the colour of the
+  nearest body pixel instead (the framework fills it outward from the mask body). And the
+  mask model's body edge lands a pixel or two outside the outline, in the background blend,
+  at full alpha; `mask.erode: 3` shrinks the body before the key so those pixels are judged
+  by colour — luminance outside the outline went 61 → 0.5 on the test frame, at a cost of
+  0.2% of opaque pixels. Unity added a third: its sprite-atlas pages were block-compressed at
+  default quality (DXT5 on desktop, ASTC 6x6 on iOS), which greys the outline's antialiasing
+  again; the atlas now packs at high quality (BC7 / ASTC 4x4, quality 100). Measure the ring
+  of pixels just outside the opaque outline — its mean luminance should be near the outline's
+  — rather than eyeballing; at normal zoom this rim hides.
+- **2026-09-24 — A soft outline is a resolution problem, not a matte problem.** The knight
+  was called out for fuzzy edges in Unity. The matte was fine: the clip was drawn at 480p
+  (624px square) through a lossy codec, cut to a 256px cell, and then scaled up two to three
+  times on screen — every step blurred the line. Tested on one frame and one clip before
+  changing anything: an anime-tuned Real-ESRGAN pass (`anime6B`) turns the codec blur into
+  hard line art, and the video variant keeps the frame count and rate, so it drops in as a
+  stage between the review and the mask. The pipeline now generates at 720p, upscales to
+  2560px, mattes there (`mask.grow` 3 → 12 to match the thicker outline), and cuts 512px
+  cells. Review still runs on the raw clip so a bad roll is never upscaled. `approve.py`
+  now reads the cell size off the sheet itself, so characters built before the change keep
+  a true catalog entry. Two more things the run taught: the upscaler fails ("error trying
+  to upload output files", twelve of twelve) when its input arrives as a Replicate
+  file-endpoint URL and works when the clip is inlined as a data URI, so the framework
+  grew an `inline_inputs: true` entry field and the upscale entry sets it; and Unity's
+  importer capped sheets at 2048 with a per-platform iOS override that the default setting
+  never touched, so a 3584-wide sheet was silently downsampled until the importer cleared
+  it. Cost: one image call and one video call to test, twelve failed upscale calls before
+  the URL cause was isolated, one video re-rolled for a glowing blade, then the knight
+  rebuilt.
 - **2026-09-23 — A burst that reaches the frame edge plays as a square.** The first six
   bursts flew their shards past the cell border in most frames; on screen the cut-off
   edge drew a box around every impact. Prompting "stay inside the frame" alone did not
@@ -223,7 +363,8 @@ the best known way, not rediscover it. Entries are newest first.
   end-flash and a non-flat background fail; spikes, loop gap, drift and size only warn.
 - **2026-09-23 — Community models need a pinned version.** `sprited/birefnet-video` 404s on
   the models endpoint; name it `owner/name:<version>` and the framework routes it correctly.
-- **2026-09-23 — Wan will not make fewer than 81 frames.** Ask for 81 and keep every second
-  frame; the doubled pace reads as snappy, not as dropped frames.
+- **2026-09-23 — Wan will not make fewer than 81 frames.** Ask for 81. (Keeping every second
+  frame was the first answer; it reads as snappy on a body and as twitching on a face — see
+  2026-09-25. Every frame is kept now and one-shots are cut where they settle.)
 - **2026-09-23 — The image model wants its references as a list.** `init_images` is an array;
   the framework's `input_files` now accepts a list of references for exactly this.

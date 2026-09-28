@@ -60,6 +60,13 @@ EMPTY_FRACTION = 0.005     # foreground pixels left in a burst's last kept frame
 BORDER_FRACTION = 0.04     # width of the frame border judged by --contained
 BORDER_DENSITY = 0.02      # share of that border still foreground after eroding 2px: fail
                            # (a spray of dots erodes to nothing; a cut shard is ~1% of the border)
+SETTLE_DELTA = 4.0         # a frame within this of the last kept frame (64px, foreground) has settled
+
+
+def _fps(path: Path) -> float:
+    with av.open(str(path)) as container:
+        rate = container.streams.video[0].average_rate
+    return float(rate) if rate else 16.0
 
 
 def _frames(path: Path) -> list[np.ndarray]:
@@ -86,7 +93,8 @@ def _background(rgb: np.ndarray, spec: str) -> np.ndarray:
 
 
 def review(path: Path, background_spec: str, trim_end: int, loop: bool,
-           strict_motion: bool = False, ends_empty: bool = False, contained: bool = False) -> dict:
+           strict_motion: bool = False, ends_empty: bool = False, contained: bool = False,
+           settle: bool = False) -> dict:
     frames = _frames(path)
     background = _background(frames[0], background_spec)
     h, w = frames[0].shape[:2]
@@ -97,7 +105,9 @@ def review(path: Path, background_spec: str, trim_end: int, loop: bool,
     for i, rgb in enumerate(kept):
         dist = np.sqrt(((rgb.astype(float) - background) ** 2).sum(-1))
         fg = dist > FG_DISTANCE
-        corner_std.append(float(_corners(rgb).std()))
+        # Per channel, then averaged: a saturated background such as chroma green
+        # has a huge spread *across* channels while each channel is perfectly flat.
+        corner_std.append(float(_corners(rgb).std(axis=0).mean()))
         fg_fraction.append(float(fg.mean()))
         border = np.zeros_like(fg)
         border[:b], border[-b:], border[:, :b], border[:, -b:] = True, True, True, True
@@ -165,8 +175,46 @@ def review(path: Path, background_spec: str, trim_end: int, loop: bool,
             if size > SIZE_FRACTION:
                 warnings.append({"flag": "size_change", "extent_change_fraction": round(size, 3)})
 
+    # Some models render fewer unique frames than they output and hold each
+    # one for several frames (Kling 3: every third frame moves). Detect the
+    # period from the frame-to-frame difference and report which phase moves,
+    # so the pipeline can keep only the moving frames and interpolate.
+    small_all = [np.array(Image.fromarray(f).resize((64, 64), Image.BOX)).astype(float) for f in kept]
+    steps = np.array([np.abs(a - b).mean() for a, b in zip(small_all[:-1], small_all[1:])])
+    hold_period, moving_phase = 1, 0
+    for period in (2, 3, 4):
+        if len(steps) < period * 6:
+            continue
+        for phase in range(period):
+            moving = steps[phase::period]
+            still = np.concatenate([steps[q::period] for q in range(period) if q != phase])
+            if moving.size and still.size and np.median(moving) > 3 * np.median(still) and (moving > 2 * np.median(still)).mean() > 0.8:
+                hold_period, moving_phase = period, (phase + 1) % period  # frame index (0-based) of the first moving frame
+                break
+        if hold_period > 1:
+            break
+
+    settled_frame = None
+    if settle:
+        # A one-shot action is "move, return to pose, hold". Played at real speed the
+        # hold is most of the clip, so the sheet stops a beat after the last frame that
+        # still differs from the final pose. Measured at 64px over the foreground, like
+        # the loop gap.
+        small = lambda f: np.array(Image.fromarray(f).resize((64, 64), Image.BOX)).astype(float)
+        last = small(kept[-1])
+        fg_last = np.sqrt(((last - background) ** 2).sum(-1)) > FG_DISTANCE
+        settled_frame = 1
+        for i in range(len(kept) - 1, -1, -1):
+            cur = small(kept[i])
+            fg = fg_last | (np.sqrt(((cur - background) ** 2).sum(-1)) > FG_DISTANCE)
+            if fg.any() and float(np.abs(cur - last)[fg].mean()) > SETTLE_DELTA:
+                settled_frame = i + 1
+                break
+
     return {
-        "video": str(path), "frames": len(frames), "kept": len(kept), "size": [w, h],
+        "video": str(path), "frames": len(frames), "fps": round(_fps(path), 3), "kept": len(kept),
+        "size": [w, h], "settled_frame": settled_frame,
+        "hold_period": hold_period, "moving_phase": moving_phase,
         "background": [int(v) for v in background], "loop": loop,
         "strict_motion": strict_motion, "ends_empty": ends_empty,
         "foreground_fraction": [round(v, 4) for v in fg_fraction],
@@ -195,16 +243,19 @@ def main() -> int:
     ap.add_argument("--strict-motion", action="store_true", help="drift and size change fail instead of warn")
     ap.add_argument("--ends-empty", action="store_true", help="the clip must end on the empty background")
     ap.add_argument("--contained", action="store_true", help="no frame may have foreground at the border")
+    ap.add_argument("--settle", action="store_true",
+                    help="one-shot action: report the last frame that still moves (settled_frame)")
     args = ap.parse_args()
 
     report = review(args.video, args.background, args.trim_end, args.loop,
-                    strict_motion=args.strict_motion, ends_empty=args.ends_empty, contained=args.contained)
+                    strict_motion=args.strict_motion, ends_empty=args.ends_empty, contained=args.contained,
+                    settle=args.settle)
     if args.sheet:
         contact_sheet(args.video, args.sheet)
         report["sheet"] = str(args.sheet)
     if args.json:
         args.json.write_text(json.dumps(report, indent=1) + "\n")
-    summary = {k: report[k] for k in ("video", "frames", "kept", "size", "ok", "failures", "warnings")}
+    summary = {k: report[k] for k in ("video", "frames", "fps", "kept", "size", "settled_frame", "hold_period", "ok", "failures", "warnings")}
     print(json.dumps(summary, indent=1))
     return 0 if report["ok"] else 1
 
