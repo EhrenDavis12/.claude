@@ -116,6 +116,67 @@ yourself, however this project's stack runs it, and look. Appearance,
 spacing, animation, and feel are checked that way, never asserted — and checked by you, not by
 asking the user what they saw.
 
+## The review loop has a budget
+
+On 28 Sep one web store went through 14 review→fix rounds, each one a test-author, writer,
+cleaner and reviewer dispatch, and that one PRD used ~60% of a week's plan. No round's
+reviewer was wrong. Each fix redesigned the store, which gave the next round new races to
+find, and nothing told the loop to stop. These rules do.
+
+**Three review rounds per slice, then decide.** A slice is one srcRoot's change for one PRD.
+Count every `forge-code-reviewer` dispatch on it, the first review included. After round 3,
+do not dispatch a fourth. Sort what is left:
+
+- **Blocking**: data loss or corruption, security or cross-account access, a core flow that
+  fails, a deadlock. Pause and ask the user whether to ship with it logged, redesign the
+  piece, or allow more rounds. Give the finding, the rounds spent, and your recommendation.
+- **Anything else**: log it under the PRD's **Follow-ups** heading (or in your report to the
+  user when there is no PRD) and move on. Don't ask.
+
+**A re-review checks the fix, not the file.** From round 2 on, the reviewer's brief lists the
+previous round's findings and asks two questions: is each one fixed, and did the fix break
+anything (blocking only)? A new finding that isn't blocking goes to Follow-ups, not into
+another fix round. "Found one more small thing" is how 3 rounds become 14.
+
+**Two rounds of new defects in one file means the design is wrong, not the code.** When two
+rounds in a row each report *new* defects (not unfixed old ones) in the same file, stop
+patching. Dispatch one redesign: `forge-code-writer` with `model: "opus"` set on the Agent
+call. Brief it with every finding from both rounds, ask for a design that makes that class of
+bug impossible, and ask it to state the design in its hand-back. The review of the redesign
+counts toward the three rounds. Sonnet stays the writer's default; opus is for this step only.
+
+**Run the cleaner twice, not every round.** Run `forge-code-cleaner` before the first review
+and once more after the last round, then the test checkpoint. Fix rounds in between go writer
+→ tests → reviewer.
+
+**No doc or PRD writing during the build.** From the first `forge-test-author` dispatch until
+close-out, don't dispatch `forge-doc-writer`, `forge-doc-planner` or `forge-prd-author`. A
+decision the build surfaces goes under Follow-ups, and the harvest picks it up at close-out.
+The one exception is a spec that is wrong or silent in a way that blocks the build: then
+`forge-prd-author` amends the PRD once, and you say why in the conversation.
+
+**Enforce the 250k bound yourself.** The agents' own ~120-turn stop did not hold. On 28 Sep,
+19 of 28 writer runs and 26 of 42 test-author runs passed 250k, and one writer ran 1,381 turns
+by compacting its own context and carrying on. Both agents now carry a hard `maxTurns` cap.
+When one hits it, or its hand-back says its context was compacted, don't resume it. Dispatch
+a fresh instance with the hand-off brief above and a narrower scope.
+
+**Escalate a sonnet agent to opus only on a named trigger.** Every sonnet agent keeps its
+default model. For one dispatch you may set `model: "opus"` on the Agent call, and only when
+one of these has happened:
+
+- `forge-code-writer`: two review rounds in a row report new defects in the same file (the
+  redesign above).
+- `forge-test-author`: `forge-test-auditor` rejects its tests for the same requirement twice.
+- Any sonnet agent: it hands back stuck or failed twice on the same task, the second time
+  after the task was split smaller.
+
+Before the dispatch, say in the conversation which trigger fired, in one sentence. The
+escalation covers that one dispatch; the next one goes back to sonnet. Escalate to opus only,
+never to any other model. "This looks hard" is not a trigger: a vague rule gets applied every
+time, and the cost comes back. Opus agents are never downgraded to sonnet. The reviewers are
+the last check before done, and the planners are too small a share of cost to be worth the risk.
+
 Don't skip `forge-prd-reviewer`. Everything downstream treats the PRD as its specification, so
 an ambiguity there gets copied into every agent that reads it — and none of them can ask you
 about it.

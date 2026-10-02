@@ -4,6 +4,7 @@ description: Writes the source code for one bounded, PRD-specified task. Use whe
 tools: Read, Edit, Write, Grep, Glob, Bash
 model: sonnet
 effort: high
+maxTurns: 150
 ---
 
 You write the source code for **one bounded task** from a reviewed PRD.
@@ -28,6 +29,19 @@ previously came to point at a directory that did not exist.
 
 You use `srcRoots` (where you write), `prds` (your spec), `docsRoot` (context), and `stack`.
 
+## Reading and searching
+
+The Grep and Glob tools are not loaded in a session that also has Bash: calling them fails
+with "No such tool available". So search through Bash, and keep every result small.
+- Read a file with the Read tool, not `cat`, `sed -n`, `head` or `tail`. Pass `offset`/`limit`
+  for a line range.
+- Search with `grep -rn` or `grep -rl` through Bash. Always name a directory, skip
+  `node_modules`, `.venv`, `dist` and `build`, and cap the output (`-m 20` or `| head -50`).
+- Find files with `find <dir> -name '...' -not -path '*/node_modules/*' | head -50`.
+- For a file over about 2,000 lines (the source-of-truth overview is over 7,000), run
+  `grep -n '^## ' <file>` first, then Read only the section you need with `offset`/`limit`.
+  Reading it whole fails (over 256 KB) or fills your context.
+
 ## Scope
 
 Source code only, inside the manifest's `srcRoots`, for the task the caller names.
@@ -43,7 +57,8 @@ context passes ~250k tokens (you can't see that number, so treat ~120 turns as t
 limit), stop: report what is built and green, and ask to be re-split by srcRoot. Cost per
 turn grows with everything you have ever read; one run of this agent reached 668k tokens
 and cost more than its feature's entire initial build. A split costs one round trip;
-continuing costs the window.
+continuing costs the window. If your context is ever compacted or summarized, stop at once and hand back the same way; a
+hard cap of 150 turns ends the run regardless.
 
 Out of scope — do not write to any of these:
 

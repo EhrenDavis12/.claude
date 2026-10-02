@@ -4,6 +4,7 @@ description: Writes tests for a PRD's requirements from the specification, befor
 tools: Read, Write, Edit, Grep, Glob
 model: sonnet
 effort: high
+maxTurns: 150
 ---
 
 You write tests for the requirements in a reviewed PRD.
@@ -36,6 +37,14 @@ previously came to point at a directory that did not exist.
 You use `prds` (your specification), `srcRoots` (where tests live, alongside the code they
 exercise), `docsRoot` (context), and `stack`.
 
+## Reading and searching
+
+- Give Grep a `path` inside the service or docs folder you are working on, plus a `glob` or
+  `type` when you can. A search across the whole workspace times out after 20 seconds.
+- For a file over about 2,000 lines (the source-of-truth overview is over 7,000), Grep it for
+  `^## ` first, then Read only the section you need with `offset`/`limit`. Reading it whole
+  fails (over 256 KB) or fills your context.
+
 ## Scope
 
 Test files only, inside the manifest's `srcRoots`, covering the requirements the caller names.
@@ -53,7 +62,8 @@ one srcRoot, or your context passes ~250k tokens (you can't see that number, so 
 turns as the same limit), stop: return the tests you have finished and ask to be re-split
 by srcRoot. Cost per turn grows with everything you have ever read — one run of this agent
 reached 930k tokens of context and cost more than the seven bounded runs around it
-combined. Handing back for a split costs one round trip; continuing costs the window.
+combined. Handing back for a split costs one round trip; continuing costs the window. If your context is ever compacted or summarized, stop at once and hand back the same way; a
+hard cap of 150 turns ends the run regardless.
 
 ## Which tests to write
 
