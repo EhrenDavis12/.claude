@@ -63,3 +63,52 @@ def retime_uniform(frames, n_out, region=None):
     for i in range(1, len(idx)):                                   # never pick the same source frame twice
         if idx[i] <= idx[i - 1]: idx[i] = min(idx[i - 1] + 1, len(f) - 1)
     return [frames[i] for i in idx], idx
+def retime_progress(frames, n_out, band, plate_lum=(90, 175), ease=True, drop_pinned=True):
+    """Resample a one-way move by how far the body has actually travelled. Progress = horizontal centroid of the figure
+    (non-plate pixels) in a row band, signed toward the end frame, taken as a running maximum so a backward wobble
+    (Wan goes out, back, then lunges to the pinned key) is skipped rather than played. Targets are cosine-eased, so the
+    move starts and ends slowly — a reversal built from this clip and its mirror has no snap at the peak.
+    drop_pinned: ignore the first and last source frames (the pinned inputs; the model's own neighbours differ in texture)."""
+    f = list(frames)
+    if drop_pinned and len(f) > 2: f = f[1:-1]
+    def cx(x):
+        g = x[band].astype(int); plate = ((g.max(2) - g.min(2)) < 26) & (g.mean(2) > plate_lum[0]) & (g.mean(2) < plate_lum[1])
+        xs = np.where(~plate)[1]; return xs.mean() if len(xs) else 0.0
+    c = np.array([cx(x) for x in f]); c -= c[0]
+    if c[-1] < 0: c = -c
+    prog = np.maximum.accumulate(np.maximum(c, 0)); total = prog[-1] if prog[-1] > 0 else 1.0
+    last = int(np.argmax(prog))                      # the furthest frame: Wan overshoots a pinned key, so the key frame itself can sit BEHIND the extreme
+    f, prog = f[:last + 1], prog[:last + 1]
+    t = np.linspace(0, 1, n_out); targets = total * ((1 - np.cos(np.pi * t)) / 2 if ease else t)
+    idx = [int(np.argmin(np.abs(prog - v))) for v in targets]; idx[0], idx[-1] = 0, len(f) - 1
+    for i in range(1, len(idx)):
+        if idx[i] <= idx[i - 1]: idx[i] = min(idx[i - 1] + 1, len(f) - 1)
+    return [f[i] for i in idx], idx, np.round(prog[idx], 1)
+def bridge_jumps(frames, progress=None, ratio=3.0, tmp="/tmp/bridge"):
+    """After a retime skipped a wobble, one pair of consecutive frames can differ in texture far more than the rest.
+    A jump is a pair whose mean |diff| exceeds ratio x the MEAN step (not the median — a retime leaves near-duplicate
+    frames at the ends that make the median tiny). Each jump is bridged with the 3 middle frames of a FILM 4x of just
+    that pair; the same number of frames is then dropped from true duplicates (progress unchanged, i.e. the flat tail)
+    so the count is unchanged. `progress` is the per-frame progress array from retime_progress."""
+    import subprocess
+    from pathlib import Path
+    f = [np.asarray(x) for x in frames]; H, W = f[0].shape[:2]
+    d = np.array([abs(f[i].astype(float) - f[i + 1].astype(float)).mean() for i in range(len(f) - 1)])
+    jumps = [i for i in range(len(d)) if d[i] > ratio * d.mean()]
+    if not jumps: return f, []
+    G = "/Users/ehrendavis/work/local-RED-dev/src/LLMs/generate.py"; Path(tmp).mkdir(parents=True, exist_ok=True)
+    def write(fr, p): subprocess.run(["ffmpeg", "-v", "error", "-y", "-f", "rawvideo", "-pix_fmt", "rgb24", "-s", f"{W}x{H}", "-r", "16", "-i", "-", "-c:v", "libx264", "-crf", "8", "-pix_fmt", "yuv420p", p], input=np.stack(fr).astype(np.uint8).tobytes(), check=True)
+    def read(p): raw = subprocess.run(["ffmpeg", "-v", "error", "-i", p, "-f", "rawvideo", "-pix_fmt", "rgb24", "-"], capture_output=True).stdout; return list(np.frombuffer(raw, np.uint8).reshape(-1, H, W, 3))
+    out = []; keep = []; inserted = 0
+    for i, x in enumerate(f):
+        out.append(x); keep.append(progress[i] if progress is not None else None)
+        if i in jumps:
+            write([f[i], f[i + 1]], f"{tmp}/pair.mp4")
+            subprocess.run(["python3", G, "interpolate", f"{tmp}/pair.mp4", "-o", f"{tmp}/pair2.mp4"], check=True, capture_output=True)
+            subprocess.run(["python3", G, "interpolate", f"{tmp}/pair2.mp4", "-o", f"{tmp}/pair4.mp4"], check=True, capture_output=True)
+            mid = read(f"{tmp}/pair4.mp4")[1:-1]; out.extend(mid); keep.extend([None] * len(mid)); inserted += len(mid)
+    # trim back to the original count: repeatedly drop the frame with the smallest step to its neighbour, never the ends
+    while len(out) > len(f):
+        dd = [abs(out[i].astype(float) - out[i + 1].astype(float)).mean() for i in range(len(out) - 1)]
+        del out[int(np.argmin(dd[1:])) + 1]
+    return out, jumps
