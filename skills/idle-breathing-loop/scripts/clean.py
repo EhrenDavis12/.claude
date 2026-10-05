@@ -56,7 +56,8 @@ def retime_uniform(frames, n_out, region=None):
     neighbour. Feed it a FILM-doubled clip so the fast part has frames to pick from. First and last frames kept."""
     f = [x.astype(float) for x in frames]
     sel = (lambda x: x[region]) if region is not None else (lambda x: x)
-    d = np.array([0.0] + [abs(sel(f[i]) - sel(f[i + 1])).mean() for i in range(len(f) - 1)])
+    small = lambda x: ndimage.zoom(sel(x).mean(2), 0.25, order=1)          # 4x downsample: pixel noise is not motion
+    d = np.array([0.0] + [abs(small(f[i]) - small(f[i + 1])).mean() for i in range(len(f) - 1)])
     cum = np.cumsum(d); targets = np.linspace(0, cum[-1], n_out)
     idx = [int(np.argmin(np.abs(cum - t))) for t in targets]; idx[0], idx[-1] = 0, len(f) - 1
     for i in range(1, len(idx)):                                   # never pick the same source frame twice
