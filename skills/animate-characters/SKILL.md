@@ -204,6 +204,50 @@ that fixed a recurring defect — update the script or the default that embodies
 dated line here saying what changed and what it cost to learn. The next run must start from
 the best known way, not rediscover it. Entries are newest first.
 
+- **2026-09-30 — A re-roll with `--stage video` left the old upscale, mask and sheet in
+  place.** `--regenerate knight-idle-video --stage video` removed only what the `--stage` cut
+  kept, so idle roll 8 went on to be interpolated from roll 7's upscaled clip, and its mask
+  came from a 481-frame mask input left over from an earlier run. The sheet then failed to
+  build with no message. Stale drafts are now judged against the whole chain, whatever
+  `--stage` says, and regenerating an upscale or interpolate entry also deletes `_maskin` and
+  the loop choice. Cost: one wasted FILM pass (about 15 min) and a mask call.
+- **2026-09-30 — A face-fix pass after the video does not work on this art; pinning both ends does.**
+  A fresh attack clip with the start and end frames pinned to the reference came back with a
+  calm, sealed face in every visible frame except one squint. Three video-edit models were then
+  asked to change only the face ("calm, mouth a closed line"), given the reference image.
+  `kwaivgi/kling-o1` (base edit) redrew the face as a different character, pale with blush.
+  `wan-video/wan-2.7-videoedit` added a grumpy frame. `runwayml/aleph-2` stayed faithful but,
+  on the old talking idle (roll 6), left the open "o" mouth untouched. `fofr/live-portrait`
+  (reference face driven by the clip's face crop, `lip_zero`) returned no output: it finds no
+  face in chibi cartoon art. So keep faces calm at generation time (pinned ends, a negative
+  prompt, and re-rolling a bad face) rather than repairing them afterwards. Cost: about six
+  edit calls and one attack video.
+- **2026-09-28 — Motion transfer from a phone clip of a person gives a living idle with a
+  sealed mouth; the actor's rest pose must match the character's.** `kwaivgi/kling-v3-motion-control`
+  (pro, `character_orientation: image`, reference image + a 1080px square crop of the actor
+  full body, h264) returned 1440px, 30 fps with every frame drawn (no held frames, so no
+  interpolation), the mouth closed throughout, and breathing at 8 px of bob where the
+  generated idles had 32–48. But when the actor held the stand-in sword high at the
+  shoulder and the knight holds his low, the look-around and re-grip copied the raised hand
+  and the sword vanished for most of the clip, while the breathing clip kept the knight's
+  pose — the model is inconsistent about whose pose wins, so the actor must start in the
+  character's own rest pose. About 3.5–8 min per clip. Cost: three runs.
+- **2026-09-28 — Kling 3 cannot make a near-still idle: pinned it freezes, unpinned it talks.**
+  Asked for "nearly motionless, only the breath visible", the unpinned idle (roll 6) bobbed a
+  third less than roll 5 (32 px against 48 at 1440px) but held the mouth open in a small "o"
+  for most of the clip; the same prompt pinned to the reference (roll 7) came back at 0 px of
+  sway and bob, plus a wink the base loop must not have. End-pinned one-shots keep the
+  reference's face (all three fidgets had sealed mouths). The candidate fix is a still rest
+  frame with the breath done in code (a feet-anchored vertical stretch of about 1.8% on an
+  uneven in/hold/out/pause curve), with generated fidgets on top. Cost: two idle rolls.
+- **2026-09-28 — A small local motion never "moves" by the mean; count changed pixels too.**
+  The first fidget blink came back with the blink at frame ~30, but the review said it had
+  settled at frame 1 and the sheet kept 5 frames, cutting the blink out: a blink changes a few
+  pixels of a 1440px frame, and the 64px foreground mean was ~2.8 against a 4.0 threshold. The
+  settle check now also counts pixels at 256px whose RGB changed by 90+ from the final pose
+  and keeps a frame unsettled above 120 (the blink is ~350; a settled pose's codec noise
+  stays under 90). The blink went from 5 kept frames to 41; the glance and re-grip moved two
+  frames each. Cost: one sheet rebuilt locally, no re-roll.
 - **2026-09-28 — Close the loop in the sheet, not the prompt.** With no end frame the idle
   never returns to its first frame and the loop popped (the review's gap 23 where 8 warns).
   Pinning it back costs the motion. Instead the sheet keeps the stretch between the

@@ -61,6 +61,8 @@ BORDER_FRACTION = 0.04     # width of the frame border judged by --contained
 BORDER_DENSITY = 0.02      # share of that border still foreground after eroding 2px: fail
                            # (a spray of dots erodes to nothing; a cut shard is ~1% of the border)
 SETTLE_DELTA = 4.0         # a frame within this of the last kept frame (64px, foreground) has settled
+SETTLE_LOCAL_PIXELS = 120  # ...unless more than this many pixels (256px) changed by 90+ summed over
+                           # RGB: a blink is ~350 such pixels and ~1 of mean, a settled pose under 90
 
 
 def _fps(path: Path) -> float:
@@ -200,14 +202,21 @@ def review(path: Path, background_spec: str, trim_end: int, loop: bool,
         # hold is most of the clip, so the sheet stops a beat after the last frame that
         # still differs from the final pose. Measured at 64px over the foreground, like
         # the loop gap.
-        small = lambda f: np.array(Image.fromarray(f).resize((64, 64), Image.BOX)).astype(float)
-        last = small(kept[-1])
+        # A mean over the whole body cannot see a small local motion — a blink moves
+        # a few pixels of a 1440px frame — so a count of strongly changed pixels at
+        # 256px also keeps a frame unsettled.
+        small = lambda f, n=64: np.array(Image.fromarray(f).resize((n, n), Image.BOX)).astype(float)
+        last, last_hi = small(kept[-1]), small(kept[-1], 256)
         fg_last = np.sqrt(((last - background) ** 2).sum(-1)) > FG_DISTANCE
+        fg_last_hi = np.sqrt(((last_hi - background) ** 2).sum(-1)) > FG_DISTANCE
         settled_frame = 1
         for i in range(len(kept) - 1, -1, -1):
-            cur = small(kept[i])
+            cur, cur_hi = small(kept[i]), small(kept[i], 256)
             fg = fg_last | (np.sqrt(((cur - background) ** 2).sum(-1)) > FG_DISTANCE)
-            if fg.any() and float(np.abs(cur - last)[fg].mean()) > SETTLE_DELTA:
+            fg_hi = fg_last_hi | (np.sqrt(((cur_hi - background) ** 2).sum(-1)) > FG_DISTANCE)
+            moved = fg.any() and float(np.abs(cur - last)[fg].mean()) > SETTLE_DELTA
+            local = int((np.abs(cur_hi - last_hi).sum(-1)[fg_hi] > 90).sum()) > SETTLE_LOCAL_PIXELS
+            if moved or local:
                 settled_frame = i + 1
                 break
 

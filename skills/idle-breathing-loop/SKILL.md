@@ -52,6 +52,22 @@ Unity: `Assets/Characters/<character>_versions/idle_vN.png` + an entry in that f
    `<character>_versions/`, add the `versions.json` entry (fps 16, loop true), run
    `Characters/Import Animation Versions`, capture play mode to a GIF and *look at it*.
 
+## Keeping in-betweens clean (`scripts/clean.py`) — added 2026-10-04 after the first two extras
+
+Every Wan clip goes through these before it is composited; each one answers a defect that crept in:
+
+| Defect | Cause | Rule |
+|---|---|---|
+| grey inside the bow, arrow gaps, glove gap | Wan paints the plate into any enclosed gap; a flood fill cannot reach it | `enclosed_plate`: drop plate-coloured pixels (grey, sat < 26, lum 90–175) within 12 px of anywhere K0 is transparent. Leaves the buckle alone. Replaces fixed pocket boxes. |
+| ghost double cape, fuzzy edge | crossfading two different shapes | never crossfade shapes. Render the clip **from the idle's own frame** (`idle16_plate.png`, frame 16 of the locked loop) so it joins exactly; drop each pinned frame 0 (a pure texture pop, ~7 vs a typical step of 1). |
+| snap mid-move | Wan moves in bursts | `generate.py interpolate` (FILM 2×) then `retime_uniform` → every frame carries equal motion. Took the head turn's worst step from 7.2 to 4.4 and the shift's from 5.5 to 3.5. |
+| texture pop at internal joins (out→hold→back) | different renderings of the same pose | `crossfade_joins`, 3 frames each side. |
+| pasted head jumps | tracking a mid-turn face against two keys | don't track the source: a static-camera clip pinned to K0's body already has its head where K0's is. Track only the idle's own head bob. |
+| blink / mouth flicker | model habit | `face_lock` where the head is still; `still_face` (temporal median) only where the head is still. A blink *during* a turn stays — every patch across a turning head ghosts the eyes. |
+
+Measure, don't eyeball: per-frame mean |diff| profile (whole figure and head region), plate-coloured pixel count
+inside the figure, edge-ring colour, and the pose guard. A lint that runs these before Unity is the next step.
+
 ## Keys for extra motions (head turn, regrip) — on a COPY of the idle, never on it
 
 - Keys are **whole-body edits of K0 with local Qwen-Image-Edit** (3–4 seeds), finished with

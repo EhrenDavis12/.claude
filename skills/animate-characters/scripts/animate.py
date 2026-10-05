@@ -149,6 +149,12 @@ DEFAULTS = {
         # outside the outline, in the background blend, and those pixels at
         # full alpha average into a pale rim once the frame is downscaled.
         "grow": 12, "erode": 3, "threshold": 60, "feather": 0, "background": "auto",
+        # Fast frames blend the chroma backdrop into the art (a green-tinted blade) and
+        # the mask model fills enclosed gaps with it; both flicker as "flashes". Despill
+        # clamps the backdrop's channel on every kept pixel; drop_backdrop_inside clears
+        # strongly backdrop-coloured pixels inside the body. Turn both off for a
+        # character that is itself the backdrop's colour.
+        "despill": True, "despill_slack": 4, "drop_backdrop_inside": True, "drop_excess": 90,
     },
     # Cells are `frame` px square; the grid is computed per sheet from its frame
     # count (as square as possible), since actions no longer share one length.
@@ -286,7 +292,9 @@ class Plan:
         mask = f"characters/{cid}/{action}_mask.mp4"
         frames_dir = f"characters/{cid}/{action}_frames"
         matte = {"mask": f"drafts:{mask}", "background": m["background"], "grow": m["grow"],
-                 "erode": m["erode"], "threshold": m["threshold"], "feather": m["feather"]}
+                 "erode": m["erode"], "threshold": m["threshold"], "feather": m["feather"],
+                 "despill": m["despill"], "despill_slack": m["despill_slack"],
+                 "drop_backdrop_inside": m["drop_backdrop_inside"], "drop_excess": m["drop_excess"]}
         if effect:
             matte["effect"] = True
         inputs = dict(v["inputs"])
@@ -812,9 +820,17 @@ class Plan:
                 self.review_path(e).unlink(missing_ok=True)
         if stage_of(target) == "video":
             self.review_path(target).unlink(missing_ok=True)
+        if stage_of(target) in ("video", "upscale", "interpolate"):
+            # Local files derived from the clip the target produces; each is stale
+            # from its own stage on (the unique cut only from the video itself).
             cid, action = target["name"].split("-")[0], target["name"].split("-")[1]
-            for derived in (f"{action}_unique.mp4", f"{action}_smooth.mp4", f"{action}_maskin.mp4", f"{action}.loop.json"):
-                (self.drafts / "characters" / cid / derived).unlink(missing_ok=True)
+            derived = [f"{action}_smooth.mp4", f"{action}_maskin.mp4", f"{action}.loop.json"]
+            if stage_of(target) == "video":
+                derived.append(f"{action}_unique.mp4")
+            if stage_of(target) == "interpolate":
+                derived.remove(f"{action}_smooth.mp4")
+            for name in derived:
+                (self.drafts / "characters" / cid / name).unlink(missing_ok=True)
         if target["name"].endswith("-reference"):
             cid = target["name"].split("-")[0]
             (self.drafts / target["output"]).with_suffix(".flat").unlink(missing_ok=True)
@@ -866,7 +882,10 @@ def main() -> int:
         if target is None:
             raise SystemExit(f"no entry named {args.regenerate!r} in this selection")
         # Everything downstream of it is now stale: delete those drafts so the loop rebuilds them.
-        plan.remove_stale(target, entries)
+        # Judged against the whole chain, not this run's --stage cut: a video re-rolled with
+        # --stage video must still invalidate the upscale, mask and sheet built from the old clip.
+        full = select_entries(plan, wanted, argparse.Namespace(stage="sheet", action=args.action))
+        plan.remove_stale(target, full)
         plan.flatten_backgrounds()
         plan.ensure_blanks()
         plan.refresh_sheets(entries)
