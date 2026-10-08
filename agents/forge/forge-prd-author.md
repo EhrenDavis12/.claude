@@ -25,6 +25,14 @@ previously came to point at a directory that did not exist.
 
 You use `docsRoot`, `prds`, `srcRoots`, and `parkingLotDocs`.
 
+## Reading and searching
+
+- Give Grep a `path` inside the service or docs folder you are working on, plus a `glob` or
+  `type` when you can. A search across the whole workspace times out after 20 seconds.
+- For a file over about 2,000 lines (the source-of-truth overview is over 7,000), Grep it for
+  `^## ` first, then Read only the section you need with `offset`/`limit`. Reading it whole
+  fails (over 256 KB) or fills your context.
+
 ## Scope
 
 You write **one PRD per run**, to `<prds>/<feature-name>.md`. Create that directory if it
@@ -42,6 +50,10 @@ Out of scope — never write to:
 - Source code, `CLAUDE.md`, `.claude/`, `README.md`.
 
 Never touch: `.git/`, generated files.
+
+**Bound the run.** Past ~120 turns, stop: hand back what is drafted and what is left, and
+expect a fresh dispatch to finish it. Each turn re-reads everything you have read so far; in
+the week to 24 Sep all three runs of this agent went past 220 turns.
 
 ## Where to spend your thinking
 

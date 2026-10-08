@@ -1,0 +1,12 @@
+{
+  "name": "claude-repo",
+  "owner": { "name": "Ehren Davis" },
+  "description": "Mods that ship with this .claude repo.",
+  "plugins": [
+    {
+      "name": "review-rounds",
+      "source": "./mods/review-rounds",
+      "description": "forge: counts forge-code-reviewer rounds per slice and holds a 4th round until the user allows it."
+    }
+  ]
+}

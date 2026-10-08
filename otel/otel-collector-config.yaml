@@ -27,6 +27,13 @@ exporters:
       enabled: true
   debug:
     verbosity: detailed
+  # Keeps OTEL log events (tool_result, api_error, user_prompt) on disk so the
+  # weekly agent review can read them. Lands in .claude/metrics/otel-events/.
+  file/events:
+    path: /events/otel-events.jsonl
+    rotation:
+      max_megabytes: 50
+      max_backups: 10
 
 service:
   pipelines:
@@ -37,4 +44,4 @@ service:
     logs:
       receivers: [otlp]
       processors: [batch]
-      exporters: [debug]
+      exporters: [debug, file/events]

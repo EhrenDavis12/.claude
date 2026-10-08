@@ -21,6 +21,7 @@ commands/      slash commands — /set-project, /set-system, /create-pr, and for
                drivers /forge-queue and /forge-harvest-backlog
 hooks/         SessionStart and SubagentStop shell hooks (link-shared.sh keeps a --link host synced)
 metrics/       where captured agent-run metrics land (contents gitignored)
+mods/          Claude Code mods (plugins of function hooks), served by .claude-plugin/marketplace.json
 otel/          optional OpenTelemetry + Prometheus + Grafana stack for agent telemetry
 project/       active.json — the pointer to the active project
 skills/        skills, including the agent-creator and agent-builder meta-skills
@@ -157,6 +158,31 @@ are registered by directory, so an inactive system's agents stay dispatchable un
 `settings.json` denies them by name; skills likewise need `skillOverrides`. That is why every
 system carries a `system.json` roster and why `/set-system` writes both halves — and why
 `repo-context.sh` checks at every session start that the two halves still agree.
+
+## Mods
+
+A mod is a plugin whose JavaScript hooks run inside Claude Code: it can draw above the
+prompt, add a `/command`, and hold or refuse a tool call. Where a settings hook can only run a
+script, a mod can enforce a rule the model would otherwise have to remember. They live in
+`mods/`, and this repo is their marketplace (`.claude-plugin/marketplace.json`, named
+`claude-repo`). They are never linked into `.claude/` — a mod loads as an installed plugin.
+
+| Mod | What it does |
+|---|---|
+| `review-rounds` | forge only. Counts `forge-code-reviewer` dispatches per slice (one srcRoot for one PRD), shows them above the prompt, and refuses a 4th round until the user runs `/review-rounds allow <srcRoot>`. A slice clears when its PRD is deleted; `/review-rounds reset` clears one by hand. |
+
+Install from the host project's root (once per machine; Claude Code v2.1.287 or later):
+
+```sh
+claude plugin marketplace add ./src/claude-repo       # or ./.claude for a snapshot install
+claude plugin install review-rounds@claude-repo --scope local
+```
+
+then `/reload-plugins` in an open session. A directory marketplace is read in place, not copied:
+an edit here takes effect at the next `/reload-plugins` or session start. Check a mod with
+`claude plugin validate mods/<name>` and `claude plugin test mods/<name>`. Its `tsconfig.json`
+extends types Claude Code lays in `.claude-plugin/types/` on first load (gitignored), so type-check
+only after the mod has loaded once.
 
 ## Telemetry
 

@@ -19,7 +19,8 @@
 #   - skip anything listed in <host>/.claude/.linkignore (one path per line, relative to
 #     .claude/, e.g. `skills/playtest`) — that file is the host's, not this repo's
 #   - link only what belongs to a host: not .git, install.sh, README.md, the settings.json
-#     template, or project/ and metrics/ (per-host state)
+#     template, project/ and metrics/ (per-host state), or mods/ (loaded as plugins from
+#     this repo's marketplace, never from .claude/)
 #
 # Usage: link-shared.sh [host-root]      defaults to $CLAUDE_PROJECT_DIR, then cwd
 set -eu
@@ -51,7 +52,7 @@ link() {
 
 for entry in "$REPO"/*; do
   name=$(basename "$entry")
-  case "$name" in .git|.github|install.sh|README.md|settings.json|project|metrics) continue ;; esac
+  case "$name" in .git|.github|install.sh|README.md|settings.json|project|metrics|mods) continue ;; esac
   ignored "$name" && continue
 
   if [ ! -e "$DEST/$name" ] && [ ! -L "$DEST/$name" ]; then

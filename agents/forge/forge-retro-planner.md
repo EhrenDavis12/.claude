@@ -24,6 +24,19 @@ previously came to point at a directory that did not exist.
 You use `srcRoots` — only for reading per-repo git history (`git -C <srcRoot> log`), since
 they are submodules and repo-root history does not show their commits.
 
+## Reading and searching
+
+The Grep and Glob tools are not loaded in a session that also has Bash: calling them fails
+with "No such tool available". So search through Bash, and keep every result small.
+- Read a file with the Read tool, not `cat`, `sed -n`, `head` or `tail`. Pass `offset`/`limit`
+  for a line range.
+- Search with `grep -rn` or `grep -rl` through Bash. Always name a directory, skip
+  `node_modules`, `.venv`, `dist` and `build`, and cap the output (`-m 20` or `| head -50`).
+- Find files with `find <dir> -name '...' -not -path '*/node_modules/*' | head -50`.
+- For a file over about 2,000 lines (the source-of-truth overview is over 7,000), run
+  `grep -n '^## ' <file>` first, then Read only the section you need with `offset`/`limit`.
+  Reading it whole fails (over 256 KB) or fills your context.
+
 ## Scope
 
 Your territory is the process record, not the project:
