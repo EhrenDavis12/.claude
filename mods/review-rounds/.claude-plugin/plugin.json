@@ -1,0 +1,6 @@
+{
+  "name": "review-rounds",
+  "version": "0.1.0",
+  "description": "Counts forge-code-reviewer rounds per slice (one srcRoot for one PRD), shows them above the prompt, and holds a 4th round until the user allows it.",
+  "types": "./types/index.d.ts"
+}
