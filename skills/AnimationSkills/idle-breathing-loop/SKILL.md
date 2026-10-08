@@ -9,6 +9,69 @@ Everything runs locally on the M1 Max through `src/LLMs` (ComfyUI). No Replicate
 Working folder per character: `src/asset-animation-demo/local_runs/<character>/`; the approved
 keys live in its `approve/` subfolder with a README the user reads.
 
+## Three modes — where each model job runs
+
+Every model job goes through `scripts/gen.py`, which takes the same commands and flags as
+`src/LLMs/generate.py` plus a mode. Scripts call `gen.py`; the mode comes from `--mode` or from
+`GEN_MODE` in the environment, and with neither it is `local`.
+
+```
+GEN_MODE=fast ./render_hit.sh 7                          # a whole script in one mode
+python3 gen.py --mode fast edit K0.png "..." --seed 71 -o key.png
+python3 gen.py --mode fast --dry-run keyframes ...       # where it would run and the cost; no call
+```
+
+| Job | Local time | `local` | `fast` | `100fast` |
+|---|---|---|---|---|
+| `edit` — key pose (Qwen-Image-Edit 2511) | ~8 min | local | Replicate, ~10 s, $0.03 | Replicate |
+| `keyframes` — in-between (Wan 2.2 first-last-frame) | 13–40 min | local | Replicate, ~25 s, $0.05 | Replicate |
+| `matte`, video (BiRefNet) | ~1 s a frame | local | local | Replicate, ~8 s, ~$0.01 |
+| `upscale`, video (Real-ESRGAN) | minutes | local | local | Replicate, ~75 s, ~$0.10 |
+| `matte` / `upscale`, one image | 5–12 s | local | local | local |
+| `interpolate` (FILM) | ~30 s | local | local | local |
+| face lock, post, sheet (our scripts) | ~2 min | local | local | local |
+
+- **`local`** — free, and the only mode for unattended overnight runs. One job at a time,
+  `llms free` after each Wan render.
+- **`fast`** — for sitting at the desk: the two jobs that are 95% of the wait leave the Mac. One
+  action (about six key seeds, two in-betweens) is about $0.30 and two minutes of model time against
+  ninety. Nothing is loaded locally for those jobs, so the swap and close-Unity rules do not apply.
+- **`100fast`** — `fast` plus video matte and upscale. FILM and single-image jobs stay local in every
+  mode because local is the faster side: FILM on Replicate took ten minutes and $0.60 a clip.
+
+Every paid call prints its cost and adds a line to
+`src/asset-animation-demo/local_runs/replicate_spend.csv`. The hosted Wan makes 81 to 121 frames:
+`gen.py` asks for 81 and samples the whole move down evenly to the count asked for (first and last
+frames kept, so the clip still lands on its end key), then sizes it to the width and height asked for.
+The hosted models are different builds from the local ones — a seed does not give the same picture
+in two modes, so a re-roll of an approved seed stays in the mode that made it.
+
+## Keep the Character Chart current — part of every run
+
+The user tracks and reviews all animation work on one page, the Character Chart
+(https://claude.ai/artifact/VMw7tr3gNogpx2efw9ozsZ). Its record is
+`src/asset-animation-demo/local_runs/chart/chart.json`: a table per character, a row per body or
+weapon, a column per animation. A run is not finished until the chart says what the run did.
+
+Update the cell **at the moment its state changes**, not at the end of the session:
+
+| When | Command (from `local_runs/chart/`) |
+|---|---|
+| work is planned but waiting | `python3 build_chart.py set <character> <row> <column> inqueue --note "..."` |
+| the first model job for it starts | `... set <character> <row> <column> working` |
+| a clip is ready for the user to judge | `... set <character> <row> <column> review --clip <gif or video> --note "Attack v4."` |
+| the user says it is approved | `... set <character> <row> <column> done` |
+
+Then publish `chart.html` to the same link: the Artifact tool with `url` set to the link above,
+`root` set to the chart folder, and `files` set to what `python3 build_chart.py files` prints.
+
+- **`done` is the user's word only.** A clean check, a passing guard or your own liking is `review`.
+- A body's animation usually changes several rows at once (both robes share frames; every bow is
+  pinned onto it) — set each row the run really rebuilt, and leave the others alone.
+- The note is one short line: the version, and which figure to look at when the clip shows several.
+- A new character, body, weapon or animation is a new entry in `chart.json` (`characters`, `rows`,
+  `columns`); add it the first time it is touched.
+
 ## The result this produces
 
 A 64-frame, 16 fps sprite sheet (512 px cells, transparent): one slow breath, chest and shoulders

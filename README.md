@@ -118,7 +118,7 @@ Every path is repo-relative and already joined, so nothing downstream builds a p
 matching manifest the hook says so plainly and agents refuse to run rather than guessing — a
 silent fallback is how this pipeline once came to point at a directory that did not exist.
 
-**3. `jq` must be on `PATH`.** All three hooks need it. `repo-context.sh` exits silently without
+**3. `jq` must be on `PATH`.** Every SessionStart hook needs it. `repo-context.sh` exits silently without
 it, so the symptom is not an error — it is a session that quietly knows nothing about the
 project.
 
@@ -130,7 +130,7 @@ Not everything here is generic. Delete what does not apply before the first sess
 |---|---|
 | `skills/playtest/`, `tools/sim.sh` | an iOS app and the iOS Simulator |
 | `skills/generate-asset/` | the Asset-Gen-Framework CLI checked out under `src/` |
-| `skills/animate-characters/` | the Asset-Gen-Framework CLI under `src/`, a Replicate token, and a Flutter app to approve into |
+| `skills/AnimationSkills/animate-characters/` | the Asset-Gen-Framework CLI under `src/`, a Replicate token, and a Flutter app to approve into |
 | `commands/create-pr.md` | a mono repo whose sources are git submodules |
 | `otel/` | Docker, and wanting a Grafana stack for agent telemetry |
 | `agents/forge/`, `systems/forge/` | that you want the twelve-agent delegation pipeline at all |

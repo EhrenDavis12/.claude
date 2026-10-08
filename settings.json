@@ -41,6 +41,17 @@
             "statusMessage": "Reading the active project's work queue"
           }
         ]
+      },
+      {
+        "matcher": "*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/skills-pending.sh",
+            "timeout": 10,
+            "statusMessage": "Checking skills for lessons not yet absorbed"
+          }
+        ]
       }
     ],
     "SubagentStop": [

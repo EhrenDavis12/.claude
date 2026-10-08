@@ -3,7 +3,7 @@
 # default (see scripts/animate.py DEFAULTS); write only what you change. This is the
 # knight config that the Unity showcase was built with, as a worked example.
 #
-#   ../Asset-Gen-Framework/.venv/bin/python ../../.claude/skills/animate-characters/scripts/animate.py animate.yaml --character knight --action idle
+#   ../Asset-Gen-Framework/.venv/bin/python ../../.claude/skills/AnimationSkills/animate-characters/scripts/animate.py animate.yaml --character knight --action idle
 #
 agf: ../Asset-Gen-Framework/.venv/bin/agf
 # Every roll is kept here, so the evolution of an animation stays visible.

@@ -1,0 +1,8 @@
+date,character,action,frames,passes,key_edits,inbetweens_local,inbetweens_remote,hand_fixes,new_tools,minutes,usd,user_verdict,note
+,archer,hit,20,2,10,3,0,,,,0,,"backfilled from the work log, totals over both passes: keys s301-304 then s701-706; local in-betweens 1401 s and 1216 s where timed; first pass judged ""the body does not move""; date, minutes and hand fixes not recorded"
+,archer,defend,30,,,,0,,,,0,,"backfilled: first key s401 of 5 edits, one local in-between ~1100 s; block rebuild keys s621 / s631, in-between 1523 s; finish.sh 33 s; not installed, waiting on the user; later edit counts not recorded"
+,archer,attack,43,5,16,9,3,,,,0.15,,"backfilled, totals over five passes: 16 key edits (436-505 s each where timed), 9 local in-betweens, 3 hosted tail renders of which 2 failed; passes 2-4 each answered a user note (hand to the string, grip, chest puff)"
+,archer,run,16,,7,1,0,,,,0,,"backfilled: keys s801 and s811-816 (5 rejected), one local in-between 1291 s gave the whole stride; the bow was re-pinned twice with no model job (one hand, then behind the body); user on the behind-the-body chain: ""that is impressive"""
+,archer,run_start,10,,0,1,0,,,,0,,"backfilled: no key, one local in-between 1328 s from the idle to the loop's frame 0"
+,archer,run_stop,24,5,8,4,1,,,,0.05,,"backfilled, totals over five passes: keys s821-824 all rejected (key made by code), s1001-1004 for the skid; 4 local in-betweens (1 rejected, 1216 s where timed), 1 hosted tail"
+,archer,death,40,2,4,4,1,,,,0.05,,"backfilled, totals over both passes: 4 key edits all used, 4 local in-betweens (1256 s where timed), 1 hosted test render not used; user on pass 2: ""Death animation is looking good"""

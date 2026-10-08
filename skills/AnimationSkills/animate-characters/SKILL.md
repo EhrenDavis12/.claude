@@ -16,7 +16,7 @@ The scripts run with the framework's python and need `REPLICATE_API_TOKEN` in th
 
 ```
 PY=../Asset-Gen-Framework/.venv/bin/python
-SK=../../.claude/skills/animate-characters/scripts      # from the app directory
+SK=../../.claude/skills/AnimationSkills/animate-characters/scripts      # from the app directory
 $PY $SK/animate.py animate.yaml                          # generate everything
 $PY $SK/animate.py animate.yaml --character knight --action idle          # one chain
 $PY $SK/animate.py animate.yaml --character knight --stage reference      # just the reference
@@ -28,6 +28,11 @@ $PY $SK/approve.py animate.yaml knight                   # copy finished sheets 
 video plus a quarter of an hour of upscale, interpolation and matte. Get the reference
 right (look at it), then the idle right (measure it, look at it in the engine), then the
 one-shots. Every roll is archived (see below), so nothing is lost when the next roll wins.
+
+**Keep the Character Chart current.** Every animation's state (in queue, working, ready to
+review, done) is tracked on one page the user reviews from; update its cell the moment the state
+changes. The commands and rules are in the `idle-breathing-loop` skill, "Keep the Character Chart
+current".
 
 ## What a project supplies
 
