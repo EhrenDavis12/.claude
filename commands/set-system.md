@@ -1,5 +1,5 @@
 ---
-description: Show or switch which agent system is active (forge / direct)
+description: Show or switch which agent system is active (forge / annie / direct)
 argument-hint: "[system name]"
 ---
 

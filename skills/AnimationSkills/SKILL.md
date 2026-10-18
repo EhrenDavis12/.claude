@@ -1,6 +1,6 @@
 ---
 name: animation-skills
-description: The front door to every animation skill in this repo — making a character's idle, its one-shot actions, a recolour of an armor, a new armor that must copy the base animation exactly, and sprite-sheet generation through Replicate. Use for any request to create, re-create, fix or review a character animation, an armor or outfit variant, or a weapon overlay; it names the one sub-skill to read for the job.
+description: The front door to every animation skill in this repo — making a character's idle, its one-shot actions, a recolour of an armor, a new armor or outfit animated on its own, and sprite-sheet generation through Replicate. Use for any request to create, re-create, fix or review a character animation, an armor or outfit variant, or a weapon overlay; it names the one sub-skill to read for the job.
 ---
 
 # Animation skills
@@ -15,7 +15,7 @@ folder's `SKILL.md` and follow it** — do not work from this table.
 | A new action on the base armor — hit, defend, attack, run start / loop / stop, death — from key poses, with the weapons pinned to the hand | `base-action/SKILL.md` |
 | Sprite-sheet animations through Replicate and the Asset-Gen-Framework (idle, attack, defend, hurt, projectile, burst) | `animate-characters/SKILL.md` |
 | A new colour of an armor the character already wears — same shape (Fire Robes) | `recolour-armor/SKILL.md` |
-| A new armor with a new shape whose animations must match the base frame for frame (Heavenly Armor) | `new-armor/SKILL.md` |
+| A new armor or outfit with its own animations, made the base's way from its own base image (Nightmare Cloak) | `new-armor/SKILL.md` |
 
 Two rules hold for all of them:
 

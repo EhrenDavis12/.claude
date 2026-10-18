@@ -30,7 +30,7 @@ import urllib.error
 import urllib.request
 from pathlib import Path
 
-ROOT = Path(__file__).resolve().parents[4]
+ROOT = Path(__file__).resolve().parents[5]
 GENERATE = ROOT / "src/LLMs/generate.py"
 LEDGER = Path(os.environ.get("GEN_LEDGER", ROOT / "src/asset-animation-demo/local_runs/replicate_spend.csv"))
 API = "https://api.replicate.com/v1"

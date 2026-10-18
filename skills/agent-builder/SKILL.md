@@ -203,6 +203,36 @@ should be judged once before it is armed. And **an answer written under a Blocke
 goes to the design docs before the item resumes** — otherwise the queue becomes the only
 place a decision lives, which is principle 7 broken by a file that was meant to be scaffolding.
 
+## The second system: annie, and why it is forge reversed
+
+`annie` is the animation studio (`.claude/systems/annie/SYSTEM.md`). It exists because
+animation work under forge had to ignore every forge rule and used none of its agents, so all
+of it ran in the main loop. It was checked against "Using this file" before it was built:
+
+- **Which layer?** None of the three. An animation has no SOT → PRD → code chain; it has a
+  recipe (a skill, permanent), a **shot brief** (temporary, the PRD's cousin) and the artifact.
+  The brief is never kept and nothing cites it, for the reason PRDs are deleted.
+- **Why reviewers where forge has planners?** Forge can make the spec executable before the
+  code exists. Nothing can assert that an animation looks right, so correctness is only visible
+  in the output — the reviewer case in the doctrine. One planner sits in front (the brief),
+  because the costliest mistake is a wrong direction; three reviewers sit behind, one per
+  artifact: key, clip, sheet.
+- **Does it add a loop?** Three, each with a budget written in `SYSTEM.md` — edits per key,
+  takes per clip, review rounds per sheet — and a named thing that happens when it is spent.
+  The fourth loop, passes in front of the user, exits on their word alone.
+- **Does it add a place where content accumulates?** No new one. Lessons go to the recipe
+  through `skill-improver`, which rewrites in place; the scorecard is the recipe's own.
+- **Why roles, not recipes, as agents?** An agent per recipe (idle, action, armor) would be an
+  agent per project detail — principle 8. Key, clip and sheet appear in every recipe; the
+  recipe is handed over by path.
+- **What is deliberately not an agent:** a check runner (one command), a chart keeper
+  (coordination state), an installer, a retro agent (`skill-improver` covers it), and an outfit
+  artist until its recipe's method has been proved on one action.
+
+The limit to remember: **an agent cannot watch a video.** Every animation the user rejected had
+passed a check on stills. The sheet reviewer is therefore built around neighbouring-frame
+comparison and reports what it could not check; the user's eyes stay the last gate.
+
 ## Principles
 
 1. **One job, one sentence.** If it needs "and also", it is two agents or one is unneeded.

@@ -13,6 +13,7 @@ by hand, so the overlap and cost gates actually get applied.
 | System | Folder | Prefix | Covers |
 |---|---|---|---|
 | `forge` | `.claude/agents/forge/` | `forge-` | design docs → PRD → code → tests |
+| `annie` | `.claude/agents/annie/` | `annie-` | animation: brief → keys → clips → sheets |
 | `direct` | — | — | no agents; the main loop works inline |
 
 Agents live in their system's folder **and** carry its prefix. Both are required:
@@ -62,7 +63,9 @@ worker can run on Sonnet. Worker + reviewer needs both to be capable, because a 
 be at least as strong as the worker to catch its mistakes.
 
 `forge`'s roster is the worked example — `forge-doc-planner` runs before `forge-doc-writer` and
-is therefore a planner, even though what it does looks like reviewing documents.
+is therefore a planner, even though what it does looks like reviewing documents. `annie` is the
+opposite case: an animation is only right once it has been looked at, so each of its artists
+(`-artist` is its worker noun) is followed by a reviewer.
 
 ## The write boundary
 

@@ -54,7 +54,14 @@ if [ -n "$manifest" ]; then
   done < <(jq -r '.srcRoots[]? // empty' "$manifest" 2>/dev/null)
 fi
 
-msg="Skills improve themselves here: a run of any skill that has a Scorecard section ends by appending its scorecard row and then running the skill-improver skill on it — without asking and without announcing it. Animation skills live under .claude/skills/AnimationSkills/ and are reached through the animation-skills skill."
+msg="Skills improve themselves here: a run of any skill that has a Scorecard section ends by appending its scorecard row and then running the skill-improver skill on it — without asking and without announcing it."
+# The animation recipes belong to the annie system and are switched off under any other, so
+# only point at them when annie is the one CLAUDE.md imports.
+if grep -qxF '@.claude/systems/annie/SYSTEM.md' CLAUDE.md 2>/dev/null; then
+  msg="$msg Animation recipes live under .claude/skills/AnimationSkills/ and are reached through the animation-skills skill; annie agents are handed the recipe by path."
+else
+  msg="$msg Animation work (keys, clips, sheets, outfits) belongs to the annie system, whose agents and recipes are off right now: if the user asks for it, say so and ask them to run /set-system annie rather than doing it inline."
+fi
 [ -n "$unread" ] && msg="$msg Scorecards with rows their skill has not absorbed yet: $unread — run skill-improver (improve) on each before starting new work with that skill."
 [ -n "$logs" ] && msg="$msg Work logs changed since the last harvest: $logs — when this session touches that work, run skill-improver (harvest) to see whether a process in them is ready to become a skill."
 

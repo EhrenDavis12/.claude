@@ -181,6 +181,15 @@ Don't skip `forge-prd-reviewer`. Everything downstream treats the PRD as its spe
 an ambiguity there gets copied into every agent that reads it — and none of them can ask you
 about it.
 
+## Animation is not forge's
+
+Making or fixing a character animation — keys, clips, sprite sheets, outfits — belongs to the
+`annie` system. Forge has no agent for any of it, so done here it runs in the main loop with
+every rule above set aside, which is the drift pure delegation exists to stop. When the user
+asks for animation work, say that it is annie's and that the switch is theirs:
+`/set-system annie`, then a restart. Code and tests for the tools an animation run depends on
+stay here.
+
 ## Not every feature earns a PRD
 
 **The default is to build.** A PRD is the argued exception, and the argument is always the

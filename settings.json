@@ -1,12 +1,28 @@
 {
   "permissions": {
-    "deny": [],
+    "deny": [
+      "Agent(forge-doc-planner)",
+      "Agent(forge-harvest-planner)",
+      "Agent(forge-doc-writer)",
+      "Agent(forge-prd-author)",
+      "Agent(forge-prd-reviewer)",
+      "Agent(forge-code-writer)",
+      "Agent(forge-code-cleaner)",
+      "Agent(forge-code-reviewer)",
+      "Agent(forge-code-prd-alignment)",
+      "Agent(forge-test-author)",
+      "Agent(forge-test-auditor)",
+      "Agent(forge-retro-planner)",
+      "Agent(forge-queue-planner)"
+    ],
     "ask": [
       "Edit(.claude/project/active.json)",
       "Write(.claude/project/active.json)"
     ]
   },
-  "skillOverrides": {},
+  "skillOverrides": {
+    "forge-tidy-docs": "off"
+  },
   "hooks": {
     "SessionStart": [
       {
