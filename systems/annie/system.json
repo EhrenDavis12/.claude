@@ -1,6 +1,6 @@
 {
   "name": "annie",
-  "title": "The animation studio — brief → keys → clips → sheets → the user's eyes",
+  "title": "The animation studio \u2014 brief \u2192 keys \u2192 clips \u2192 sheets \u2192 the user's eyes",
   "summary": "Pure delegation for animation. The main loop coordinates and never draws; eight prefixed agents own one territory each, every artist is followed by a reviewer that holds no pen, and the user watching the clip is the only gate that makes it done.",
   "agents": [
     "annie-shot-planner",
@@ -15,6 +15,11 @@
   "skills": [
     "AnimationSkills"
   ],
-  "commands": [],
-  "hooks": []
+  "commands": [
+    "annie-queue",
+    "annie-mastermind"
+  ],
+  "hooks": [
+    ".claude/hooks/annie-queue-pending.sh"
+  ]
 }

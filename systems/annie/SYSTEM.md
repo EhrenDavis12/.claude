@@ -111,7 +111,7 @@ actions is several runs of the pipeline, in order.
 
 | Loop | Budget | When it is spent |
 |---|---|---|
-| key | six edits a key | stop asking the model. `annie-tool-writer` builds the key by code from one that works |
+| key | six edits a key | stop. Move the item to `blocked` with a question and start the next job. Never switch to a paid model without the user's say-so. **A body pose is never built by code** — code only attaches a weapon or prop to a point |
 | clip | three takes a segment | stop re-rolling. Drop the bad frames and bridge, or split the segment |
 | sheet review | two `annie-sheet-reviewer` dispatches an action | show the user, with what is still open said plainly |
 | user passes | none | the user's word is the exit. The count goes on the scorecard |
@@ -143,9 +143,11 @@ trigger fired in one sentence first:
 "This pose looks hard" is not a trigger. Opus agents are never moved down.
 
 **Money has a gate, and it is not an agent's.** The mode (`local`, `fast`, `100fast`) is in the
-brief. An unattended run is `local`. With the user at the desk, a hosted in-between is already
-agreed; say the spend with each pass. Any other paid call needs their yes and a cap in dollars,
-asked by you. An artist that reaches the brief's cap stops and reports — it never raises it.
+brief, and it is `local` — free, on this machine — unless the user has said otherwise for that
+job. No paid call of any kind without their explicit say-so and a cap in dollars, asked by you;
+being at the desk is not a yes. When local fails, the item goes to `blocked` with a question and
+the run moves to the next job. An artist that reaches the brief's cap stops and reports — it
+never raises it.
 
 **An approved artifact is never touched.** The Chart's `done` is the user's word only. Work on a
 copy or a new version, and never send anything that could pass for a new version of an approved
@@ -221,3 +223,47 @@ A run is not finished when the sheet reviewer passes it. In order:
 5. Run `skill-improver` on the recipe, without asking and without announcing it.
 
 Steps 4 and 5 happen on a rejected pass too — a rejected pass is the one with the most to teach.
+
+## The queue
+
+Annie runs long, so work waits in a queue, not in the conversation. One JSON file, five states
+— `working`, `review` (a clip for the user's eyes), `blocked` (an open question), `queued`,
+`done` — and `.claude/systems/annie/queue/q.py` is its only writer. Like the Chart, it is
+coordination state, so it is the main loop's; no agent touches it. The two stay separate: the
+Chart is the per-character picture, the queue is work in motion.
+
+- **The user manages it by talking to you.** "Add the tank's hit", "rogue first", an answer,
+  "approved" — each one is a `q.py` line the same turn it is said. They never edit the file.
+  `/annie-desk` turns a fresh session into that desk; the user restarts it often to keep
+  context small, and refines the command as the way of working improves.
+- **They watch it on the Queue page**, https://claude.ai/artifact/9BdKHEo5h9b2Z2LRHiS3Tw —
+  private, read-only, and reachable from their phone. After every `q.py` change that moves an
+  item, run `q.py render` and publish what it prints: `file_path`, with `root` and `files` for
+  the clips, to that `url`. A stale page is a page they cannot trust. `q.py serve` is the
+  same page on localhost, for when they are at the desk.
+- **`queue/run.sh start` keeps it working.** A shell loop checks the queue every five seconds
+  at no token cost and starts one fresh Claude per job through `queue/worker.py`; that worker
+  does one job and is closed, so no worker's context outlives its job. One worker at a time,
+  never two. Each worker is an interactive session named `autoworker #<id> <title>` with
+  Remote Control on, so the user can watch it or talk to it from their phone. It is closed only
+  by its own finished mark, never for running long; one with no sign of life for half an hour
+  is flagged "looks stuck" on the Queue page and left for the user. `run.sh restart` lets the
+  current job park before a script change takes effect. `/annie-queue` by hand, or `/loop /annie-queue`, does the same in a session, at the cost
+  of a context that keeps growing.
+  A question or a clip waiting for review parks the *item*, never the run: the next queued
+  item starts. That is what keeps annie busy while the user is away.
+- **The mastermind keeps an empty queue moving.** With nothing to work and its switch on
+  (`q.py auto on|off` — off unless the user says), the runner starts `/annie-mastermind`:
+  it tidies Blocked from what memory and the recipes already state, then makes at most one
+  `auto` job — research, a look back, or a sandbox test of a researched trick — serving a
+  line of the user's Focus (`queue/focus.md`). Prep and research only: it never asks,
+  never adds to Blocked, never renders a clip for approval. q.py's gate holds a daily cap, a cooldown, a pause while auto results wait for the user,
+  and a usage stop, read straight from Anthropic (the numbers `/usage` shows): no pass at or
+  over 85% of the 5-hour or 7-day limit, or while the week is ahead of 85% spread evenly over
+  its seven days. `q.py limit <percent>` moves that 85% until the weekly reset, then it
+  falls back by itself. It stops the mastermind only — the user's own
+  jobs always run. Lessons go to recipes; agent and workflow changes are proposed, never made.
+- **An answered item goes back on top**, and the answer goes into its next brief verbatim.
+- **Two lanes.** `now` is the default; `background` (`add --bg`) is long work such as a batch
+  of keys, done only while `now` is empty. A background item yields between stages when a
+  `now` item arrives, and resumes from its note afterwards — never mid-render.

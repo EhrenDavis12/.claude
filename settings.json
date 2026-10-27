@@ -68,6 +68,17 @@
             "statusMessage": "Checking skills for lessons not yet absorbed"
           }
         ]
+      },
+      {
+        "matcher": "*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/annie-queue-pending.sh",
+            "timeout": 10,
+            "statusMessage": "Reading annie's queue"
+          }
+        ]
       }
     ],
     "SubagentStop": [
