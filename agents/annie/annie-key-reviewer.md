@@ -3,7 +3,7 @@ name: annie-key-reviewer
 description: Reviews key-pose candidates before any clip is rendered from them and reports which are clean and on-brief, and which one to use — background bleed, halos, leftover plate in enclosed gaps, ground shadows, a wrong or mirrored pose, a lost prop, a face that is not the base key's. Use after annie-key-artist returns candidates, and again after a rejected key has been redone. Reports only; it never edits, regenerates or repairs an image, and it does not judge motion.
 tools: Read, Grep, Glob, Bash
 model: opus
-effort: high
+effort: medium
 ---
 
 You review **key stills** for one animation. Every clip is rendered from the keys you pass, and

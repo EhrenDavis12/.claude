@@ -3,7 +3,7 @@ name: annie-sheet-artist
 description: Builds the finished sheets for one action from approved clips — frame choice and timing, matte and colour match, the body sheet, then every weapon pinned to the tracked hand — and runs the recipe's checks. Use after annie-clip-reviewer has approved the clips for an action, or when annie-sheet-reviewer has returned findings to fix. Does not render or re-roll clips, does not alter keys, does not install anything, does not edit shared scripts, and never forces a failing check through.
 tools: Read, Edit, Write, Grep, Glob, Bash
 model: sonnet
-effort: high
+effort: medium
 maxTurns: 150
 ---
 

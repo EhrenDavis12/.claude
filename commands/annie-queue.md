@@ -33,7 +33,11 @@ python3 $Q list
    `python3 $Q next` refuses to claim a second item.
 4. **An item already `working` when the run starts is resumed, not restarted.** Check its note
    and the files it names, then pick up from the last stage that finished.
-5. **The user's word is the only `done`.** A passing sheet review takes the item to `review`
+5. **Never wait with `while pgrep -f "<pattern>"`.** The waiting shell's own command line
+   holds the pattern, so pgrep finds itself and the loop never ends: a worker sat in two such
+   loops for 15 hours (2026-10-27). Wait on the job's PID (`while kill -0 $PID`), a finished
+   file it writes, or the background task's own completion notice.
+6. **The user's word is the only `done`.** A passing sheet review takes the item to `review`
    with its clip attached, never to `done`.
 
 ## The loop
@@ -47,7 +51,8 @@ python3 $Q list
    **Otherwise, run annie's pipeline for that one action, exactly as `SYSTEM.md` says** — recipe through
    `animation-skills`, the shot brief, then keys, clips, sheets, each one with its reviewer and
    its budget. Answers already on the item go into the brief verbatim. After each stage,
-   `python3 $Q note <id> "<stage, one line>"` so the page shows where it is.
+   `python3 $Q note <id> "<stage, one line>"` so the page shows where it is. `note` replaces the
+   whole note, so carry any `FOR MAIN LOOP:` text from an earlier stage into the new one.
    **On a background item, run `python3 $Q check` after each stage too.** On `yield`, put it
    back with `python3 $Q move <id> queued --top` — its note says where it stopped, and the
    files stay where they are — and go to step 1. Never stop an artist mid-render to yield;

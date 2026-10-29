@@ -9,6 +9,14 @@ Everything runs locally on the M1 Max through `src/LLMs` (ComfyUI). No Replicate
 Working folder per character: `src/asset-animation-demo/local_runs/<character>/`; the approved
 keys live in its `approve/` subfolder with a README the user reads.
 
+**Check the key's stance before planning a video breath.** This recipe works on an upright,
+relaxed key like the archer's. A crouched key holding weapons ready reads as combat to Wan in
+every mode — first-last K0 → K0, start-only, local and hosted: the Assassin's 8 takes swung or
+thrust the daggers, stood up, or cut to another figure, and no take held a clean breath. Prompt
+wording does nothing at cfg 1. For such a key, plan a non-video breath (a drawn "breath in" key)
+or tell the user before spending renders. Run the shared scripts with the agf venv python
+(`src/Asset-Gen-Framework/.venv/bin/python`); `gen.py --mode fast` has no hosted start-only path.
+
 ## Three modes — where each model job runs
 
 Every model job goes through `scripts/gen.py`, which takes the same commands and flags as
@@ -76,6 +84,10 @@ Then publish `chart.html` to the same link: the Artifact tool with `url` set to 
 
 A 64-frame, 16 fps sprite sheet (512 px cells, transparent): one slow breath, chest and shoulders
 only, feet planted, face identical on every frame, loop seam no bigger than a normal frame step.
+An extra motion layered on the idle (a weight shift, a head turn) may end with a snap back to K0
+rather than a perfect join: the body's place must come back to where it started, the exact pose
+need not. Give the video model K0 and the motion's approved keys in the order they play. Only the
+character and their own weapon are in frame — no other figure, no effect, no projectile.
 Unity: `Assets/Characters/<character>_versions/idle_vN.png` + an entry in that folder's
 `versions.json` with `"loop": true`, `"status": "prod"`.
 
@@ -86,9 +98,18 @@ Unity: `Assets/Characters/<character>_versions/idle_vN.png` + an entry in that f
    regions the source art itself carried (the archer had a white gap between glove and bow and
    between the arrow shafts). Measure the edge ring (should be dark, ~0 bright pixels) and show the
    user the key on dark / checkerboard / light — Preview draws transparency as white and misleads.
-   The user approves K0 in `approve/README.md` before anything else is rendered.
+   The user approves K0 in `approve/README.md` before anything else is rendered. For a new class,
+   K0 is a byte copy of the user-approved battle stance (check its sha1 against the approved file —
+   a stale `keys/K0_<class>.png` from an earlier design round has passed for it once); a true gap
+   in the silhouette, outlined on both sides and grey in the source, stays transparent.
 2. **Lay K0 on a flat grey plate, #7f7f7f, at 640 px** (`K0_plate.png`). Grey, not magenta:
-   magenta tinted every white highlight pink through the matte.
+   magenta tinted every white highlight pink through the matte. Resize the RGBA first
+   (premultiplied), then composite on the grey; compositing at 1024 and then a Lanczos resize
+   leaves a 1 px light rim round the outline (1073 rim px against the archer's 55).
+   For any character but the archer, also write `keys/K0_<class>.ref.json` at 640: face box (eyes,
+   brows, mask), head box, pocket boxes, enclosed gaps, a box and tip per weapon, a sole band
+   **per boot** (feet are rarely level in a battle stance), and the bbox — `face_lock.py`,
+   `pose_guard.py` and `build_v5.py` hard-code the archer's numbers.
 3. **Render one segment K0 → K0 with Wan 2.2 14B first-last-frame** (`scripts/render_breathe.sh`):
    65 frames, 640×640, 16 fps, seed 7, 4-step lightx2v. The prompt asks for *one slow deep breath,
    chest and shoulders only, head and face do not move, eyes open, no blinking, mouth closed,
@@ -146,6 +167,19 @@ inside the figure, edge-ring colour, and the pose guard. A lint that runs these 
   under it is the PROD idle, and the clip starts and ends on idle frames. Play idle 6/10,
   idle+head-turn 2/10, idle+regrip 2/10.
 
+- **A head turn turns the whole body.** The hood, shoulders and torso turn with the head; a face
+  sliding inside a still hood is rejected — the motion must read as fluid and natural, never one
+  part on its own. So a head turn is a whole-body edit of K0, not a head crop.
+- **A head turn under a hood** (rogue): local Qwen edits from K0 cannot rotate this hooded body —
+  16 edits over three methods (head crop, code-guided crop, whole body, chained from a turned-head
+  plate) only redrew the face while the hood and body stayed put. Do not spend more edits on it.
+  The local route is **Wan i2v from K0 alone** (no end key): take its most-turned frame, then one
+  Qwen clean-up edit of that frame as the key.
+- **Measure a turn by NCC patch tracking** of torso, sash and hood top against K0 — a real turn
+  moves them; row widths do not show it. A take whose body below the head scores NCC ≥ 0.88 against
+  K0 and whose hood top moves under 5 px while the eye band moves 45 px or more is a face slide,
+  not a turn.
+
 ## Numbers (M1 Max 32 GB, server alone)
 
 | Step | Time |
@@ -154,3 +188,10 @@ inside the figure, edge-ring colour, and the pose guard. A lint that runs these 
 | Wan 14B FLF, 640, 33 frames | ~13 min; 65 frames ~40 min |
 | face lock / mouth patch | seconds |
 | post, flood matte, 64 frames | ~2 min |
+
+## Scorecard — the last step of every run
+
+Append one row per pass to `scorecard.csv` beside this file, then run the `skill-improver` skill on
+this skill.
+
+`date,character,action,frames,passes,key_edits,inbetweens_local,inbetweens_remote,hand_fixes,new_tools,minutes,usd,user_verdict,note`

@@ -1,7 +1,7 @@
 {
   "name": "annie",
-  "title": "The animation studio \u2014 brief \u2192 keys \u2192 clips \u2192 sheets \u2192 the user's eyes",
-  "summary": "Pure delegation for animation. The main loop coordinates and never draws; eight prefixed agents own one territory each, every artist is followed by a reviewer that holds no pen, and the user watching the clip is the only gate that makes it done.",
+  "title": "The animation studio — brief → keys → clips → sheets → the user's eyes",
+  "summary": "Pure delegation for animation. The main loop coordinates and never draws; nine prefixed agents own one territory each, every artist is followed by a reviewer that holds no pen, and the user watching the clip is the only gate that makes it done.",
   "agents": [
     "annie-shot-planner",
     "annie-key-artist",
@@ -10,6 +10,7 @@
     "annie-clip-reviewer",
     "annie-sheet-artist",
     "annie-sheet-reviewer",
+    "annie-unity-artist",
     "annie-tool-writer"
   ],
   "skills": [

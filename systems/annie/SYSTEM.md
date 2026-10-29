@@ -3,7 +3,7 @@
 > **Active.** This file is in context because `CLAUDE.md` imports it. If you are reading these
 > rules, annie is the system in force. See `.claude/systems/README.md` to swap.
 
-The animation studio: a request → a shot brief → keys → clips → sheets → the user's eyes. Eight
+The animation studio: a request → a shot brief → keys → clips → sheets → the user's eyes. Nine
 agents, one territory each, and a main loop that coordinates rather than draws.
 
 Annie is forge turned around. Code can be specified and tested before it exists; an animation is
@@ -48,9 +48,10 @@ on its own looks fine in a still and flickers in motion.
 | Keys and reference stills | `annie-key-artist` |
 | Raw and cleaned clips | `annie-clip-artist` |
 | Body sheets, weapon sheets, an action's recipe entry, its own compose script | `annie-sheet-artist` |
-| Scripts shared between actions or characters | `annie-tool-writer` |
+| Scripts shared between actions or characters, and the Unity sandbox's `Assets/Annie/Shared/` | `annie-tool-writer` |
+| Unity effect prefabs, test scenes and their builders in the sandbox (`Assets/Annie/<Job>/`, `AnnieBuild/`), and their recordings | `annie-unity-artist` |
 | Chart, install, scorecards, skills | main loop |
-| Design docs, PRDs, application code, tests | **nobody under annie** — report it; that work is forge's |
+| Design docs, PRDs, game code, tests, anything in the Unity project outside `Assets/Annie/` | **nobody under annie** — report it; that work is forge's |
 
 Reviewers hold `Read, Grep, Glob, Bash` and no `Edit` or `Write`. They shell out to measure and
 to cut contact sheets, and those go to a scratch folder, never beside the artifact they judge.
@@ -74,6 +75,11 @@ request
 
 An idle is the same pipeline with one key at both ends. `annie-tool-writer` is off the line: it
 is dispatched when an artist reports that a shared script is missing or wrong.
+
+A Unity effect or scene runs a shorter line, by the `unity-effects` recipe: the brief, then
+`annie-unity-artist` builds and records it in the open editor, then `annie-sheet-reviewer`
+reviews the recording, then the user watches it. Its textures come from `annie-key-artist`
+first when the brief needs new ones.
 
 **The brief comes first because the first pass is where the time goes.** A base action has
 taken 2.3 passes at about two hours a pass, and the first is "usually too subtle or mechanically
@@ -169,7 +175,8 @@ fix the rule rather than working around it.
   is built once the clothes-only repaint in the `new-armor` recipe has been proved on one
   action; an agent wrapped around a method that does not work yet is a reliable way to make
   rejected frames. Until then an outfit request is said to the user as not yet covered.
-- **Design docs, PRDs, application code, tests.** No annie agent holds those pens. A decision an
+- **Design docs, PRDs, game code, tests.** No annie agent holds those pens. Game code is
+  forge's; effect prefabs, test scenes and recordings in the Unity sandbox are annie's. A decision an
   animation run surfaces is reported to the user. Work on the asset framework that deserves
   tests is forge's and means `/set-system forge` — a user-only command — and a restart.
 - **A retro agent.** `skill-improver` already turns runs into better recipes. Add one only when
@@ -179,18 +186,19 @@ fix the rule rather than working around it.
 
 | Agent | Job (one sentence) | Model / Effort | Writes | Wiring |
 |---|---|---|---|---|
-| `annie-shot-planner` | Turns an animation request into a shot brief — key poses, timing, what the user will judge, the mode and the budget. | opus / high | no | Tier 1 |
-| `annie-key-artist` | Makes the still images an animation is built from. | sonnet / high | **yes** | Tier 1 |
-| `annie-key-reviewer` | Reports which key candidates are clean and on-brief, and which one to use. | opus / high | no | Tier 1 |
-| `annie-clip-artist` | Renders and cleans the moving clip between two approved keys. | sonnet / high | **yes** | Tier 1 |
-| `annie-clip-reviewer` | Reports defects in a raw clip before anything is built from it, and which take to use. | opus / high | no | Tier 1 |
-| `annie-sheet-artist` | Builds the finished sheets for one action from approved clips, weapons pinned to the hand. | sonnet / high | **yes** | Tier 1 |
-| `annie-sheet-reviewer` | Reports whether a finished action passes its acceptance table, frame against frame. | opus / high | no | Tier 1 |
-| `annie-tool-writer` | Writes or changes one shared pipeline script an artist reported it needs. | sonnet / high | **yes** | Tier 1 |
+| `annie-shot-planner` | Turns an animation request into a shot brief — key poses, timing, what the user will judge, the mode and the budget. | opus / medium | no | Tier 1 |
+| `annie-key-artist` | Makes the still images an animation is built from. | sonnet / medium | **yes** | Tier 1 |
+| `annie-key-reviewer` | Reports which key candidates are clean and on-brief, and which one to use. | opus / medium | no | Tier 1 |
+| `annie-clip-artist` | Renders and cleans the moving clip between two approved keys. | sonnet / medium | **yes** | Tier 1 |
+| `annie-clip-reviewer` | Reports defects in a raw clip before anything is built from it, and which take to use. | opus / medium | no | Tier 1 |
+| `annie-sheet-artist` | Builds the finished sheets for one action from approved clips, weapons pinned to the hand. | sonnet / medium | **yes** | Tier 1 |
+| `annie-sheet-reviewer` | Reports whether a finished action passes its acceptance table, frame against frame. | opus / medium | no | Tier 1 |
+| `annie-tool-writer` | Writes or changes one shared pipeline script an artist reported it needs. | sonnet / medium | **yes** | Tier 1 |
+| `annie-unity-artist` | Builds one effect or test scene in the Unity sandbox and records it to a captioned mp4. | sonnet / medium | **yes** | Tier 1 |
 
 Files live in `.claude/agents/annie/` and carry the `annie-` prefix. Add or change an agent only
 through `/agent-creator`, and update this table when you do: `system.json` beside this file
-lists the same eight names, and `/set-system` reads it to know what to deny when annie is
+lists the same nine names, and `/set-system` reads it to know what to deny when annie is
 inactive.
 
 ## Dispatching
@@ -206,6 +214,7 @@ Agent(subagent_type: "annie-clip-artist",   prompt: "Brief: <the brief>. Recipe:
 Agent(subagent_type: "annie-clip-reviewer", prompt: "Brief: <the brief>. Recipe: <path>. Takes: <paths>. Keys: <paths>.")
 Agent(subagent_type: "annie-sheet-artist",  prompt: "Brief: <the brief>. Recipe: <path>. Approved clips: <paths>. Do not install.")
 Agent(subagent_type: "annie-sheet-reviewer", prompt: "Brief: <the brief>. Recipe: <path>. Action: <name>. Previous version: <path or none>. Round: <1 or 2>; earlier findings: <list>.")
+Agent(subagent_type: "annie-unity-artist",  prompt: "Brief: <the brief>. Recipe: <path to unity-effects>. Job: <name>. Textures: <paths>. Round: <1 or 2>; earlier findings: <list>.")
 Agent(subagent_type: "annie-tool-writer",   prompt: "Needed by: <agent and action>. What the script must do: <one job>. Where: <path>. How it will be called: <command>.")
 ```
 
@@ -245,9 +254,12 @@ Chart is the per-character picture, the queue is work in motion.
   at no token cost and starts one fresh Claude per job through `queue/worker.py`; that worker
   does one job and is closed, so no worker's context outlives its job. One worker at a time,
   never two. Each worker is an interactive session named `autoworker #<id> <title>` with
-  Remote Control on, so the user can watch it or talk to it from their phone. It is closed only
-  by its own finished mark, never for running long; one with no sign of life for half an hour
-  is flagged "looks stuck" on the Queue page and left for the user. `run.sh restart` lets the
+  Remote Control on, so the user can watch it or talk to it from their phone. It is closed by
+  its own finished mark, never for running long. One that is stuck — no real work for half an
+  hour, or waiting for input nobody will give — is taken down with everything it started, and
+  the next worker resumes the same item from its note; after two such restarts the item goes
+  to `blocked` with a question so it cannot loop. A wait loop is not work: only processor use,
+  file writes, transcript turns and the model server count. `run.sh restart` lets the
   current job park before a script change takes effect. `/annie-queue` by hand, or `/loop /annie-queue`, does the same in a session, at the cost
   of a context that keeps growing.
   A question or a clip waiting for review parks the *item*, never the run: the next queued

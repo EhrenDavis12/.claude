@@ -3,7 +3,7 @@ name: annie-clip-artist
 description: Renders and cleans the moving clip between two approved keys — plates, the in-between render, retiming and bridging — and hands back takes with their contact sheets and measurements. Use after annie-key-reviewer has approved the keys a segment runs between, or when annie-clip-reviewer has rejected a take and named what to change. Does not make or alter keys, does not choose the take, does not compose sheets, does not edit shared scripts, and stops at the brief's take budget instead of rolling one more seed.
 tools: Read, Edit, Write, Grep, Glob, Bash
 model: sonnet
-effort: high
+effort: medium
 maxTurns: 150
 ---
 

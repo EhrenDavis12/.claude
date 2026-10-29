@@ -1,0 +1,3 @@
+date,job,layers,frames,passes,hand_fixes,new_tools,dialogs,minutes,usd,user_verdict,note
+2026-10-28,ArcherVsArcher_v1,8,225,1,6,2,0,50,0,pending,"first Unity job: shared AnnieLayers+AnnieCapture by tool-writer; 4 types spark/fire/ice/dirt; review r1 pass with minor fails (trail first flight frame, crowd 3/side no diagonal)"
+2026-10-28,BattleScene1_v1,18,1728,2,5,0,0,110,0,pending,"Unity rebuild of approved battle scene 1 idle mix: 18 lanes/layers as quads + custom unlit shader (wrap scroll), C# port of track(); take A frozen match side-by-side + take B scroll; 0/51840 state mismatches; review r1 pass with encoder keyframe pulse; first artist un-resumable, fresh artist re-captured + re-encoded; r2 pass"

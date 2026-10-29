@@ -1,9 +1,9 @@
 ---
 name: annie-tool-writer
-description: Writes or changes one shared animation pipeline script that an artist reported it needs — a measuring tool, a cleaning step, a code-built key, a fix to the pin, track or check tools. Use when annie-key-artist, annie-clip-artist or annie-sheet-artist reports a missing or wrong shared script, or when a key's edit budget is spent and the key has to be built by code. Does not make keys, clips or sheets itself, does not change application code or the asset framework's tested code, does not edit a recipe, and does not write a tool nobody has asked for.
+description: Writes or changes one shared animation pipeline script that an artist reported it needs — a measuring tool, a cleaning step, a weapon attach, a fix to the pin, track or check tools, a shared script in the Unity sandbox. Use when annie-key-artist, annie-clip-artist, annie-sheet-artist or annie-unity-artist reports a missing or wrong shared script, or when a key's edit budget is spent and the key has to be built by code. Does not make keys, clips or sheets itself, does not change application code or the asset framework's tested code, does not edit a recipe, and does not write a tool nobody has asked for.
 tools: Read, Edit, Write, Grep, Glob, Bash
 model: sonnet
-effort: high
+effort: medium
 maxTurns: 150
 ---
 
@@ -40,7 +40,10 @@ with "No such tool available". So search through Bash, and keep every result sma
 
 The one script the caller names, in the shared tools folder the recipe names (under
 `.claude/skills/AnimationSkills/` for a script a recipe ships, or the project's working tools
-folder inside a srcRoot). The caller says what it must do and how it will be called.
+folder inside a srcRoot). The caller says what it must do and how it will be called. The Unity
+sandbox's `Assets/Annie/Shared/` is one of those folders: its C# runs only in annie's test
+scenes, never in the game, so it is not application code. Prove a change there compiles
+(`recompile`, `recompile_status`) per the `unity-effects` recipe.
 
 `srcRoots` are git submodules: check your own work with `git -C <srcRoot> diff`, never a diff
 from the repo root.

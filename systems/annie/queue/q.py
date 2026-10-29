@@ -18,7 +18,10 @@ Queued items sit in one of two lanes. `now` is the default; `background` is the 
 (a batch of image generation) that runs only when nothing in `now` is waiting.
 
   q.py add "title" [--top] [--bg] [--note TEXT]
-  q.py list                       the whole queue as text
+  q.py list [--brief]             the whole queue as text; --brief is one short line per item
+  q.py show ID [ID ...]           those items in full, from the queue or the archive
+  q.py find WORD [WORD ...]       items in the queue or the archive matching every word, one
+                                  line each — search first, read in full only what matches
   q.py next                       claim the top `now` item, else the top background one
   q.py peek                       the job the next worker will take, without claiming it
   q.py check                      between stages: "yield" if a background item is working
@@ -128,6 +131,11 @@ def open_questions(it):
     return [x for x in it["questions"] if not x.get("answer")]
 
 
+def owed_questions(items):
+    """Open questions the user still owes: a finished item's leftovers are moot."""
+    return [(it, x) for it in items if it["state"] != "done" for x in open_questions(it)]
+
+
 def lane(it):
     return it.get("lane", "now")
 
@@ -166,11 +174,43 @@ def cmd_add(a, q):
     print(show(it))
 
 
+def brief(it, where=""):
+    tag = it["state"] + (" · auto" if it.get("auto") else "") + where
+    return f"#{it['id']} [{tag}] {it['title'][:90]} — {it.get('note', '')[:110]}"
+
+
 def cmd_list(a, q):
     for state in STATES:
         for it in q["items"]:
             if it["state"] == state:
-                print(show(it))
+                print(brief(it) if a.brief else show(it))
+
+
+def cmd_show(a, q):
+    archive = HERE / "archive.json"
+    old = json.loads(archive.read_text())["items"] if archive.exists() else []
+    for item_id in a.ids:
+        it = next((x for x in q["items"] + old if x["id"] == item_id), None)
+        print(show(it) if it else f"no item {item_id}")
+
+
+def cmd_find(a, q):
+    """Every item, in the queue or the archive, whose text holds all the words."""
+    archive = HERE / "archive.json"
+    pools = [(q["items"], "")]
+    if archive.exists():
+        pools.append((json.loads(archive.read_text())["items"], " · archive"))
+    words = [w.lower() for w in a.words]
+    hits = 0
+    for items, where in pools:
+        for it in items:
+            text = " ".join([it["title"], it.get("note", "")]
+                            + [x["text"] + " " + x.get("answer", "") for x in it["questions"]]).lower()
+            if all(w in text for w in words):
+                print(brief(it, where))
+                hits += 1
+    if not hits:
+        print("no match")
 
 
 def cmd_next(a, q):
@@ -572,7 +612,7 @@ def e(s):
 
 def render(q, clip_href, sub):
     items = q["items"]
-    open_qs = [(it, x) for it in items for x in it["questions"] if not x.get("answer")]
+    open_qs = owed_questions(items)
     stuck = [it for it in items if it.get("stuck")]
     asks = ""
     if open_qs or stuck:
@@ -652,7 +692,7 @@ def summary(q):
     """What the user needs to hear first: what is owed, then what is moving, then the counts."""
     items = q["items"]
     said = [f"{it['title']} looks stuck: {it['stuck']}." for it in items if it.get("stuck")]
-    owed = [(it, x) for it in items for x in it["questions"] if not x.get("answer")]
+    owed = owed_questions(items)
     if owed:
         said.append(f"{len(owed)} waiting on you.")
         for it, x in owed:
@@ -755,7 +795,9 @@ def main():
     s = sub.add_parser("auto"); s.add_argument("switch", nargs="?", default="status", choices=["on", "off", "status"])
     s = sub.add_parser("limit"); s.add_argument("percent")
     s = sub.add_parser("idle"); s.add_argument("--claim", action="store_true")
-    sub.add_parser("list")
+    s = sub.add_parser("list"); s.add_argument("--brief", action="store_true")
+    s = sub.add_parser("show"); s.add_argument("ids", type=int, nargs="+")
+    s = sub.add_parser("find"); s.add_argument("words", nargs="+")
     sub.add_parser("next")
     sub.add_parser("check")
     sub.add_parser("peek")
@@ -774,7 +816,7 @@ def main():
     a = p.parse_args()
     q = load()
     globals()[f"cmd_{a.cmd}"](a, q)
-    if a.cmd not in ("list", "serve", "render", "check", "peek", "auto", "idle", "limit"):
+    if a.cmd not in ("list", "serve", "render", "check", "peek", "auto", "idle", "limit", "find", "show"):
         save(q)
 
 

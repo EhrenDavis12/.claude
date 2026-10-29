@@ -1,6 +1,6 @@
 ---
 name: animation-skills
-description: The front door to every animation skill in this repo — making a character's idle, its one-shot actions, a recolour of an armor, a new armor or outfit animated on its own, and sprite-sheet generation through Replicate. Use for any request to create, re-create, fix or review a character animation, an armor or outfit variant, or a weapon overlay; it names the one sub-skill to read for the job.
+description: The front door to every animation skill in this repo — making a character's idle, its one-shot actions, a recolour of an armor, a new armor or outfit animated on its own, an effect overlay such as a hit spark, and sprite-sheet generation through Replicate. Use for any request to create, re-create, fix or review a character animation, an armor or outfit variant, or a weapon overlay; it names the one sub-skill to read for the job.
 ---
 
 # Animation skills
@@ -16,6 +16,10 @@ folder's `SKILL.md` and follow it** — do not work from this table.
 | Sprite-sheet animations through Replicate and the Asset-Gen-Framework (idle, attack, defend, hurt, projectile, burst) | `animate-characters/SKILL.md` |
 | A new colour of an armor the character already wears — same shape (Fire Robes) | `recolour-armor/SKILL.md` |
 | A new armor or outfit with its own animations, made the base's way from its own base image (Nightmare Cloak) | `new-armor/SKILL.md` |
+| The layered, looping background of a battle scene — sky, mountains, hills, trees, ground, foreground — for parallax | `parallax-background/SKILL.md` |
+| An effect overlay for an action — hit spark, landing dust, footfall puffs — code-drawn, body-free, placed by game code; also a full battle-scene preview with a crowd of idles | `effects-overlay/SKILL.md` |
+| An effect or test scene built in the Unity editor — layered particles, trails, 2D light, bloom, each layer toggleable — recorded to a captioned mp4 (Archer vs Archer) | `unity-effects/SKILL.md` |
+| The main-menu map — a top-down 3/4 still town map — and its building sprites with shadows and anchors | `menu-map-buildings/SKILL.md` |
 
 Two rules hold for all of them:
 

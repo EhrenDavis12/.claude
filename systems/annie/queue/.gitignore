@@ -8,3 +8,4 @@ worker.tty
 usage.cache.json
 mastermind.json
 archive.json
+restarts.json

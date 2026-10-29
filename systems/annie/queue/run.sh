@@ -8,6 +8,8 @@
 #   run.sh start    start the runner in the background
 #   run.sh stop     stop it, and the worker if one is running (its job stays `working`
 #                   and the next worker resumes it from its note)
+#   run.sh park     stop it without cutting a job off: now if idle, else once the current
+#                   worker ends. `start` clears it
 #   run.sh restart  let the current worker finish its job, then stop and start the runner —
 #                   how a change to these scripts takes effect without cutting a job off
 #   run.sh status   is it running, is a worker on a job, the last lines of the log
@@ -19,6 +21,7 @@ REPO="$(cd "$HERE/../../../.." && pwd)"
 Q="$HERE/q.py"
 LOG="$HERE/runner.log"
 PID="$HERE/runner.pid"
+PARK="$HERE/runner.park"   # present: start no new worker; the loop exits
 CHECK_EVERY=5     # seconds between looks at the queue
 FAIL_SLEEP=120    # a worker died within a minute: pause, so a broken setup cannot spin
 
@@ -34,6 +37,7 @@ loop() {
   worker=""
   trap 'say "runner stopped"; [ -n "$worker" ] && kill "$worker" 2>/dev/null; rm -f "$PID"; exit 0' INT TERM
   while true; do
+    if [ -f "$PARK" ]; then say "parked; runner stopped"; rm -f "$PID"; exit 0; fi
     prompt="/annie-queue --one"
     if has_work; then
       # Named for its job, so it is plain in the session list and in Remote Control what it is.
@@ -64,6 +68,7 @@ loop() {
 
 case "${1:-status}" in
   start)
+    rm -f "$PARK"
     if running; then echo "already running (pid $(cat "$PID"))"; exit 0; fi
     # By full path through bash: `sh run.sh start` leaves $0 as a bare "run.sh", which nohup
     # cannot find, and the loop died before writing a line. Its errors go to the log, not away.
@@ -80,6 +85,15 @@ case "${1:-status}" in
       bash '$HERE/run.sh' start" >> "$LOG" 2>&1 &
     echo "will restart when the current job is parked"
     ;;
+  park)
+    if ! running; then echo "not running"; exit 0; fi
+    touch "$PARK"
+    if pgrep -P "$(cat "$PID")" >/dev/null; then
+      echo "will stop when the current job ends"
+    else
+      kill "$(cat "$PID")"; rm -f "$PID"; echo "stopped"
+    fi
+    ;;
   stop)
     if running; then kill "$(cat "$PID")" && echo "stopped"; else echo "not running"; fi
     rm -f "$PID"
@@ -94,5 +108,5 @@ case "${1:-status}" in
     if [ -f "$LOG" ]; then tail -n 5 "$LOG"; fi
     ;;
   loop) loop ;;
-  *) echo "usage: run.sh start|stop|status"; exit 1 ;;
+  *) echo "usage: run.sh start|stop|park|restart|status"; exit 1 ;;
 esac

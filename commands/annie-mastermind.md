@@ -45,16 +45,20 @@ and in the queue's notes — read it there and steer clear; nobody keeps a list 
 
 ## A pass
 
-1. **Read the state — everything already done or decided, not just what is open.** You
-   are only useful if you never re-make what exists. Read all of it before choosing:
-   - `python3 $Q list`, every state, **done included** — done notes carry the user's verdicts;
-   - `.claude/systems/annie/queue/archive.json`, the older items moved off the queue;
-   - the recipe list in `.claude/skills/AnimationSkills/SKILL.md` and the agent roster in
-     `SYSTEM.md` — a recipe or agent for a thing means that route is already chosen;
-   - `$F`, the memory index (`MEMORY.md` in the project's memory folder), and `$OUT`.
+1. **Know what exists — by search, not by reading the board.** You are only useful if you
+   never re-make what exists, and the full board is about 100 KB, so never `list` it whole:
+   - `python3 $Q list --brief` — one short line per item, every state, done included;
+   - `python3 $Q find <word> [<word> ...]` — searches the queue **and** the archive. Search
+     for each candidate job's subject before choosing it (`find spark`, `find unity effect`),
+     and read an item in full only when a hit could be the same work;
+   - `grep` the recipe list in `.claude/skills/AnimationSkills/SKILL.md`, the roster in
+     `SYSTEM.md`, the memory index and `$OUT` for the same words — a recipe or agent for a
+     thing means that route is already chosen;
+   - `$F`, which is short.
    The newest work wins: when the user has moved a kind of asset onto a newer route (a Unity
    build, a new recipe), the older route is closed — research and tests on it are repeats.
-2. **Tidy Blocked.** For each open question:
+2. **Tidy Blocked.** `python3 $Q show <id>` each blocked item from the brief list — only
+   those — and for each open question:
    - If a memory, a recipe or a design doc **already states** the answer, and it is not a
      taste question, answer it:
      `python3 $Q answer <id> <n> "Mastermind (<date>): <answer> — from <where it is said>, quoted: '<the words>'."`
@@ -70,6 +74,7 @@ and in the queue's notes — read it there and steer clear; nobody keeps a list 
      to use more of what worked.
    - **Research** — the first Learn topic in `$F` with no report in `$OUT/research/`.
 4. **Check it before adding.** Every line must be yes, or the job is not made:
+   - You searched for it (`find`, `grep`) and read every hit that could be the same work.
    - It moves us toward the Goal by way of Right now, and nothing the user has dropped or paused.
    - It can finish without the user's answer to anything.
    - It is local and free, and touches nothing approved or installed.

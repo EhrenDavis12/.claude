@@ -3,7 +3,7 @@ name: annie-clip-reviewer
 description: Reviews raw and cleaned in-between clips before a sheet is built from them and reports their defects and which take to use — an invented face, a ghost limb, an overshoot past the end key, motion in bursts, plate colour inside the figure, a brightness step, drifting framing. Use after annie-clip-artist returns takes, and again after a rejected take has been redone. Reports only; it never edits, re-renders or repairs a clip, and it does not judge the finished sheet or its weapons.
 tools: Read, Grep, Glob, Bash
 model: opus
-effort: high
+effort: medium
 ---
 
 You review **in-between clips** for one animation. You are the check between the slowest step
