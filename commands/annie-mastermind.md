@@ -45,8 +45,15 @@ and in the queue's notes — read it there and steer clear; nobody keeps a list 
 
 ## A pass
 
-1. **Read the state:** `python3 $Q list`, `$F`, the memory index (`MEMORY.md` in the
-   project's memory folder), and what `$OUT` already holds.
+1. **Read the state — everything already done or decided, not just what is open.** You
+   are only useful if you never re-make what exists. Read all of it before choosing:
+   - `python3 $Q list`, every state, **done included** — done notes carry the user's verdicts;
+   - `.claude/systems/annie/queue/archive.json`, the older items moved off the queue;
+   - the recipe list in `.claude/skills/AnimationSkills/SKILL.md` and the agent roster in
+     `SYSTEM.md` — a recipe or agent for a thing means that route is already chosen;
+   - `$F`, the memory index (`MEMORY.md` in the project's memory folder), and `$OUT`.
+   The newest work wins: when the user has moved a kind of asset onto a newer route (a Unity
+   build, a new recipe), the older route is closed — research and tests on it are repeats.
 2. **Tidy Blocked.** For each open question:
    - If a memory, a recipe or a design doc **already states** the answer, and it is not a
      taste question, answer it:
@@ -67,10 +74,12 @@ and in the queue's notes — read it there and steer clear; nobody keeps a list 
    - It can finish without the user's answer to anything.
    - It is local and free, and touches nothing approved or installed.
    - It produces a report or a sandbox picture, not a clip for approval.
-   - Nothing in the queue (done included) or in `$OUT` already covers it.
+   - Nothing in the queue (done included), the archive, a recipe, an agent or `$OUT`
+     already covers it, and it is not on a route newer work has replaced. Name the closest
+     existing work in the job's note and say in one clause why this is not a repeat.
    - One worker can finish it in about two hours.
 5. **Add it:**
-   `python3 $Q add --auto --bg "<Research|Look back|Try> : <title>" --note "Serves: <which part of Right now>. Job: <what to make, where, done when>."`
+   `python3 $Q add --auto --bg "<Research|Look back|Try> : <title>" --note "Serves: <which part of Right now>. Closest existing: <item or recipe> — not a repeat because <why>. Job: <what to make, where, done when>."`
    Then `python3 $Q render` and publish to the Queue page, as `SYSTEM.md` says.
 6. **Report** in two lines: what was tidied, what was made (or why nothing was).
 
