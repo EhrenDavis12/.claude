@@ -177,31 +177,39 @@ Two things people get wrong here:
 ## The queue in front of the pipeline
 
 The three layers say what is being built and how. None of them says **what is next** — that
-came from the user, every session. The work queue (`<docsRoot>/queue/`, driven by
-`/forge-queue`, described in forge's `SYSTEM.md`) is the intake layer in front of the
-pipeline, and it was checked against every question in "Using this file" before it was built:
+came from the user, every session. The work queue (`.claude/systems/forge/queue/q.py`, its
+runner, and the `/forge-desk`, `/forge-queue` and `/forge-mastermind` commands, described in
+forge's `SYSTEM.md`) is the intake layer in front of the pipeline. It is annie's queue ported
+whole, so both systems are run the same way; it was checked against "Using this file" again
+when it was ported:
 
 - **Which layer?** None of the three. It is coordination state, the same class as git, and
-  the main loop holds its pen. That is the one carve-out it needed, and it is limited to
-  moving lines, writing notes and questions, and copying a planner's report.
-- **Does it add a loop?** Yes — build the top Ready item, repeat. The exit is Ready empty and
-  every remaining item Blocked. A tick that finds nothing prints one summary and stops.
+  the main loop holds its pen through one script. That is the one carve-out it needs.
+- **Does it add a loop?** Two. The runner's — claim the top item, build, park, repeat — exits
+  when nothing for the active project is queued; a parked item parks the item, never the run.
+  A worker's own life is bounded by its notes' promises and a six-hour ceiling, and an item
+  taken down twice is blocked so it cannot loop. Both guards are proved to fire by the daily
+  self-test, not assumed.
 - **Does it add a place where content accumulates?** Three, each with a named deleter. Done
-  keeps 30 days and the tick prunes it. Proposed is replaced wholesale by the next engine run.
-  Blocked drains back to Ready when the user answers. Nothing is checked off; finished
-  things leave.
+  items leave for the archive after a day. Reports are `git rm`'d by the desk once the user
+  has acted on them. Process lessons in `FOR MAIN LOOP:` notes are stripped by the desk as it
+  routes them. Nothing is checked off; finished things leave.
 - **Does it overlap the roster?** `forge-queue-planner` proposes work against a goal — the
-  built-in `Plan` plans one task, `forge-doc-planner` tidies docs. No trigger or territory
-  shared. Triage and bookkeeping are main-loop research and stay there.
+  built-in `Plan` plans one task, `forge-doc-planner` tidies docs. The mastermind dispatches it;
+  triage and bookkeeping are main-loop research and stay there.
 - **Is it a system?** No. Systems are exclusive, and the queue's whole job is to dispatch
   forge agents — a peer system would be denied every one of them. It is a phase word, not a
-  prefix: `forge-queue-*`.
+  prefix: `forge-queue-*`, `forge-desk`, `forge-mastermind`.
 
-Two decisions worth remembering the reason for. **A fresh goal's first proposal run is on
-request, never on the empty-queue trigger** — the most expensive dispatch on the roster
-should be judged once before it is armed. And **an answer written under a Blocked question
-goes to the design docs before the item resumes** — otherwise the queue becomes the only
-place a decision lives, which is principle 7 broken by a file that was meant to be scaffolding.
+Three decisions worth remembering the reason for. **Proposals are never built from on their
+own** — the mastermind's proposal run lands in a report, and its rows reach the queue only on
+the user's yes at the desk, because the most expensive dispatch on the roster should be judged
+before what it says is acted on. **An answer to a blocked question goes to the design docs
+before the item resumes** — otherwise the queue becomes the only place a decision lives,
+which is principle 7 broken by a file that was meant to be scaffolding. And **the user's word
+is the only `done`** — a built item parks in review with a picture and its branch, and the
+desk merges only on approval, because a green suite says nothing about whether it looks or
+feels right.
 
 ## The second system: annie, and why it is forge reversed
 

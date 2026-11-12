@@ -21,8 +21,10 @@
     "forge-tidy-docs"
   ],
   "commands": [
-    "forge-harvest-backlog",
-    "forge-queue"
+    "forge-desk",
+    "forge-queue",
+    "forge-mastermind",
+    "forge-harvest-backlog"
   ],
   "hooks": [
     ".claude/hooks/docs-pending.sh",

@@ -26,10 +26,9 @@ Three carve-outs, because they aren't project artifacts:
 - **`.claude/**` and `CLAUDE.md`** — the agent system itself, via `/agent-creator`. Delegating
   it would need an agent to build agents.
 - **Git operations** — commits and branches are coordination, not authorship.
-- **The queue files** under `<docsRoot>/queue/` — coordination state, bookkept by
-  `/forge-queue`. Moving a line between them, writing a note or a question, copying a
-  planner's report into `Proposed.md`. Never inventing a task, never editing a line the user
-  wrote except to move it.
+- **The queue** — `q.py` and the Focus file, coordination state, as "The queue" below says.
+  Recording what the user said, moving an item, writing a note or a question. Never inventing
+  a task, and never writing in the Focus anything the user did not say.
 - **Anything the user explicitly asks you to do inline** — their call overrides this.
 
 Neither ambiguity nor tight iteration is a reason to keep work inline: the first is handled by
@@ -399,68 +398,87 @@ design docs or in the code, not in a citation between two documents that are bot
 ## The queue — what is next
 
 The pipeline decides *how* work gets done. Nothing above decides *what is next* without the
-user in the chair, and that is what the queue is for: the user hands over goals and tasks, and
-`/forge-queue` works them unattended — one tick at a time, or on a timer with
-`/loop 30m /forge-queue`.
+user in the chair, and that is what the queue is for. It is annie's queue, ported whole — the
+same script, runner, promises and desk — so the two systems work the same way and a lesson
+bought in one holds in the other. The pipeline it runs is forge's.
 
-It lives at `<docsRoot>/queue/`, one file per section, so the pen is a file boundary rather
-than a rule about headings. The folder is a subfolder of `docsRoot`, so by the manifest's own
-definition it holds no design docs and no tidying touches it. `/forge-queue --init` creates it
-from `queue-templates/` beside this file; each file opens with a header that says what it is
-and who owns it, and no agent edits that header.
+**One JSON file, five states, one writer.** `.claude/systems/forge/queue/q.py` is the only
+writer of `queue.json` beside it — `working`, `review` (a built change waiting for the user's
+eyes), `blocked` (an open question), `queued`, `done` — and the main loop holds its pen: the
+queue is coordination state, like git. No agent touches it. Every item belongs to the project
+that was active when it was added; the runner only ever sees the active project's items, so
+`/set-project` switches the queue too. `queue.json` is local state, not in git.
 
-| File | Owner | Holds |
-|---|---|---|
-| `Goal.md` | user | Where the project is headed, plus a "Not included" list |
-| `Proposed.md` | queue | What `forge-queue-planner` thinks the goal still needs. Never built from |
-| `Later.md` | user | Work coming later; the queue leaves one refined note under each item |
-| `Inbox.md` | user | New work, untriaged. Triage moves it to Ready or Blocked |
-| `Ready.md` | user | Authorized work, in priority order. Picked from the top |
-| `Processing.md` | queue | The claim: start time, branch, session. Hands off |
-| `Blocked.md` | shared | The queue's questions, the user's answers |
-| `Done.md` | queue | Last 30 days: date, duration, commit, Grafana link. Pruned each tick |
-
-**The pen.** The user owns Goal, Later, Inbox, Ready. The queue owns the rest, and it is the
-main loop that holds that pen — the files are coordination state, the same carve-out as git,
-so a bookkeeping move does not cost a dispatch. The two exceptions run the other way: the
-queue writes the note under a Later item, and the user writes the `A:` under a Blocked
-question. Neither ever moves the other's lines.
-
-**One tick.** Housekeeping first — heal a title that sits in two files, flag a Processing item
-whose branch has gone quiet, prune Done, return answered Blocked items to the top of Ready.
-Then the first that applies: build the top Ready item; triage Inbox; refine up to three Later
-items; run the goal engine. The engine runs only when Ready and Inbox are both empty and a
-goal is set — and a fresh goal's first run is on request (`--propose`), so the user judges it
-before it is armed.
-
-**Building an item** is the feature pipeline above, chosen by the same triage rule: `[prd]`
-where a wrong guess is expensive, `[look]` where it is visible on screen and cheap. The cost
-sentence is said out loud either way. A third tag, `[research]`, is for a line that asks a
-question rather than for a change: it is answered with sources and always closes into Blocked
-as findings plus the decision the user has to make — research never becomes a decision on
-its own. Code goes on a `queue/<slug>` branch in the srcRoot so
-the user reviews before it reaches main (`--on-main` to skip that). A question no agent can
-settle by reading sends the item to Blocked with the question written for the user — no
-identifiers, the concrete options, how hard it is to change — and the tick moves to the next
-item. Nothing ever waits on an answer.
-
-**Done means a row, then a prune.** A finished item becomes one line in `Done.md` — date,
-duration from the claim, commit, and a Grafana link built from the claim's time range — and
-rows older than 30 days are removed each tick. Git holds the rest. This is the one place the
-queue keeps history, and the cap plus `forge-retro-planner` as its named reader are what stop
-it becoming the second source of truth the failure log warns about.
-
-**An answer that settles a design question lands in the design docs first**, through
-`forge-tidy-docs`, before the item resumes. The queue never becomes the only place a decision
-lives.
-
-```
-Agent(subagent_type: "forge-queue-planner", prompt: "Target: the goal in <docsRoot>/queue/Goal.md. Refine the existing Proposed rows. Queue: <docsRoot>/queue. Design docs: <docsRoot>. Source: <srcRoots>. PRDs: <prds>.")
-```
-
-`/forge-queue` builds that prompt itself; dispatch by hand only when the user asks for
-proposals outside a tick. Its report's **Proposed** section is copied into `Proposed.md`
-verbatim, and **Needs your call** is relayed.
+- **The user manages it by talking to the desk.** `/forge-desk` turns a session into the one
+  the user talks to: "add the battle screen", "do this first", an answer, "approved" — each is
+  a `q.py` line the same turn it is said. They never edit the file. The desk is meant to be
+  restarted often to keep context small, and the user refines the command as the way of
+  working improves.
+- **They watch it on the Queue page**, https://claude.ai/artifact/NdBRuTfepk6Hsao2GxmJq4 —
+  private, read-only, reachable from their phone. After every `q.py` change that moves an
+  item, run `q.py render` and publish what it prints: `file_path`, with `root` and `files` for
+  the pictures, to that `url`. A stale page is a page they cannot trust. `q.py serve` is the
+  same page on localhost.
+- **Priority lives in the project's Focus**, `<docsRoot>/queue/focus.md` — Goal, Right now, Not
+  included, Later, Learn. It is the user's, written in their words; the desk writes down what
+  they say there, and nothing else edits it. The desk creates it from `focus.template.md` beside
+  `q.py` on first use. It sits in a subfolder of `docsRoot`, so it is not a design doc and no
+  tidying touches it.
+- **`queue/run.sh start` keeps it working.** A shell loop checks the queue every five seconds
+  at no token cost and starts one fresh Claude per job through `queue/worker.py`, running
+  `/forge-queue --one`; that worker does one job and is closed, so no worker's context
+  outlives its job. One worker at a time, never two. Each worker is an interactive session
+  named `forgeworker #<id> <title>` with Remote Control on, so the user can watch it or talk to
+  it from their phone. It is closed by its own finished mark, or when it breaks its promise:
+  each note on its item buys the stage 90 minutes (`--minutes`, up to 180), and six hours is
+  the most one worker gets — no sign of life lifts either. One that has plainly stopped — no
+  real work for half an hour, or waiting for input nobody will give — goes sooner. Either way
+  it is taken down with everything it started, and the next worker resumes the same item from
+  its note and its branch; after two such restarts the item goes to `blocked` with a question
+  so it cannot loop. A lost connection or a sleeping computer is not a stuck job: the clocks
+  hold, and a worker that died on a connection error restarts once it is back, uncounted. Once
+  a day the runner proves on a fake job that a takedown still fires (`run.sh selftest` by
+  hand). `run.sh restart` lets the current job park before a script change takes effect.
+  `/forge-queue` by hand, or `/loop /forge-queue`, does the same in a session, at the cost of a
+  context that keeps growing. A question or a change waiting for review parks the *item*, never
+  the run: the next queued item starts.
+- **Building an item** is the feature pipeline above, chosen by the triage rule: `[prd]` where
+  a wrong guess is expensive, `[look]` where it is visible on screen and cheap, `[research]`
+  where the item asks a question rather than for a change. The cost sentence is said out loud
+  either way. Code goes on a `queue/<id>-<slug>` branch in each srcRoot it touches. A built
+  item is looked at before it parks — the app or the scene run, a screenshot or short mp4
+  attached — and goes to `review` with its branch in the note. **The user's word is the only
+  `done`:** the desk merges the branch on their approval, never before. Research is answered
+  with sources into a report under `<docsRoot>/queue/reports/` and always parks on the
+  decision the user has to make — research never becomes a decision on its own.
+- **An answer that settles a design question lands in the design docs first**, through
+  `forge-tidy-docs`, before the item resumes. The queue never becomes the only place a
+  decision lives.
+- **The mastermind keeps an empty queue moving.** With nothing to work and its switch on
+  (`q.py auto on|off` — off unless the user says), the runner starts `/forge-mastermind`: it
+  tidies Blocked from what the docs and memory already state, then makes at most one `auto`
+  job — a proposal run, a look back, or research — serving a line of the Focus. A proposal run
+  is `forge-queue-planner` against the Goal; its rows reach the queue only when the user says
+  yes to them at the desk. It never builds, never asks, never adds to Blocked. q.py's gate
+  holds no job count — a short cooldown, a pause while auto results wait for the user, and a
+  usage stop read straight from Anthropic (the numbers `/usage` shows): no pass at or over 85%
+  of the 5-hour or 7-day limit, or while the week is ahead of 85% spread evenly over its seven
+  days. `q.py limit <percent>` moves that 85% until the weekly reset. It stops the mastermind
+  only — the user's own jobs always run.
+  ```
+  Agent(subagent_type: "forge-queue-planner", prompt: "Target: the goal in <docsRoot>/queue/focus.md. Queue: run `python3 .claude/systems/forge/queue/q.py list --brief` and `find` for what is held. Design docs: <docsRoot>. Source: <srcRoots>. PRDs: <prds>.")
+  ```
+  `/forge-mastermind` builds that prompt itself; dispatch by hand only when the user asks for
+  proposals at the desk. Its **Proposed** rows go into a report as `PROPOSAL:` lines, and
+  **Needs your call** is relayed.
+- **An answered item goes back on top**, and the answer goes into its next dispatch verbatim.
+- **Two lanes.** `now` is the default; `background` (`add --bg`) is long work done only while
+  `now` is empty. A background item yields between stages when a `now` item arrives, and
+  resumes from its note afterwards — never mid-dispatch.
+- **Where content accumulates, and who deletes it.** Done items leave the live queue for
+  `archive.json` after a day (the runner's daily sweep); `q.py find` still reads them. Reports
+  are `git rm`'d by the desk once the user has acted on them. Process lessons go in a worker's
+  note as `FOR MAIN LOOP:` and the desk routes them to `forge-retro-planner`.
 
 ## The roster
 
@@ -478,7 +496,7 @@ verbatim, and **Needs your call** is relayed.
 | `forge-test-author` | Writes tests from the PRD's requirements rather than from the implementation. | sonnet / high | **yes** | Tier 1 |
 | `forge-test-auditor` | Reports which tests assert real behavior and which only assert that the code runs. | sonnet / high | no | Tier 1 |
 | `forge-retro-planner` | Runs a retrospective on the forge process itself and routes each lesson to where it belongs. | opus / high | no | Tier 1 |
-| `forge-queue-planner` | Reports what stands between the project's current state and a target — the queue's goal, or one Later item — as an ordered list of proposed work. | opus / high | no | Tier 2 — this file + `SessionStart` hook (`queue-pending.sh`) |
+| `forge-queue-planner` | Reports what stands between the project's current state and the Goal in its Focus, as an ordered list of proposed work. | opus / high | no | Tier 1 — this file + `/forge-mastermind`'s Propose job |
 
 Files live in `.claude/agents/forge/` and carry the `forge-` prefix. Both are required, and for
 different reasons — see `.claude/agents/README.md`, which holds the doctrine that outlives this
@@ -522,10 +540,9 @@ decides nothing), and explains what to expect from each.
 active project's `docsRoot`, skipping `PRDs/`, `roadmap.md`, and `project.json`, which are not
 `forge-doc-planner`'s territory.
 
-`.claude/hooks/queue-pending.sh` (`SessionStart`) prints the state of `<docsRoot>/queue/` —
-counts per section, what is claimed, what is blocked on the user, and any claim whose branch
-has gone quiet — and says whether `/forge-queue` has work. Silent when the folder does not
-exist.
+`.claude/hooks/queue-pending.sh` (`SessionStart`) prints the queue — what is working, what
+waits for the user's eyes, every open question — and whether the runner is running, so a fresh
+session starts knowing what the user owes. Silent when there is no queue yet.
 
 Both are registered in `settings.json`, which this file has no say over, so they **self-gate**:
 each reads `CLAUDE.md`'s import line and exits silently unless forge is the active system. That gate

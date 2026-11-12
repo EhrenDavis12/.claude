@@ -1,0 +1,14 @@
+queue.json
+*.tmp
+page/
+runner.log
+runner.pid
+worker.done
+worker.tty
+usage.cache.json
+mastermind.json
+archive.json
+restarts.json
+queue.lock
+runner.beat
+selftest.day

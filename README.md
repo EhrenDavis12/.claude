@@ -17,8 +17,9 @@ not in context at all — see [`systems/README.md`](systems/README.md).
 
 ```
 agents/        subagent definitions, namespaced by system (agents/forge/…)
-commands/      slash commands — /set-project, /set-system, /create-pr, and forge's unattended
-               drivers /forge-queue and /forge-harvest-backlog
+commands/      slash commands — /set-project, /set-system, /create-pr; forge's queue desk,
+               worker and mastermind (/forge-desk, /forge-queue, /forge-mastermind) and
+               /forge-harvest-backlog; annie's (/annie-desk, /annie-queue, /annie-mastermind)
 hooks/         SessionStart and SubagentStop shell hooks (link-shared.sh keeps a --link host synced)
 metrics/       where captured agent-run metrics land (contents gitignored)
 mods/          Claude Code mods (plugins of function hooks), served by .claude-plugin/marketplace.json
