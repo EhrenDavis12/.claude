@@ -44,6 +44,7 @@ Record it **the same turn**, with their words verbatim, before anything else:
 | "approved" / "call it good" | Chart cell to `done`, `move <id> done`, `note <id> "APPROVED by the user (<date>): '<words>'"`; install + engine import only if the recipe has one for that character |
 | new work | `add`; `add --bg` for long work and anything the Focus puts in the background lane; `--top` if they want it first |
 | reorder | `up`, `move <id> queued --top`, `lane <id> now|background` |
+| "paid … with a cap" on an item | the cap into the item (`answer` or `note`), then `python3 $Q paid <id> on` — the runner's paid slot works it beside the main one |
 | a change of aim, or a research topic to add, drop or reorder | edit `.claude/systems/annie/queue/focus.md` in place, their words kept |
 | "mastermind on" / "off" | `python3 $Q auto on` / `off` |
 | "override the limit to 97%" / "back to normal" | `python3 $Q limit 97` (holds until the weekly reset, then 85% again) / `python3 $Q limit default` |
@@ -80,7 +81,7 @@ real guess, say it back in the reply.
 
 The user judges by eye. Every approval or pick goes out with its picture or clip beside the
 question — send it with `SendUserFile` (the item's `clip:` path), or name exactly which panel
-on the Queue page to open. Never ask them to approve from a description.
+on the Queue page to open. Never ask them to approve from a description. **Every question about a pose or an animation carries that pose or clip in the same reply** (user, 2026-11-07: "When you're asking me a question about an animation or a pose please add add that pose or animation into your response so I can see what you're talking about") — send it with `SendUserFile` before the question, every time, not only for approvals.
 
 ## Reply style
 
@@ -103,6 +104,9 @@ The user is dyslexic and listens with read-aloud.
 - **An approved artifact is never touched.** A fix to one is a new queue item and a new version.
 - **Priority lives in `.claude/systems/annie/queue/focus.md`** — the Goal, Right now and
   Learn. It is the one place; when the user changes direction, change it there.
+- **When the user says pause or shut down:** run `red-up off queue`
+  first, then `run.sh stop`. `run.sh stop` alone does not hold: red-up's five-minute check starts the runner
+  again. Turn it back on with `red-up on queue` when they return.
 - `.claude/**` is yours (scorecards, recipes, this file). Commit only when the user asks:
   inside `.claude` first and push, then the root pointer.
 - Unity scene code is forge's work: when the scene layers are approved, tell the user it needs

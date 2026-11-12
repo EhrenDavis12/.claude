@@ -5,6 +5,7 @@ The main loop is the only writer. The user manages the queue by talking to Claud
 watches it at a glance through `q.py serve`. States, in the order the page shows them:
 
   working  an artist is on it — one at a time, because the model server runs one job
+           (and one paid item beside it, which uses no local model)
   review   a clip is waiting for the user's eyes
   blocked  an open question or blocker on the item
   queued   waiting its turn, top first
@@ -14,6 +15,10 @@ An item added with --auto was made by the mastermind, not the user, and says so 
 The mastermind runs only when the queue has no work, and its switch, caps and last pass live
 in mastermind.json.
 
+An item marked paid runs in the runner's second slot, beside the normal one: a job on remote
+models only (Replicate), which the user has authorised with a dollar cap. The main slot never
+takes a paid item and the paid slot takes nothing else, so at most one of each is working.
+
 Queued items sit in one of two lanes. `now` is the default; `background` is the long work
 (a batch of image generation) that runs only when nothing in `now` is waiting.
 
@@ -22,18 +27,25 @@ Queued items sit in one of two lanes. `now` is the default; `background` is the 
   q.py show ID [ID ...]           those items in full, from the queue or the archive
   q.py find WORD [WORD ...]       items in the queue or the archive matching every word, one
                                   line each — search first, read in full only what matches
-  q.py next                       claim the top `now` item, else the top background one
-  q.py peek                       the job the next worker will take, without claiming it
+  q.py next [--paid]              claim the top `now` item, else the top background one;
+                                  --paid: the paid slot's, from paid items only
+  q.py peek [--paid]              the job the next worker will take, without claiming it
   q.py check                      between stages: "yield" if a background item is working
                                   while a `now` item waits, else "carry on"
   q.py lane ID now|background     move an item to the other lane
+  q.py paid ID on|off             mark an item for the paid slot, or give it back to the main one
   q.py move ID STATE [--top]
   q.py up ID                      move a queued item to the top
-  q.py note ID TEXT               replace the item's one-line status note
+  q.py note ID TEXT [--minutes N] replace the item's one-line status note. On a working item
+                                  it is also the worker's promise: the note buys its stage N
+                                  minutes (default 90, at most 180), and worker.py takes down a
+                                  worker past that with no new note
   q.py clip ID PATH               attach the clip (or keys sheet) to look at; the item goes to review
   q.py ask ID TEXT [--blocker]    add a question; the item goes to blocked
   q.py answer ID N TEXT           answer question N; with none left open it goes back on top
   q.py drop ID                    remove an item outright
+  q.py archive [--days N]         move done items untouched for N days (default 1) out of the
+                                  queue into archive.json; show and find still read them
   q.py stuck ID TEXT              the runner's flag: the worker shows no sign of life
   q.py unstuck ID                 clear it, when the worker comes back to life
   q.py auto on|off|status         the mastermind's switch; off unless the user says otherwise
@@ -45,6 +57,7 @@ Queued items sit in one of two lanes. `now` is the default; `background` is the 
   q.py serve [--port 8765]        the same page live, on 127.0.0.1 only
 """
 import argparse
+import fcntl
 import html
 import json
 import os
@@ -58,15 +71,17 @@ from pathlib import Path
 HERE = Path(__file__).resolve().parent
 QUEUE = HERE / "queue.json"
 MASTER = HERE / "mastermind.json"
-# Off until the user flips it. The caps are starting numbers; a guard nobody has seen fire is
-# not a guard, so the first nights are also the test of these.
+# Off until the user flips it. No cap on how many jobs: the usage plan and a clean board are
+# the limits. The short cooldown only stops back-to-back passes that make nothing.
 USAGE_URL = "https://api.anthropic.com/api/oauth/usage"
 USAGE_CACHE = HERE / "usage.cache.json"
 USAGE_EVERY = 300
-MASTER_DEFAULT = {"on": False, "daily_cap": 10, "review_cap": 3, "cooldown_min": 60,
+MASTER_DEFAULT = {"on": False, "review_cap": 3, "cooldown_min": 10,
                   "usage_limit": 85,
                   "last_pass": "", "made": []}
 REPO = HERE.parents[3]
+STAGE_DEFAULT = 90   # minutes a note buys the stage it starts; worker.py holds the same number
+STAGE_MAX = 180      # the most one note may promise: a longer stage notes again part way
 STATES = ["working", "review", "blocked", "queued", "done"]
 LABELS = {"working": "Working", "review": "Needs your eyes", "blocked": "Blocked",
           "queued": "Queued", "done": "Done"}
@@ -140,9 +155,14 @@ def lane(it):
     return it.get("lane", "now")
 
 
+def mine(q, paid):
+    """The items one slot works: the paid ones, or all the others."""
+    return [it for it in q["items"] if bool(it.get("paid")) == paid]
+
+
 def show(it):
     tag = it["state"] + (" · background" if lane(it) == "background" else "") \
-        + (" · auto" if it.get("auto") else "")
+        + (" · auto" if it.get("auto") else "") + (" · paid" if it.get("paid") else "")
     line = f"#{it['id']} [{tag}] {it['title']}"
     if it.get("note"):
         line += f" — {it['note']}"
@@ -165,7 +185,7 @@ def cmd_add(a, q):
     if a.auto:
         it["auto"] = True
         m = load_master()
-        # A week of stamps is all the daily cap reads; dropped items must still count.
+        # A week of stamps is kept for the status count; dropped items must still count.
         m["made"] = [t for t in m["made"] if t >= _ago(days=7)] + [now()]
         save_master(m)
     q["next_id"] += 1
@@ -175,7 +195,8 @@ def cmd_add(a, q):
 
 
 def brief(it, where=""):
-    tag = it["state"] + (" · auto" if it.get("auto") else "") + where
+    tag = it["state"] + (" · auto" if it.get("auto") else "") \
+        + (" · paid" if it.get("paid") else "") + where
     return f"#{it['id']} [{tag}] {it['title'][:90]} — {it.get('note', '')[:110]}"
 
 
@@ -213,32 +234,39 @@ def cmd_find(a, q):
         print("no match")
 
 
+def promise(it, minutes=STAGE_DEFAULT):
+    """When the stage this note starts must have noted again, for worker.py's ceiling."""
+    minutes = max(1, min(minutes, STAGE_MAX))
+    it["deadline"] = (datetime.now() + timedelta(minutes=minutes)).isoformat(timespec="seconds")
+
+
 def cmd_next(a, q):
-    if any(it["state"] == "working" for it in q["items"]):
-        it = next(it for it in q["items"] if it["state"] == "working")
+    if any(it["state"] == "working" for it in mine(q, a.paid)):
+        it = next(it for it in mine(q, a.paid) if it["state"] == "working")
         print(f"already working: {show(it)}")
         return
-    queued = [it for it in q["items"] if it["state"] == "queued"]
+    queued = [it for it in mine(q, a.paid) if it["state"] == "queued"]
     queued.sort(key=lambda it: lane(it) == "background")  # stable: keeps each lane's order
     if not queued:
         print("nothing queued")
         return
     place(q, queued[0], "working")
+    promise(queued[0])
     print(show(queued[0]))
 
 
 def cmd_peek(a, q):
     """The job the next worker will take, without claiming it: `#id title`, or nothing."""
-    order = [it for it in q["items"] if it["state"] == "working"]
-    queued = [it for it in q["items"] if it["state"] == "queued"]
+    order = [it for it in mine(q, a.paid) if it["state"] == "working"]
+    queued = [it for it in mine(q, a.paid) if it["state"] == "queued"]
     order += sorted(queued, key=lambda it: lane(it) == "background")
     if order:
         print(f"#{order[0]['id']} {order[0]['title']}")
 
 
 def cmd_check(a, q):
-    working = [it for it in q["items"] if it["state"] == "working"]
-    waiting = [it for it in q["items"] if it["state"] == "queued" and lane(it) == "now"]
+    working = [it for it in mine(q, False) if it["state"] == "working"]
+    waiting = [it for it in mine(q, False) if it["state"] == "queued" and lane(it) == "now"]
     if working and lane(working[0]) == "background" and waiting:
         print(f"yield: #{waiting[0]['id']} {waiting[0]['title']} is waiting")
     else:
@@ -250,6 +278,16 @@ def cmd_lane(a, q):
         sys.exit("lane must be now or background")
     it = find(q, a.id)
     it["lane"], it["updated"] = a.lane, now()
+    print(show(it))
+
+
+def cmd_paid(a, q):
+    it = find(q, a.id)
+    if a.switch == "on":
+        it["paid"] = True
+    else:
+        it.pop("paid", None)
+    it["updated"] = now()
     print(show(it))
 
 
@@ -270,6 +308,7 @@ def cmd_up(a, q):
 def cmd_note(a, q):
     it = find(q, a.id)
     it["note"], it["updated"] = a.text, now()
+    promise(it, a.minutes)
     print(show(it))
 
 
@@ -343,7 +382,7 @@ def cmd_auto(a, q):
     over = usage_over(limit)
     until = (f" until {datetime.fromisoformat(o['until']).astimezone().strftime('%a %H:%M')}"
              if o and limit == o["limit"] else "")
-    print(f"mastermind {'on' if m['on'] else 'off'} · {made} of {m['daily_cap']} auto jobs "
+    print(f"mastermind {'on' if m['on'] else 'off'} · {made} auto jobs "
           f"today · last pass {m['last_pass'] or 'never'} · usage limit {limit:g}%{until}"
           + (f" — paused: {over}" if over else ""))
 
@@ -404,11 +443,13 @@ def idle_reason(q, m):
     items = q["items"]
     if not m["on"]:
         return "the switch is off"
-    if any(it["state"] in ("queued", "working") for it in items):
+    # Paid items are the paid slot's; they never hold the mastermind back.
+    if any(it["state"] in ("queued", "working") for it in mine(q, False)):
         return "the queue has work"
-    if sum(t.startswith(now()[:10]) for t in m["made"]) >= m["daily_cap"]:
-        return f"today's {m['daily_cap']} auto jobs are made"
-    if sum(1 for it in items if it.get("auto") and it["state"] == "review") >= m["review_cap"]:
+    # A research report waiting to be read does not hold the mastermind back: its $0 tests are
+    # the next jobs (user, 2026-10-30). Only sandbox results and look-backs count.
+    if sum(1 for it in items if it.get("auto") and it["state"] == "review"
+           and not it["title"].startswith("Research")) >= m["review_cap"]:
         return f"{m['review_cap']} auto results already wait for the user"
     if m["last_pass"] > _ago(minutes=m["cooldown_min"]):
         return f"it ran less than {m['cooldown_min']} minutes ago"
@@ -432,6 +473,30 @@ def cmd_drop(a, q):
     it = find(q, a.id)
     q["items"].remove(it)
     print(f"dropped #{it['id']} {it['title']}")
+
+
+def cmd_archive(a, q):
+    """Done items older than N days leave the live queue for archive.json, under the same lock."""
+    cutoff = _ago(days=a.days)
+    old = [it for it in q["items"] if it["state"] == "done" and it.get("updated", "") < cutoff]
+    if not old:
+        print("nothing to archive")
+        return
+    archive = HERE / "archive.json"
+    kept = json.loads(archive.read_text()) if archive.exists() else {"items": []}
+    have = {it["id"] for it in kept["items"]}
+    for it in old:
+        it["archived"] = {"date": now()[:10], "why": f"done, untouched {a.days:g}+ days: archive sweep"}
+    kept["items"] += [it for it in old if it["id"] not in have]
+    fd, tmp = tempfile.mkstemp(dir=HERE, suffix=".tmp")
+    with os.fdopen(fd, "w") as f:
+        json.dump(kept, f, indent=2)
+        f.write("\n")
+    os.replace(tmp, archive)
+    for it in old:
+        q["items"].remove(it)
+    left = sum(it["state"] == "done" for it in q["items"])
+    print(f"archived {len(old)} done items; {left} done kept")
 
 
 # ---- the page -------------------------------------------------------------------------------
@@ -481,18 +546,6 @@ background:var(--line)}
 .empty{color:var(--dim);font-size:13px}
 .auto{font:600 11px var(--body);color:var(--now);border:1px solid var(--now);border-radius:999px;
 padding:0 7px;margin-left:4px;vertical-align:1px}
-.say{position:sticky;top:env(safe-area-inset-top,0px);z-index:5;background:var(--bg);
-display:flex;flex-wrap:wrap;gap:8px;align-items:center;padding-block:8px;margin-bottom:8px}
-.say button{font:600 15px var(--body);color:var(--card);background:var(--working);border:0;
-border-radius:8px;padding:10px 16px;cursor:pointer;min-height:44px}
-.say button.alt{background:var(--card);color:var(--ink);border:1px solid var(--line)}
-.say button:disabled{opacity:.45;cursor:default}
-.say button:focus-visible,.hear:focus-visible{outline:3px solid var(--review);outline-offset:2px}
-.say .rate{color:var(--dim);font-size:13px;font-variant-numeric:tabular-nums}
-.hear{font:600 12px var(--body);color:var(--working);background:var(--card);
-border:1px solid var(--line);border-radius:6px;padding:4px 10px;cursor:pointer;
-min-height:30px;margin-left:auto;text-transform:none;letter-spacing:0}
-.card .hear{float:right;margin-left:6px}
 .asks h2{display:flex;align-items:center;gap:8px}
 .look{display:block;width:100%;padding:0;border:0;background:none;cursor:zoom-in}
 .viewer{position:fixed;inset:0;z-index:20;background:var(--bg);display:flex;flex-direction:column}
@@ -508,16 +561,8 @@ padding:0 max(16px,env(safe-area-inset-right,0px)) calc(16px + env(safe-area-ins
 max(16px,env(safe-area-inset-left,0px))}
 .viewer .pic img{display:block;margin:0 auto;max-width:100%;height:auto}
 .viewer.big .pic img{max-width:none;width:250%}
-.card.speaking,.asks li.speaking{outline:2px solid var(--working);outline-offset:2px}
 </style>
 <main data-say="{summary}"><h1>Annie queue</h1><div class="sub">{sub}</div>
-<div class="say" role="toolbar" aria-label="Read aloud">
-<button id="say-all" type="button">Read it to me</button>
-<button id="say-pause" class="alt" type="button" disabled>Pause</button>
-<button id="say-stop" class="alt" type="button" disabled>Stop</button>
-<button id="say-slower" class="alt" type="button">Slower</button>
-<button id="say-faster" class="alt" type="button">Faster</button>
-<span class="rate" id="say-rate"></span></div>
 {asks}<div class="cols">{cols}</div>
 </main>
 <div class="viewer" id="viewer" hidden role="dialog" aria-modal="true" aria-label="Picture">
@@ -543,67 +588,7 @@ max(16px,env(safe-area-inset-left,0px))}
   document.addEventListener("keydown", function (e) { if (e.key === "Escape" && !v.hidden) close(); });
 })();
 </script>
-<script>
-// Read aloud with the browser's own voice. Everything spoken is text q.py already put on the
-// page. A block's button reads its items one after another, highlighting the one being read;
-// speaking in short pieces also keeps some browsers from cutting a long read off.
-(function () {
-  var synth = window.speechSynthesis, main = document.querySelector("main");
-  var all = document.getElementById("say-all"), pause = document.getElementById("say-pause"),
-      stop = document.getElementById("say-stop");
-  if (!synth) { all.disabled = true; all.textContent = "Reading aloud is not available here"; return; }
-  var rate = 1, run = 0, paused = false;
-  try { rate = parseFloat(localStorage.getItem("annie-rate")) || 1; } catch (e) {}
-  function showRate() { document.getElementById("say-rate").textContent = "speed " + rate.toFixed(1) + "x"; }
-  function setRate(r) {
-    rate = Math.min(1.6, Math.max(0.6, Math.round(r * 10) / 10)); showRate();
-    try { localStorage.setItem("annie-rate", rate); } catch (e) {}
-  }
-  function mark(el) {
-    document.querySelectorAll(".speaking").forEach(function (x) { x.classList.remove("speaking"); });
-    if (el) { el.classList.add("speaking"); el.scrollIntoView({block: "nearest", behavior: "smooth"}); }
-  }
-  function idle() {
-    mark(null); paused = false; pause.textContent = "Pause";
-    pause.disabled = stop.disabled = true;
-  }
-  function pieces(text) { return (text.match(/[^.!?]+[.!?]*\\s*/g) || [text]).map(function (t) { return t.trim(); }).filter(Boolean); }
-  // parts: [[text, elementToHighlight], ...], spoken in order
-  function play(parts) {
-    synth.cancel(); var mine = ++run, i = 0, chunks = [];
-    parts.forEach(function (p) { pieces(p[0]).forEach(function (t) { chunks.push([t, p[1]]); }); });
-    paused = false; pause.textContent = "Pause"; pause.disabled = stop.disabled = false;
-    (function next() {
-      if (mine !== run) return;
-      if (i >= chunks.length) return idle();
-      var c = chunks[i++], u = new SpeechSynthesisUtterance(c[0]);
-      u.rate = rate; u.onend = next; u.onerror = function () { if (mine === run) idle(); };
-      mark(c[1]); synth.speak(u);
-    })();
-  }
-  function itemsOf(block) {
-    return Array.prototype.map.call(block.querySelectorAll("[data-say]"), function (el) { return [el.dataset.say, el]; });
-  }
-  all.onclick = function () { play([[main.dataset.say, null]]); };
-  pause.onclick = function () {
-    if (paused) { synth.resume(); paused = false; pause.textContent = "Pause"; }
-    else { synth.pause(); paused = true; pause.textContent = "Resume"; }
-  };
-  stop.onclick = function () { run++; synth.cancel(); idle(); };
-  document.getElementById("say-slower").onclick = function () { setRate(rate - 0.1); };
-  document.getElementById("say-faster").onclick = function () { setRate(rate + 0.1); };
-  document.querySelectorAll(".hear").forEach(function (b) {
-    b.onclick = function () {
-      var card = b.closest(".card");
-      if (card) return play([[card.dataset.say, card]]);
-      var block = b.closest(".col, .asks"), parts = itemsOf(block);
-      var head = block.dataset.head;
-      play(parts.length ? [[head, null]].concat(parts) : [[head + " Nothing here.", null]]);
-    };
-  });
-  showRate();
-})();
-</script>"""
+"""
 
 
 def e(s):
@@ -612,23 +597,7 @@ def e(s):
 
 def render(q, clip_href, sub):
     items = q["items"]
-    open_qs = owed_questions(items)
-    stuck = [it for it in items if it.get("stuck")]
-    asks = ""
-    if open_qs or stuck:
-        rows = "".join(
-            f"<li data-say=\"{e('Looks stuck: ' + it['title'] + '. ' + it['stuck'])}\">"
-            f"<b>Looks stuck</b>: <span class=id>#{it['id']}</span> {e(it['title'])}: "
-            f"{e(it['stuck'])}</li>" for it in stuck)
-        rows += "".join(
-            f"<li data-say=\"{e(('Blocker' if x.get('blocker') else 'Question') + ' on ' + it['title'] + '. ' + x['text'])}\">"
-            f"<b>{'Blocker' if x.get('blocker') else 'Question'}</b> on "
-            f"<span class=id>#{it['id']}</span> {e(it['title'])}: {e(x['text'])}</li>"
-            for it, x in open_qs)
-        owed = len(open_qs) + len(stuck)
-        head = f"Waiting on you: {owed}."
-        asks = (f'<div class="asks" data-head="{e(head)}"><h2>Waiting on you ({owed})'
-                f'<button class="hear" type="button">Read this</button></h2><ul>{rows}</ul></div>')
+    asks = ""  # no "Waiting on you" list: user, 2026-10-30, it went stale; cards carry their own questions
     cols = ""
     for state, label in COLUMNS:
         if state in ("now", "background"):
@@ -639,7 +608,8 @@ def render(q, clip_href, sub):
             group = sorted(group, key=lambda it: it["updated"], reverse=True)[:10]
         cards = ""
         for it in group:
-            badge = '<span class="auto">auto</span>' if it.get("auto") else ""
+            badge = ('<span class="auto">auto</span>' if it.get("auto") else "") \
+                + ('<span class="auto">paid</span>' if it.get("paid") else "")
             body = f'<div class="t"><span class="id">#{it["id"]}</span> {e(it["title"])}{badge}</div>'
             body += f'<div class="meta">updated {e(it["updated"])}</div>'
             if it.get("stuck"):
@@ -661,7 +631,6 @@ def render(q, clip_href, sub):
                 body += "</div>"
             said = spoken(it, label)
             cards += (f'<div class="card" style="--s:var(--{state})" data-say="{e(said)}">'
-                      f'<button class="hear" type="button" aria-label="Read this job">Read</button>'
                       f'{body}</div>')
         head = f"{label}: {len(group)}."
         cols += (f'<div class="col" data-head="{e(head)}"><h2><span class="dot" '
@@ -675,7 +644,8 @@ def render(q, clip_href, sub):
 
 def spoken(it, label):
     """One card as a sentence or two, for the read-aloud button."""
-    parts = [f"{it['title']}. {label}." + (" Made by the mastermind." if it.get("auto") else "")]
+    parts = [f"{it['title']}. {label}." + (" Made by the mastermind." if it.get("auto") else "")
+             + (" Paid slot." if it.get("paid") else "")]
     if it.get("stuck"):
         parts.append(f"Looks stuck: {it['stuck']}")
     if it.get("note"):
@@ -692,23 +662,14 @@ def summary(q):
     """What the user needs to hear first: what is owed, then what is moving, then the counts."""
     items = q["items"]
     said = [f"{it['title']} looks stuck: {it['stuck']}." for it in items if it.get("stuck")]
-    owed = owed_questions(items)
-    if owed:
-        said.append(f"{len(owed)} waiting on you.")
-        for it, x in owed:
-            kind = "Blocker" if x.get("blocker") else "Question"
-            said.append(f"{kind} on {it['title']}: {x['text']}")
-    else:
-        said.append("Nothing is waiting on your answers.")
     look = [it for it in items if it["state"] == "review"]
     if look:
         said.append(f"{len(look)} ready for you to look at: "
                     + "; ".join(it["title"] for it in look) + ".")
     work = [it for it in items if it["state"] == "working"]
-    if work:
-        it = work[0]
+    for it in work:
         said.append(f"Working on {it['title']}." + (f" {it['note']}" if it.get("note") else ""))
-    else:
+    if not work:
         said.append("Nothing is being worked on right now.")
     for name, lane_id in (("Up next", "now"), ("In the background", "background")):
         group = [it for it in items if it["state"] == "queued" and lane(it) == lane_id]
@@ -798,26 +759,34 @@ def main():
     s = sub.add_parser("list"); s.add_argument("--brief", action="store_true")
     s = sub.add_parser("show"); s.add_argument("ids", type=int, nargs="+")
     s = sub.add_parser("find"); s.add_argument("words", nargs="+")
-    sub.add_parser("next")
+    s = sub.add_parser("next"); s.add_argument("--paid", action="store_true")
     sub.add_parser("check")
-    sub.add_parser("peek")
+    s = sub.add_parser("peek"); s.add_argument("--paid", action="store_true")
+    s = sub.add_parser("paid"); s.add_argument("id", type=int); s.add_argument("switch", choices=["on", "off"])
     s = sub.add_parser("lane"); s.add_argument("id", type=int); s.add_argument("lane")
     s = sub.add_parser("move"); s.add_argument("id", type=int); s.add_argument("state"); s.add_argument("--top", action="store_true")
     s = sub.add_parser("up"); s.add_argument("id", type=int)
-    s = sub.add_parser("note"); s.add_argument("id", type=int); s.add_argument("text")
+    s = sub.add_parser("note"); s.add_argument("id", type=int); s.add_argument("text"); s.add_argument("--minutes", type=int, default=STAGE_DEFAULT)
     s = sub.add_parser("clip"); s.add_argument("id", type=int); s.add_argument("path")
     s = sub.add_parser("ask"); s.add_argument("id", type=int); s.add_argument("text"); s.add_argument("--blocker", action="store_true")
     s = sub.add_parser("answer"); s.add_argument("id", type=int); s.add_argument("n", type=int); s.add_argument("text")
     s = sub.add_parser("drop"); s.add_argument("id", type=int)
+    s = sub.add_parser("archive"); s.add_argument("--days", type=float, default=1)
     s = sub.add_parser("stuck"); s.add_argument("id", type=int); s.add_argument("text")
     s = sub.add_parser("unstuck"); s.add_argument("id", type=int)
     sub.add_parser("render")
     s = sub.add_parser("serve"); s.add_argument("--port", type=int, default=8765)
     a = p.parse_args()
-    q = load()
-    globals()[f"cmd_{a.cmd}"](a, q)
-    if a.cmd not in ("list", "serve", "render", "check", "peek", "auto", "idle", "limit", "find", "show"):
-        save(q)
+    readonly = a.cmd in ("list", "serve", "render", "check", "peek", "auto", "idle", "limit", "find", "show")
+    # A change holds the lock from read to write: the desk, the worker and worker.py all write,
+    # and two at once would each save over the other's change.
+    with open(HERE / "queue.lock", "w") as lock:
+        if not readonly:
+            fcntl.flock(lock, fcntl.LOCK_EX)
+        q = load()
+        globals()[f"cmd_{a.cmd}"](a, q)
+        if not readonly:
+            save(q)
 
 
 if __name__ == "__main__":

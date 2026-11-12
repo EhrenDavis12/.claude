@@ -82,7 +82,13 @@ Unity draw order: Sky, Clouds, Far, Mid, Trees, Ground, Grass edge, Characters, 
    the strip half its width on x so its two ends meet in the middle, repair a tapered band at
    least 32 px wide there with a Qwen edit of a crop around the seam (pic1 = pic2 = the crop,
    "continue the landscape across the join, change nothing else"), paste back only the band, shift
-   back. Check by tiling it three times side by side. The shared `runq.py` adds scene 1's
+   back. Check by tiling it three times side by side.
+   **Mirror tiling is the fallback for a strip whose ends will not meet** (the user, 2026-10-29):
+   in the scrolling scene, every other copy is flipped on x — start→end, end→start, start→end —
+   so each join puts an edge against its own mirror and always lines up. In Unity it is one
+   setting (Mirrored wrap on the texture, or a flipped copy beside it). The cost: every feature
+   comes back flipped once per two widths, so a distinctive rock or a light coming from one side
+   gives it away — fine for plain soil and grass, wrong for anything lit from one side. The shared `runq.py` adds scene 1's
    `ref_D.png` as a reference unless `NOREF=1` is set, and Qwen then copies its boulders — set
    `NOREF=1` for any layer that is not scene 1's ground.
 5. **Alpha**: from the blockout mask; far layers keep a hard-cut edge (soft edges fringe). Opaque
@@ -97,6 +103,11 @@ Unity draw order: Sky, Clouds, Far, Mid, Trees, Ground, Grass edge, Characters, 
    trunk ends in a tuft tinted from its own layer, never in hill colour. Lifting costs size, and
    that thins the edge: say so with the clip, and bring density back by spacing, not scale. A
    "changed trunk pixels" check counts any nearer layer's alpha as cover.
+   **Many cards from one approved tree set**: vary each copy by scale (±8%) and luma (±6%) only,
+   keeping far trees lighter. Never mirror-flip a card shaded for the upper-left light — the flip
+   puts the light on the upper right. Order the copies at random with no same source side by
+   side and a cap on runs of one shape; picking each next tree "most unlike the last" makes a
+   pine/round/pine/round beat that the eye catches even when neighbour-difference numbers pass.
 8. **Speed and colour per layer.** Never put wall-coloured pixels in a layer that moves at floor
    speed: it drifts against the slower wall and shows a step at the join. A prop that hangs from or
    stands on a layer moves at that layer's factor: stalactites move at the ceiling's 0.85, never
@@ -123,6 +134,10 @@ Unity draw order: Sky, Clouds, Far, Mid, Trees, Ground, Grass edge, Characters, 
 measure what the flat ground colour alone scores: with scene 1's soil D, archer minus its ring is
 −36, so a row asking for ≤ −40 can never pass and needs another threshold or metric.
 
+**The battle ground needs no tile set** — one looping strip plus free props already is "one big
+tile". Tiles are for top-down maps, ledges and cave floors, and a tile set's tile size comes from
+the character's on-screen height, never from the screen width.
+
 **The formation is a mirror — measure before rebuilding.** When the user says one side still looks
 wrong, run `scenes/battle1/formation/measure.py` (per-column centres for both groups) first. A
 pixel-exact mirror can still read differently, so ask which line looks crooked — heads, quivers,
@@ -137,3 +152,18 @@ Append one row per layer pass to `scorecard.csv` beside this file, then run `ski
 this skill.
 
 `date,scene,layer,generations,edits,passes,minutes,usd,user_verdict,note`
+
+## Ground variety later: a mask blend, not tiles
+
+Tile sets are not used for the battle ground (the user, 2026-10-29: a tiled ground showed its
+grid through repeating pebble clusters). The user's way to vary it later: render the grass and
+the ground as two full layers, then lay a third, invisible layer on top — random patterns in
+greys between black and white. The grey at each spot decides how much ground shows through the
+grass there, so the two bleed into each other at random, and a new pattern on that third layer
+changes the look without redrawing either picture. In Unity it is one small shader that mixes
+two textures by a third (a splat or noise mask); the mask is soft gradients, never hard shapes.
+The blend is approved in the Unity sandbox (`Assets/Annie/BattleScene1GroundBlend`, shader
+`GbMix`, masks M1–M3). To hide any repeat along a long ground, chain different grey patterns
+one after another, each starting and ending all white, so every join is seamless (the user,
+2026-10-29: "each sade patter ends and start with a all white on the ends. So diffrent patters
+remove visable patterns").

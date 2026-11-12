@@ -253,13 +253,20 @@ Chart is the per-character picture, the queue is work in motion.
 - **`queue/run.sh start` keeps it working.** A shell loop checks the queue every five seconds
   at no token cost and starts one fresh Claude per job through `queue/worker.py`; that worker
   does one job and is closed, so no worker's context outlives its job. One worker at a time,
-  never two. Each worker is an interactive session named `autoworker #<id> <title>` with
+  never two — except one item marked paid (`q.py paid <id> on`), which runs in a second slot
+  beside it on remote models only, never the local model server or Unity (`run.sh paid off`
+  closes that slot). Each worker is an interactive session named `autoworker #<id> <title>` with
   Remote Control on, so the user can watch it or talk to it from their phone. It is closed by
-  its own finished mark, never for running long. One that is stuck — no real work for half an
-  hour, or waiting for input nobody will give — is taken down with everything it started, and
-  the next worker resumes the same item from its note; after two such restarts the item goes
-  to `blocked` with a question so it cannot loop. A wait loop is not work: only processor use,
-  file writes, transcript turns and the model server count. `run.sh restart` lets the
+  its own finished mark, or when it breaks its promise: each note on its item buys the stage
+  90 minutes (`--minutes`, up to 180), and six hours is the most one worker gets — no sign of
+  life lifts either. One that has plainly stopped — no real work for half an hour, or waiting
+  for input nobody will give — goes sooner. Either way it is taken down with everything it
+  started, and the next worker resumes the same item from its note; after two such restarts
+  the item goes to `blocked` with a question so it cannot loop. A lost connection or a sleeping
+  computer is not a stuck job: the clocks hold, and a worker that died on a connection error
+  restarts once it is back, uncounted. A stuck or moving-again change republishes the page and
+  shows a Mac banner; no unattended session can push to the phone. Once a day the runner proves
+  on a fake job that a takedown still fires. `run.sh restart` lets the
   current job park before a script change takes effect. `/annie-queue` by hand, or `/loop /annie-queue`, does the same in a session, at the cost
   of a context that keeps growing.
   A question or a clip waiting for review parks the *item*, never the run: the next queued
@@ -268,13 +275,15 @@ Chart is the per-character picture, the queue is work in motion.
   (`q.py auto on|off` — off unless the user says), the runner starts `/annie-mastermind`:
   it tidies Blocked from what memory and the recipes already state, then makes at most one
   `auto` job — research, a look back, or a sandbox test of a researched trick — serving a
-  line of the user's Focus (`queue/focus.md`). Prep and research only: it never asks,
-  never adds to Blocked, never renders a clip for approval. q.py's gate holds a daily cap, a cooldown, a pause while auto results wait for the user,
+  line of the user's Focus (`queue/focus.md`). Prep and research only, except that it may queue the next enemy or new character's first designs or approved next animation: it never asks,
+  never adds to Blocked, never renders a clip for approval. q.py's gate holds no job count — a short cooldown, a pause while auto results wait for the user,
   and a usage stop, read straight from Anthropic (the numbers `/usage` shows): no pass at or
   over 85% of the 5-hour or 7-day limit, or while the week is ahead of 85% spread evenly over
   its seven days. `q.py limit <percent>` moves that 85% until the weekly reset, then it
   falls back by itself. It stops the mastermind only — the user's own
-  jobs always run. Lessons go to recipes; agent and workflow changes are proposed, never made.
+  jobs always run. **Away week (2026-11-02 to about 11-09):** the user is offline and
+  has lifted the prep-only limit: `focus.md` "Away week" and the mastermind command say how it
+  makes real character, enemy, asset and sound jobs and takes provisional picks. Lessons go to recipes; agent and workflow changes are proposed, never made.
 - **An answered item goes back on top**, and the answer goes into its next brief verbatim.
 - **Two lanes.** `now` is the default; `background` (`add --bg`) is long work such as a batch
   of keys, done only while `now` is empty. A background item yields between stages when a

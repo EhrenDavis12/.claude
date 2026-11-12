@@ -1,6 +1,6 @@
 ---
 name: animation-skills
-description: The front door to every animation skill in this repo — making a character's idle, its one-shot actions, a recolour of an armor, a new armor or outfit animated on its own, an effect overlay such as a hit spark, and sprite-sheet generation through Replicate. Use for any request to create, re-create, fix or review a character animation, an armor or outfit variant, or a weapon overlay; it names the one sub-skill to read for the job.
+description: The front door to every animation skill in this repo — making a character's idle, its one-shot actions, a recolour of an armor, a new armor or outfit animated on its own, an effect overlay such as a hit spark, game sound effects and music loops, and sprite-sheet generation through Replicate. Use for any request to create, re-create, fix or review a character animation, an armor or outfit variant, or a weapon overlay; it names the one sub-skill to read for the job.
 ---
 
 # Animation skills
@@ -11,23 +11,30 @@ folder's `SKILL.md` and follow it** — do not work from this table.
 
 | The job | Read |
 |---|---|
-| A character's breathing idle, or an extra motion layered on it (head turn, regrip, weight shift) | `idle-breathing-loop/SKILL.md` |
-| A new action on the base armor — hit, defend, attack, run start / loop / stop, death — from key poses, with the weapons pinned to the hand | `base-action/SKILL.md` |
+| A character's or enemy's breathing idle — from the at-the-ready battle pose, longer and a little varied — or an extra motion layered on it (head turn, regrip, weight shift) | `idle-breathing-loop/SKILL.md` |
+| A new action for any character or enemy — attack, hurt, defend, run loop / stop, death — from one approved picture with the real weapon in hand (the action pose; the relaxed pose for runs), the video model making the whole action | `base-action/SKILL.md` |
 | Sprite-sheet animations through Replicate and the Asset-Gen-Framework (idle, attack, defend, hurt, projectile, burst) | `animate-characters/SKILL.md` |
 | A new colour of an armor the character already wears — same shape (Fire Robes) | `recolour-armor/SKILL.md` |
 | A new armor or outfit with its own animations, made the base's way from its own base image (Nightmare Cloak) | `new-armor/SKILL.md` |
 | The layered, looping background of a battle scene — sky, mountains, hills, trees, ground, foreground — for parallax | `parallax-background/SKILL.md` |
 | An effect overlay for an action — hit spark, landing dust, footfall puffs — code-drawn, body-free, placed by game code; also a full battle-scene preview with a crowd of idles | `effects-overlay/SKILL.md` |
 | An effect or test scene built in the Unity editor — layered particles, trails, 2D light, bloom, each layer toggleable — recorded to a captioned mp4 (Archer vs Archer) | `unity-effects/SKILL.md` |
+| Sound effects and music loops, local and free — action sounds (MOSS), pitch-varied crowd variants and sorted release / hit / miss / blocked sets for random play, Celtic battle music loops (ACE-Step); the user's ears are the gate | `sound-effects/SKILL.md` |
 | The main-menu map — a top-down 3/4 still town map — and its building sprites with shadows and anchors | `menu-map-buildings/SKILL.md` |
 
-Two rules hold for all of them:
+Three rules hold for all of them:
 
 - **The Character Chart is kept current during the run** — the commands are in
   `idle-breathing-loop/SKILL.md`, "Keep the Character Chart current".
 - **A run ends by scoring itself and improving its skill**: append the row the sub-skill's "Scorecard"
   section names, then run the `skill-improver` skill on it. That is how these recipes get better
   instead of being re-learned.
+- **A measuring script is a plain loop, run under a time limit** — `perl -e 'alarm 600; exec
+  @ARGV' python3 …`, since this Mac has no `timeout` command. A `multiprocessing.Pool` with its
+  work at module top level never returns here: Python 3.14 starts pool children by spawn, each
+  child re-runs the module and spawns its own pool, and `p.map` waits forever — one review sat
+  seven hours on eight cores that way. If a pool is truly needed, every line of top-level work
+  goes under `if __name__ == '__main__':`.
 
 A process that is not in the table yet — it was worked out in a session and lives in a work log — is a
 skill waiting to be written. `skill-improver` writes it into this folder and adds its row here.

@@ -9,3 +9,9 @@ usage.cache.json
 mastermind.json
 archive.json
 restarts.json
+queue.lock
+runner.beat
+selftest.day
+worker.paid.done
+worker.paid.tty
+paid.off

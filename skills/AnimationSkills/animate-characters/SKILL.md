@@ -79,9 +79,16 @@ compression greys the outline's antialiasing.
    mouth opening, grimace, squinting, bouncing, hopping …"). The video model is configurable
    (`video.model`, `video.keys` naming its first/last-frame inputs, `video.inputs`); Wan 2.2
    fast is the cheap path but has no negative prompt and animates the mouth no matter what.
-   The reference is also the **end frame** unless the action says `end_frame: false`: pinned
-   to end where it started, Kling barely moves; unpinned it lives, and the sheet closes the
-   loop itself (step 8). One-shots keep the pin so they return to pose.
+   The script pins the reference as the **end frame** unless the action says
+   `end_frame: false`, and every action sets it: pinned to end where it started, Kling barely
+   moves; unpinned it lives. A one-shot gets the reference alone and a short prompt naming the
+   action ("a powerful sword attack", "gets hit hard and reels back") — the action pose for
+   combat actions, the relaxed pose for runs, never both (`base-action/SKILL.md`) — no end
+   pose, no wording for each limb; the game snaps from the idle into it and back to the idle after its
+   follow-through. An idle starts from the character's at-the-ready battle pose with the weapon
+   drawn in the hand, never the relaxed design pose or a weapon attached by code; its rules are
+   `idle-breathing-loop/SKILL.md`. A loop closes itself in the sheet (step 8). The grade is a solid action
+   with the reference's weapon, clothes and face, and no new details.
 3. **Review** — `review_video.py` measures the raw clip before anything else is spent: a
    brightness step at the end, a background that stops being flat (per channel — a
    saturated colour has a huge spread across channels), the loop gap, drift and size for
@@ -153,8 +160,8 @@ across the screen:
    a burst is hundreds of shards the mask model loses, so outside the mask body the frame is
    keyed by colour alone and inside it only exact backdrop is dropped.
 
-A `hurt` action (the character flinches and returns to pose) is what the target plays when
-the burst lands; its motion should say "half a step" and "staying in place".
+A `hurt` action is what the target plays when the burst lands; its prompt names the hurt
+("gets hit hard and reels back") and never an attacker or a blow, which the model draws in.
 
 Every `look` for an effect says solid, opaque, chunky, no glow or transparency: the matte
 turns anything see-through into a white blob, so glows belong in code. A thrown weapon is
@@ -224,8 +231,8 @@ the best known way, not rediscover it. Entries are newest first.
   `wan-video/wan-2.7-videoedit` added a grumpy frame. `runwayml/aleph-2` stayed faithful but,
   on the old talking idle (roll 6), left the open "o" mouth untouched. `fofr/live-portrait`
   (reference face driven by the clip's face crop, `lip_zero`) returned no output: it finds no
-  face in chibi cartoon art. So keep faces calm at generation time (pinned ends, a negative
-  prompt, and re-rolling a bad face) rather than repairing them afterwards. Cost: about six
+  face in chibi cartoon art. So keep faces calm at generation time (a negative prompt and
+  re-rolling a bad face) rather than repairing them afterwards. Cost: about six
   edit calls and one attack video.
 - **2026-09-28 — Motion transfer from a phone clip of a person gives a living idle with a
   sealed mouth; the actor's rest pose must match the character's.** `kwaivgi/kling-v3-motion-control`

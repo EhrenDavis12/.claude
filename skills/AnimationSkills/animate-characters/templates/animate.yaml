@@ -52,9 +52,9 @@ actions:
       jumps or rocks side to side. The face is calm and focused, the eyes steady on the enemy
       ahead with one slow blink, the mouth a sealed closed line that never opens and never
       moves. Quiet, minimal, steady motion for the whole clip.
-  attack: {}
-  defend: {}
-  hurt: {}
+  attack: {end_frame: false}
+  defend: {end_frame: false}
+  hurt: {end_frame: false}
 characters:
 - id: knight
   name: Knight
@@ -67,12 +67,10 @@ characters:
     held low by his back leg with the blade pointing down and to the right. Knees slightly bent
     in a battle-ready stance.
   attack: >-
-    swings the longsword in one big overhead-to-diagonal slash; the blade stays plain
-    steel with no glow, flash, sparkle, magic or trail
+    a powerful longsword attack; the blade stays plain steel with no glow, flash, sparkle,
+    magic or trail
   defend: raises the kite shield up front and braces behind it
-  hurt: >-
-    is struck and jolts backward half a step, the head snapping back and the shield arm
-    flying up, then straightens back to the starting pose, staying in place
+  hurt: gets hit hard and reels back
   skill:
     name: Sword Wave
     noun: crescent slash wave

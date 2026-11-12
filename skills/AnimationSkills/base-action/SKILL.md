@@ -1,319 +1,341 @@
 ---
 name: base-action
-description: Make a new one-shot or looping action animation for a character on its base armor — key poses, in-betweens, the body sheet, then every weapon pinned to the tracked hand (the archer's hit, defend, attack, run, run start, run stop and death on Forest Robes). Use when the user asks for a new action, a new version of one, or when an action pops at the join to the idle, invents a face, loses the weapon from the hand, or reads as "nothing happening". Not for the idle or its extras (`idle-breathing-loop`), a recolour (`recolour-armor`), or the same action on another armor (`new-armor`).
+description: Make a new one-shot or looping action animation for a character or enemy — attack, hurt, defend, run, run stop, death — by giving the video model one approved picture of the character with the real weapon in hand and a short action prompt, keeping the best take and cutting its frames into the sheet. Use when the user asks for a new action, a new version of one, or when an action invents a face, changes the weapon or clothes, or does not read as a solid action. Not for the idle or its extras (`idle-breathing-loop`), a recolour (`recolour-armor`), or the same action on another armor (`new-armor`).
 ---
 
-# Base action (key poses, in-betweens, weapons in the hand)
+# Base action (one picture in, the video model makes the action)
 
-An action is drawn once, on the base armor with an **empty hand**; the weapons are pinned onto the
-tracked fist afterwards, so one body sheet serves every bow and every recolour. Every other armor
-copies this sheet frame for frame, so this is the animation that has to be right first.
+**The method, for every action of every character and enemy:** the paid video model (Seedance
+first) gets one approved picture of the character, with the real weapon in hand, and a short
+prompt naming the action — the action (at-the-ready) pose for combat actions, the relaxed pose
+for runs (see "Which picture each action starts from"). Nothing else: no end pose, no in-between keys, no prompt that
+dictates each limb. The model invents the whole action. The game snaps from the idle straight into
+the clip and, after the clip's follow-through, snaps back to the idle — so the clip needs no
+blend from the idle and no landing on it.
 
-Working folders (archer): `src/asset-animation-demo/local_runs/archer/actions/` (keys, clips, body
+The user's words (2026-11-09): "let the video model go and have fun and make it look good. Create
+the whole action. It's a snap straight into the action pose so we don't need it to blend from one
+pose to another pose" ... "all we're really checking for is does it look good? Can we work with it
+and does it look like the image that it's supposed to look like in other words the store has to
+remain the same type of sword to clothes have to remain the same clothes, the face has to remain
+the same face generally, we don't want them going crazy with other details" ... "that goes for
+every single animation we draw for every character as well as the hurt just let them be hurt."
+
+Drawn strike, wound-up or hit keys and first-last renders between keys are not used: controlling
+each pose is what kept actions at 2.3 passes of about two hours each, and the user ruled it out.
+
+Working folders (archer): `src/asset-animation-demo/local_runs/archer/actions/` (clips, body
 sheets; shared tools in `tools/`) and `.../archer/loadout/` (hand track, bows, checks, install).
-Other classes work in `local_runs/characters/<class>/work/<action>/`, with class tools in
-`local_runs/characters/tools/` (`ch_measure.py`); there is no per-class `measure.py`, so a clip is
-measured with `loadout/clipmeasure.py`. A floor clip's box, hood drop and ground sink come from
-`characters/rogue/work/death_v7/acc.py <take.mp4> <ground_row>` (reads the take's `_f/` frames);
-the `measure.py` in older death folders has a hard 1.6 row scale and misreads any other plate.
-System `python3` has no PIL, so every script here runs on the `.venv python`.
-Python for post and analysis: `src/Asset-Gen-Framework/.venv/bin/python` (`.venv python` below).
-The long reference for every registry key and flag is `actions/README.md` — read it when a step
-below names a key.
+Other classes and enemies work in `local_runs/characters/<class>/work/<action>/`, with class tools
+in `local_runs/characters/tools/`. System `python3` has no PIL, so every script here runs on the
+`.venv python`: `src/Asset-Gen-Framework/.venv/bin/python`. The long reference for every registry
+key and flag is `actions/README.md` — read it when a step below names a key.
 
 ## Before starting — say this to the user
 
-- **An action has taken 2.3 passes on average** (attack 5, run stop 5, hit 2, death 2), and a pass
-  made locally averages about 1 h 55. A local key edit is ~8 min, a local 33-frame in-between
-  18–23 min; the same in-between on Replicate is ~30 s and ~$0.05. Quote these, not a hope.
-- **Modes** (`local` / `fast` / `100fast`) are in `idle-breathing-loop/SKILL.md`, "Three modes"; the
-  scripts here call its `scripts/gen.py`, so `GEN_MODE=fast <script>` moves the key edits off the Mac
-  — but **not an i2v render**: for that `gen.py` silently runs local. A hosted clip goes through
-  `tools/render_remote.py` only. The user has said yes to Replicate for the in-between while they are
-  iterating at the desk — report the spend. Any other paid call needs their yes; unattended runs stay
-  local.
-- **The base idle is approved** and the bow-less base key exists (`approve/K0_forest_nobow.png`, made
-  by `tools/make_k0_nobow.py`). An action starts and ends on the idle's frame 0.
-- **Floor poses (death, a fall): the planner asks the user's open questions about the leg
-  arrangement before the first edit**, not after a spent budget — a death once took 17 edits on a
-  lie the user had not settled.
-- **Basic weapon and basic armor first.** No other bow, recolour or armor is built from an action the
-  user has not accepted.
-- **Local model jobs run one at a time**, each wrapped in `tools/memlog.sh "<what>"` and
-  `tools/memlog.sh after "<what>"`. Exit 1 means stop: swap is over 8 GB. No local in-between over
-  33 frames. Never let key edits and in-betweens share the queue.
-- **Under the queue runner, resuming an agent with `SendMessage` can fail** (no transcript): continue
-  with a fresh dispatch and a hand-off brief instead.
+- **A Seedance take is $0.06 a second of video** — a 3 s take is about $0.18, a few minutes each.
+  Paid calls go only under the user's yes for that job and a dollar cap, carried in the brief; an
+  artist that reaches the cap stops and reports. With no yes and no cap the item goes to `blocked`
+  with that question, and the run moves to the next job.
+- **The Replicate token lives only in the login profile.** A subagent's shell and a runner worker
+  do not have it: start every paid command with `source ~/.zprofile >/dev/null 2>&1;` (or run it
+  under `zsh -lc`). Give every paid script an absolute prompt path — a relative one sent an empty
+  prompt and paid for a random image.
+- **Check a paid model is up with one cheap call before planning a ladder around it.**
+  nano-banana failed four times with `invalid_grant` (a JWT error) at $0 — that is Replicate's or
+  Google's side, not our token, so it means another model or `blocked`, not a retry.
+- **The start picture is an approved one**, the weapon its real self in the hand, not erased —
+  the action pose or the relaxed pose by the table below, never both. If the approved picture that
+  action needs does not exist, making that one picture is the only key work (`annie-key-artist`),
+  and it goes to the user first.
+- **Basic weapon and basic armor first.** No other weapon, recolour or armor is built from an
+  action the user has not accepted.
+- **Under the queue runner, resuming an agent with `SendMessage` fails** (no transcript, every
+  agent, every round): dispatch fresh each round with a hand-off brief, so the system's resume
+  budget does not apply here. Write the brief's path (or its text) into the item's note at every
+  stage end: a worker restarted mid-run lost it.
 - The Character Chart cell is set as the state changes — `idle-breathing-loop/SKILL.md`, "Keep the
   Character Chart current".
 
-## What the user judges
+## Which picture each action starts from
+
+Every character has two approved poses: the **action pose** (at the ready, weapon held for the
+fight) and the **relaxed pose**. One animation gets exactly one of them. Feeding both made the
+Assassin run with his daggers held out in front and his arms not swinging — the user: "It looks
+terrible".
+
+| Action | Start picture |
+|---|---|
+| idle, attack, hurt, defend, death and every other combat action | the action pose |
+| run loop, run start | the relaxed pose |
+| run stop | not settled — try the action pose and a frame taken from the run itself, and show the user both |
+
+## Making the design stills (a new character's picks)
+
+When the character has no approved poses yet, the picks come first: each design as a relaxed and
+an at-the-ready still, shown as one numbered side-by-side sheet.
+
+- **Budget about 32 edits** for five designs (ten stills) plus fixes; 26 ran out. Split the round
+  into two queue items — the five relaxed stills, then the five at the ready — or one worker hits
+  its six-hour limit mid-round.
+- **A chibi human starts from an approved body, never a text-only grey canvas.** From grey alone
+  the model draws a flat default cartoon — dot eyes, wrong outline weight, plain — on every seed.
+  An existing character's body on grey, with its head box painted grey, gave house-grade eyes and
+  outline on the first seed. A text-only start is for monsters only.
+- **A prop's length cannot be steered by prompt.** Every "shorter spyglass" edit came back as a
+  sword, a second tube or longer, and "a dagger 1/5 of his height" came out at 42% of his height.
+  Cut one clean prop from the best still and pin it by code from the start (`pin_weapon.py`, step
+  5's rules), not after edits fail. A model-drawn dagger that is too long is shortened by code:
+  keep the drawn grip and pin only the blade part.
+- **Size props in pixels against the head** (the head is about 290 px on these stills), and word a
+  dagger against the fist that holds it — never as a share of height, and never "head-tall".
+- **Put the prop-and-hand sentence first in the prompt.** Later in the prompt the dagger was not
+  drawn at all.
+- **Keep the grip stub in the start picture.** A bare-fist start put the dagger in the wrong hand.
+- **Name the hand by its image side.** Placement wording names the left or right of the picture
+  where the grip stub left in the start picture sits — "the hand on the image's left, holding the
+  stub" — never the character's left or right; wording without it swapped hands three times.
+- **Name a hair colour by the colour it should render.** "Ash-blond" renders grey; say "warm
+  pale-yellow blond".
+- **The at-the-ready crouch is built into the start picture, not worded.** The local edit model
+  holds the head top at the relaxed still's row on every crouch, whatever the crouch words, and on
+  three of five designs moved the dagger to the far arm crossing the chest. Re-wording made a new
+  arm defect twice (a third arm). Start the ready edit from a picture that already crouches — an
+  approved crouch body, flattened — and check on the sheet that the head sits lower than relaxed
+  and the weapon is still in the same hand.
+- **Rank the picks by the design, not by which still came out cleanest.** A pick's defects are
+  fixed after it is chosen; the user passed over the cleanest still because its shape was the
+  closest to an existing character's. Treat a likeness to another character as the heavier caveat.
+- **Say the fix as what is there, never as the defect.** In a local Qwen edit a negative clause
+  draws what it names ("no orange skin smeared into it" smeared it). For skin blotches use "The
+  cheeks, nose and forehead are one single flat skin colour, exactly as in picture 1." — it
+  cleared the cheeks on both seeds.
+- **A two-hand staff ready pose starts from the relaxed pose**, with the whole two-hand diagonal
+  grip worded in one edit. Asking a hip fist on an existing pose to take the staff came back
+  unchanged or with a stretched staff.
+- **The low fist lands about 75% down the staff**, never near the tip: set the brief's bar there,
+  not at a pixel row near the tip.
+- **Judge relaxed → ready by the staff head's travel, not the fists'.** The fists moved 110–145 px
+  while the orb moved about 270 px; the head of the weapon is what reads as the change.
+- **A whole-figure edit cannot change one arm's job.** Whole-figure edits that
+  turned one arm to a palm on the chest or a cupped hand failed, and each re-roll added blotches
+  or an extra hand.
+- **Turning a fist to a fixed haft angle is a method failure, and paying does not fix it.** Paid
+  qwen-image-edit-plus behaved like local Qwen 2511 on a gauntlet's knuckle row: it redrew the
+  whole crop window (losing the arm) or left the fist unchanged, and a rotated upright window gave
+  a thumb-side fist (palm view). A bigger model of the same family is not a new method — ask the
+  planner for one. Paste back only the low-saturation glove pixels, or the model's recoloured
+  shield comes along.
+- **A head part's size (horns, crest, ears) cannot be steered by prompt either** — the model sizes
+  a new part to the mass it replaces. Strip the old part first with a bare-head edit (it passed
+  first try), then add the part from a swatch holding only that part at the target scale. The
+  swatch must hold no extra spike or crest, or it is drawn as another horn.
+- **Take only the new part's pixels.** Adding a part also redraws the eye angry. Composite along a
+  minimum-cost seam through flat colour, with the eye and brow protected, and take the part's base
+  and the outline under it from the model's result. Never run the seam along an outline. There is
+  no shared "take only the new part" script yet — an `annie-tool-writer` ask.
+
+## The grade — the only thing judged
 
 | Rule | Means |
 |---|---|
-| the body must really move | a clean, subtle result reads as nothing happening. Hit: a stumble or lean back, not a wince. Measure hip and hand travel; do not trust "checks pass" |
-| no anticipation — action and follow-through only | every action has three parts: anticipation, action, follow-through. The anticipation is what makes an action feel slow, so, as AAA games do, it is cut. The action starts on its already-wound-up pose: idle cuts straight to it, with no in-between from the idle and no wind-up key to draw. Brief, key and judge the action and the follow-through; that is where the time goes. That cut is the only snap: the action and the follow-through back to the idle play smooth, with enough frames, and "snap" is never a reason for few frames there |
-| the whole body moves together | nothing moves on its own: when the head turns, the hood, shoulders and torso turn with it. A single part sliding on a still body is rejected — fluid and natural is the point |
-| the weapon behaves like a real object | attack: no draw — it starts at full draw with the bow bent and the hand at the string's centre, then a quick release, the bow snaps back, and a follow-through; no arrow; a small chest puff |
-| it ends near the idle pose | the game snaps back to the idle, and with no anticipation that snap reads as expected, not jolting. So the last frame need not match the idle frame exactly; never spend renders chasing an exact match. Death is the exception: it holds its last frame |
-| it stays on its spot | his place comes back even when his pose need not. Anything that moves him off his spot — a push-back, a lunge, a stumble — moves him back to it by the last frame; a hurt that leaves him standing where the hit pushed him is a reject. A death lies down where he stood. Make a real attempt in the generation itself — prompt, start and end keys, plate placement — so the take is already in place; re-centring whole frames by code afterwards is a fallback, not the plan, because every clip that needs it is an edit the user did not want to pay for. A knock-back that must end in place is briefed with a stepping return by default — a bridge render to the idle key at the start x — because easing a whole-frame offset back over a standing tail always skates. Only he and his own weapon are in the frame: no other person (enemies come from the game), no effect of any kind — particles, sparks, dust, smoke, glow, blood — and no projectile, not even an arrow in flight. Effects and projectiles are made separately and laid over in the game |
-| the AI gets the keys in order | give the video model the start image, and the approved keys in the order they play, so it makes the in-betweens — and a loop where one is needed — itself |
-| the face is the base key's face | same eye style, shape, size; only the pose changes |
-| knees bend outward only | standing to horse stance; never ask for inward knees in a prompt |
-| a run is two clips | the idle cuts straight into the loop, then a stop back to idle with a little flare (a skid; dust is a separate effect). No run start is made for now |
-| a held object stays in one hand | on a side-on run it passes **behind** the body, at the angle of the fist |
+| a good, solid action | it reads as a real attack, hurt, block or run at game size, by eye. A clean, subtle take reads as nothing happening |
+| it still looks like the character | the same weapon (same type and shape), the same clothes, the same face — eye style, shape, size. No new details: no invented trim, armor, second weapon or expression the picture does not have |
+| only he and his own weapon are in frame | no other person (enemies come from the game), no effect of any kind — particles, sparks, dust, smoke, glow, blood — and no projectile, not even an arrow in flight. Effects and projectiles are separate overlays |
 | send mp4, never GIF | and label a test clip loudly as a test — an approved action is not touched, and nothing that could pass for a new version of it is sent |
 
-## Steps (from `actions/`)
+Nothing else is measured against a plan: no travel numbers, no hip angles, no pose match to a key,
+no end pose match to the idle. Where he ends is not graded; the game snaps him back to the idle.
+Death is the one action that holds its last frame instead of snapping back.
 
-**1 — Keys.** Whole-body edits of the bow-less base key, one seed at a time. Copy `hit/make_key.sh`
-to `<action>/make_key.sh` and change the wording; name sides as the picture's ("the arm on the right
-of the image").
+Standing user rules that still hold inside the model's take: knees bend outward only, never
+inward — never ask for inward knees in a prompt; a weapon is gripped at the handle's end, not
+choked up.
 
-```
-<action>/make_key.sh <seed> [prompt-file]
-.venv python tools/finish_key.py <edit.png> <key.png>          # matte + colour match to the base key
-.venv python tools/pose_guard.py --hit|--guard|--attack|--knock|--run <key.png> ...
-.venv python tools/key_candidates.py <action>/preview/key_candidates.png "label=path" ...
-```
+## Steps
 
-**What the local edit model will not do from the base key — plan another start picture before the
-first edit, because no wording gets there:**
+**1 — Plate the start picture.** The approved picture, matted, on the flat grey plate (127) at
+1280×720, boots on row 704, room for the action on every side. `tools/plates.py key` makes only
+the 640 square plate; for 1280×720 copy `characters/rogue/work/death_v8/plate.py` (pastes the
+picture onto the plate and prints where it landed). A shared 1280×720 plate tool is an
+`annie-tool-writer` ask. Seedance returns 16:9 (1920×1088) or 4:3 only — a 3:2 plate is paid for,
+comes back a 4:3 centre crop and aborts — so plate 16:9 or 4:3. Speck-check the plate before any
+paid call (nothing more than 3 levels off grey more than 6 px outside the figure): a faint dashed
+streak in a plate grew into speed lines on hosted Wan.
 
-- **swap which arm does the action** against the base key's arm roles (a mirror-swap key). Every
-  take used the base key's own stabbing arm. A swapped key needs a start picture whose arms are
-  already in those roles — the planner names it in the brief.
-- **lower the head** — a kneel or crouch started from the standing key is drawn at full standing
-  height. Start from a picture whose head is already low (an approved sit or kneel plate).
-- **change the legs while the upper body is kept "exactly"** — that pins the waist and bends only
-  the thighs. Asked to throw the upper body back, it does, and copies the base key's legs.
-- **both weapons forward with running legs** — it adds a third arm. Start from a pose reference
-  whose arms are already right, back arm hidden behind the body.
-- **a chibi floor pose (sit, lie)** — it draws its own sit or lie and floats the body with only a
-  hand on the ground. Pin the ground contact on the heel, bottom or hood, never a hand; a
-  spread-knee lie failed 17 of 17.
-- **step a hurt pose back** — with leg edits spent, a knocked-back hit needs a start picture whose
-  legs are already stepped back: a user sketch, or another character's pose as picture 2 only, its
-  facing checked.
-
-**Tidy edits on a picked frame** (a clip frame used as a key): the picked frame alone is picture 1.
-Adding the base key as picture 2 snaps the figure back to standing.
-
-Prompts describe only what the base key shows: on the rogue, no "black boots with grey cuffs" (its
-boot tops are black, and the cuffs get invented). Leaning a hooded head back swells the hood.
-
-Look at every result before the guard's numbers mean anything. Budget about six edits a key; past
-that, stop and report it blocked; the run moves to the next job. Paid models (`tools/edit_remote.py`,
-`tools/render_remote.py`) only with the user's say-so for that job and a dollar cap. **Never
-build a body pose by code** — cut pieces, warps, slides and limb rigs all read as a paper puppet
-and were rejected on the rogue's attack and run ("not how a human moves"). Code only attaches a
-weapon or prop to a tracked point.
-
-**Redrawing one limb on an approved pose** (a class battle stance's weapon arm, until a stance
-recipe exists): erase the limb to plate, then a whole-figure edit with an existing drawing whose
-arm already looks natural as picture 2 (a rejected stance, the design final). Composite only the
-limb region onto the approved body, swap the weapon by code (the approved head scaled, a straight
-handle on the fist's axis, butt 10–30 px past the fist), and after the finish re-matte put the
-approved body's pixels back outside the limb region so the body diff is 0. Before writing a pose
-into a brief, check it fits: fist point + handle length + head size inside the 16 px margin and
-above the ground row.
-
-**2 — In-betweens.** First-last-frame, key to key, 33 frames, on a grey plate.
+**2 — Takes.** Start-only, hosted, Seedance first. Run `--dry-run` once; it prints the input and
+the plate's aspect. Every paid call is logged to the spend ledger, and a returned aspect off the
+plate's aborts. A failed prediction writes no ledger line; refusals are billed $0.
 
 ```
-.venv python tools/plates.py key <key.png> work/<name>_plate.png
-<action>/render_<action>.sh <seed>                              # copy hit/render_hit.sh
-.venv python tools/render_remote.py "<prompt>" --start work/a_plate.png --end work/b_plate.png \
-      --seed 7 -o <action>/work/<name>_remote_s7.mp4 --take 33 --keep-raw      # the same call, hosted
-.venv python tools/contact.py <clip.mp4> <out.png> --step 2 ; .venv python tools/measure.py <clip.mp4>
+.venv python tools/render_remote.py --model seedance --start work/<name>_plate.png \
+      "<short action prompt>" --duration 3 --seed 7 -o <action>/work/<name>_s7.mp4 --dry-run
 ```
 
-`contact.py` breaks on 1280×720 frames; until `annie-tool-writer` fixes it, cut those contact sheets
-with the rogue hurt's `local_runs/characters/rogue/work/hurt/v9/sheet_R1.py`.
+The prompt names the action and nothing more: "a powerful sword attack", "he gets hit hard and
+reels back", "he raises his shield and braces". Roll a few seeds and two or three wordings, then
+keep the best take. Wan (`--model wan`, no `--end`) is the second model to try.
 
-Look at the contact sheet of every clip. Hosted suits a short, plain move between two close poses,
-and three seeds cost less time than one local render. A long move between far-apart poses (a drop to
-the floor) is not rendered hosted first-last: the hosted model must fill 81 frames and overshoots,
-then comes back (a hosted start-only death works — below).
-The end pose takes over only in the last tenth of a clip unless the prompt describes it.
-First-last between a wound-up key and a lunge key finishes the stance change before it rotates the
-arm, at 33 and at 17 frames, whatever the wording: a stab that moves legs and arm together needs a
-middle key (legs half slid, fist half up), or a wound-up key whose stance is already near the
-lunge. Never render between two near-identical keys (key-to-key mean change under about two frame
-steps): at 33 frames the model invents walking and arm swings, at 13 it holds and then snaps.
-Treat the pair as a hold, or drop one key. The return
-to the idle is usually the out-bound clip reversed.
+The face is what breaks first, and it breaks when the head moves. Pick action wording that keeps
+the head level: a defend that sinks the whole body with the weapon held in front ("whole body
+sinks ... head stays level ... eyes open") held the fighter's face, where every lean-back hurt on
+the same picture turned his eyes to lines or doubled his face. A hurt is a flinch and a stagger
+with the head kept level, not a fall backward; "hit hard" reads as an attack.
 
-When the edit model cannot make a key, **Wan 2.2 TI2V 5B from the start frame alone** runs locally in
-about 65 s at 640 (33 frames, 4 steps, swap under 7 GB) and follows the start picture — but it
-ignores direction words ("knocked left" travelled toward the enemy and grew 1.15×), so it suits a
-move whose direction the start pose already implies. It adds nothing the start pose does not
-already lean into: from a hurt pose already leaning back it holds the start picture and adds no
-step, and mirroring the start changes nothing. For a fall, name image sides in the prompt (falls
-toward the left edge, hood left, boots right) and place the key low on the plate so no floor shows
-in front of him: together they turn the landing from a 3/4 top view to nearly side-on — keep both.
-Locally it still invents its own landing every seed: the face smears in the tip-over frames, the
-body hangs in the air before it drops, and it ends face-up with the dagger still in the fist. Its
-cfg and shift are hard-coded in `src/LLMs/generate.py`.
+Moving the action over from another clip does not save the face — the face breaks where the head
+moves, whichever model draws it, so start from the picture. Kling v3 Motion Control refuses the
+3-head chibi figure as a driver ("No complete upper body detected"), even on his own footage, and
+wants 3 s of continuous real motion (held frames do not count). Wan 2.2 Animate can sit in
+`starting` for 10–25 min: cancel at 10 min, billed $0. Seedance 2.0 reference mode accepts the
+cartoon picture and copies a lean, but shut the eyes for the whole lean and leaned too far. A grey
+mannequin stand-in drawn by Seedance turns to face left on any hurt wording.
 
-**Choosing the method.** A whole-body move with no set end spot (a death) tries one-go video
-before keys. A move that must end on its start spot, or must not bring in other figures (a hurt),
-is not one-go as-is.
+What the prompt must not say, because the model draws it:
 
-**A one-go death from K0 alone, hosted, is the method that shipped** (rogue death, approved):
-Replicate `wan-2.2-i2v-fast`, start-only, 720p, 81 frames, $0.11 a take, on a 1280×720 plate with
-K0's boots on row 704. `render_remote.py` with no `--end` does this; run `--dry-run` first. With or without
-`--end` it keeps a non-square plate, logs every paid call to the spend ledger and aborts on a
-returned aspect off the plate's. The paid
-model is smoother than local but adds a backward hop and invented "shocked" eyes on every seed —
-"never jumps or leaves the ground" did not stop the hop, and "no blood" did not stop a dark
-puddle on one seed. Cut an 81-frame paid take before its tail: the last frames can invent a
-second figure. The user judged the epic take over the controlled one — the free and paid takes
-both passed by eye with floats measured, and they took the paid one.
+- **No attacker, no blow, no hit source on a hurt.** Describe only his own flinch and stagger.
+  "struck by a blow coming from the right edge" drew a black arrow, and "hit hard by an unseen
+  enemy off-screen to the right; nothing enters the image" drew an enemy arm with daggers on every
+  seed. Naming the knock-back direction by image sides ("reels toward the left edge") keeps it
+  away from the enemy.
+- **No outfit details the picture does not show** — on the rogue, "black boots with grey cuffs"
+  invented the cuffs. Name image sides, not body sides.
+- **No "back", no chin, no step.** "back" reads as the body's own backward — a backbend with the
+  hips thrust forward; "chin lifting" draws an upward eye roll; "takes one short step toward the
+  left edge" walks. Use image directions and keep the feet planted.
 
-A **hurt** one-go (start-only from K0, local A14B 33 frames) knocks back away from the enemy on
-every seed when the direction is named by image sides — keep that. **Describe only his own
-flinch and stagger — no attacker, no blow, no hit source.** Any enemy or hit wording draws one in:
-locally "struck by a blow coming from the right edge" drew a black arrow, and on the paid model
-even "hit hard by an unseen enemy off-screen to the right; nothing enters the image" drew an
-enemy arm with daggers on every seed. Start-only always turns front-on by the end, local and paid
-alike, and paid start-only over 81 frames overshoots a knock-back about 5× (one step became
-750 px, off the edge) — so a hurt that recovers is first-last onto an end key (K0 a step left),
-about 33 frames. Hosted first-last with start = end on the idle plate is no fix either: it plays
-"run out and run back" (about 770 px of travel), never a small knock-back. **The method that lands
-on the start spot**: take a frame from a liked take as the lean key (matted, one local eye edit),
-and have the video model play only the return home, lean key → the idle key at the start x. It
-lands exactly, side-on, stepping. An 81-frame return over-falls past the lean first (309 px; shift
-6 only trims it to 234 px) — pick an earlier, smaller lean frame or a shorter clip.
-The paid snap starts at f5 with f1–4 still: drop f2–4 at compose. The face
-smears locally in the same fast frames on every seed, so that smear is the method, not the seed —
-another seed does not fix it.
+A run starts from the relaxed pose: upright, side-profile, the arms already opposed (one forward,
+one back). The action pose's ready crouch reads as an attack, arms-down pictures flap both arms
+together, and a three-quarter picture turns the head. The rogue's approved run came from such a
+picture, start-only, hosted.
 
-**Before composing, look at every fast-swing frame of every clip at 4×** for a half-see-through
-second copy of the moving limb (doubled bracer or cuff bands). It passes every measure check. The
-fix is a neighbouring frame from the same clip — never a bridge or a paint-out.
+**3 — Look at every take.** A contact sheet of each take (`tools/contact.py <clip> <out.png>
+--step 2`; it breaks on 1280×720 frames, so until `annie-tool-writer` fixes it use the rogue
+hurt's `local_runs/characters/rogue/work/hurt/v9/sheet_R1.py`), then every fast frame at 4× for
+the defects below. Grade against the table above; pick the take; cut its window — drop still
+lead-in frames, and stop before a long take's tail starts inventing. A 2 s Seedance take moves on
+twos and stays on-model for only about frames 7–21: cut there, and stop before the expression
+changes. Check the face on every picked frame for doubled edges — a doubled face shows at modest
+head speed, so head speed is not the test.
 
-**3 — Compose and build.** A per-action `compose*.py` picks frames and sets the timing (copy
-`hit/compose2.py`): the cut into the first key, a smooth action with enough frames, hold, eased
-return. It writes the plate; `build_action.py` mattes it,
-colour-matches, cuts 640 → 512 cells and records the recipe in `loadout/actions.json`.
+**4 — Cut and build.** A per-action `compose*.py` picks the window and sets the timing (copy
+`hit/compose2.py`) and writes the plate as `.npy`; `build_action.py` mattes it, colour-matches,
+cuts cells and records the recipe in `loadout/actions.json`.
 
 ```
 .venv python tools/build_action.py <plate> <action> "<Label>" --fade 0 --register [--loop]
-      [--drop-grey-pockets] [--first-idle|--first-cell a:i] [--last-idle|--last-cell a:i]
+      [--drop-grey-pockets]
 .venv python tools/build_action.py <action>                     # a rebuild: every option from the entry
 ```
 
-Effects drawn onto the finished sheet (dust, a still tail) go in the entry's `postSteps` and run only
-through `tools/poststeps.py`, never by hand — that is what stops dust being drawn twice.
+**5 — Weapon pin, only as a fallback.** The model's own weapon stays when it passes "same weapon".
+When it forks, flips, vanishes or changes shape, render that action again from the same picture
+with empty fists and pin the approved weapon art on by code: `../loadout/finish.sh <action>
+[--no-install] [--no-locate] [--force]` for the archer's bows (tracks the hand, pins, runs the
+checks, writes the review files; stops before install on any failure); on another class
+`characters/tools/attach_blade.py` for a still and `attach_blades_track.py <frames_dir> <out_dir>
+--labels labels.json` (run with the `.venv python`) per cell; for a hammer or mace in one fist `characters/tools/pin_weapon_1fist.py` (eases the
+angle by fist travel, not frame number), for a two-handed haft or glaive `pin_weapon_2fist.py
+--glaive`, for one still `pin_weapon.py` (each prints its usage with no arguments). Pin onto empty
+fists only: pinning over a model-drawn weapon chokes the grip or doubles an edge, so erase the drawn
+one first. Measure the fist width on the figure — the finger-mask default sat a cleaver 28 px off —
+and make the skin cover follow the arm's own outline, not a box, or straight-edged tabs show over
+the shaft. A punch fist (fingers stacked upright) cannot hold a level haft; the picture needs a
+hammer grip. A closed fist holds the blade across
+the palm: the angle follows the finger row (about forearm −85°), never the elbow-to-fist line.
+Code attaches a weapon or prop to a tracked point and nothing more — **a body pose is never built
+by code**; cut pieces, warps and limb rigs read as a paper puppet and were rejected.
 
-**4 — Weapons, checks, install** — one command, 30–76 s:
-
-```
-../loadout/finish.sh <action> [--no-install] [--no-locate] [--force]
-```
-
-It tracks the hand, pins the bows, runs the checks for that action, installs and writes the review
-files; it stops at the first failure and before install on any failure verdict. Use `--no-install`
-until the user has seen it. An action another one starts or ends on (run, for run start and run stop)
-takes those along. After any change to the body, run it again: the hand track and every weapon sheet
-depend on the body. The full `pin.py` / `checks.py` are only for a change to shared code or the idle.
-
-**5 — Watch it, then show it.** The review mp4 at full and quarter speed, beside the previous
-version; for a run, the whole chain (`../loadout/review_chain.py`). A sheet judged from stills is not
-judged.
+**6 — Watch it, then show it.** The review mp4 at full and quarter speed; for a run, the whole
+chain (`../loadout/review_chain.py`). A sheet judged from stills is not judged. Use `--no-install`
+until the user has seen it. Render the review mp4 on a dark background as well as grey — grey hid
+plate bits at a cape hem and a grey shard in a spider's fangs — and wrap the action in idle cells
+on both sides, so the user judges the real snap. Captions: write them from the measured numbers,
+never the brief's targets; plain hyphens (the caption font has no en dash); this ffmpeg has no
+`drawtext`, so the TEST label also goes in the filename. A class with no install route yet (the rogue): at install, set the
+sheet's pivot so the feet do not drop at the idle cut.
 
 ## Defects and their fixes
 
 | Defect | Cause | Fix |
 |---|---|---|
-| key raises the wrong arm, mirrors the figure, loses the quiver, adds a ground shadow, speed lines or a jump | the edit model re-poses freely | reword and take another seed; if it draws a weapon in the empty hand, a second "remove it" edit of that result |
-| the edit model cannot make the pose at all (a lean-back skid, legs passing in a stride) | outside what it draws from this key | reword with picture sides, within the budget; then blocked for the user — no paid model without their say-so, never build the body by code |
-| in-between opens the mouth, blinks, shuts an eye | the video model invents faces | another seed first, then drop the bad frames and bridge them. Pasting the key's mouth or face over the frames (`tools/patch_mouth.py`, `tools/patch_face.py`) is a last resort for one or two frames with a still head: on the defend the user found the pasted face "horrible", and a paste that spans a moving head glitches at its edge |
-| a ghost limb on one frame | the model's own | drop the frame; bridge with FILM only between two consecutive good frames — across four frames or a real rotation FILM ghosts too |
-| a half-transparent double of the swinging forearm mid-swing (doubled bracer bands) | the in-between blends two limb positions; measure checks pass it | swap in the neighbouring clip frame; found only by looking at fast-swing frames at 4× |
-| the clip keeps doing the old motion (keeps running, never skids) | the end pose is too far for one segment | make the first frames by code (`run_stop/lead_in.py`) and render only the settle |
-| a ghost hand on the last frames | a crossfade onto the idle over a pose that has not arrived | `--fade 0`, and make the tail arrive: a short hosted render from the last good frame to the base key (worst step 49 px → 22 px) |
-| earlier frames change by a few grey levels after a recompose | re-encoding an mp4 of another length | the compose script writes the plate as `.npy` (`run_stop/compose_skid4.py`) |
+| a new face, a "shocked" or open-mouthed expression, blinks | the video model invents faces | another seed or wording; a face that changes fails the grade. Never paste a face over moving frames — the user found it "horrible" and it glitches at the head's edge |
+| the weapon changes shape, forks or doubles mid-swing | the model redraws a fast-moving weapon | another seed; then the weapon pin fallback (step 5) |
+| an enemy, an arrow, an arm or a second figure appears | attacker or hit wording in the prompt, or a long take's tail | no attacker wording; cut a long take before its tail |
+| a blood puddle, dust or glow | the model's own effects; "no blood" did not stop one | another seed |
+| a backward hop or a big travel off his spot | start-only takes over long durations overshoot (paid Wan 81 frames moved one step 750 px, off the edge) | a 2–3 s take; a take that leaves the frame is a weak take by eye |
+| a face smear on most frames at 4n+1 of a hosted take | likely the hosted model's chunk artefact | pick the window's frames around it; another prompt does not fix it |
+| the first frames hold still before the action | the paid model starts moving a few frames in (from f5 on Wan) | drop the still frames at compose; the snap from the idle needs the action from cell 0 |
+| a half-transparent double of a swinging limb (doubled bracer bands) | the model blends two limb positions | swap in the neighbouring frame of the same take; found only by looking at fast-swing frames at 4× |
+| a ghost limb on one frame | the model's own | drop the frame; FILM only between two consecutive good frames |
+| hosted frames sit about 10% darker than the picture | the hosted model's own tone | match the take's tone to the start picture before compose |
+| the take brightens across the action (about 7% on Seedance) | the hosted model drifts | ramp the gain over the first cells, not one gain for the whole take |
+| fur, boots or face pop at the idle cut though the figure's tone passes | a whole-body colour match averages regions out (+16% on the brute's fur) | match by region (mantle, boots, face) to the idle with 12 px blurred masks; never the legs |
+| steel highlights inside a grey-steel figure go transparent (visor, knee) | the plate colour key takes light grey steel | refill enclosed holes under 2000 px from the raw before the colour match (`characters/tank/defend_v1/refill_holes.py`) |
+| a dotted light fringe round a matted hosted clip | the plate's halo round the outline; it shows only on black | review mattes on black; `characters/tools/ch_edge.py` plus smear removal |
+| a matte clean-up eats real trim (a hem, a pauldron) or misses a chip | a smear rule bites trim and light steel touching transparency; its luminance floor misses dark chips | scope the smear rule to the regions that smear (cape, legs); diff every cleaned cell against the first matte |
+| grey wedge between limbs | an enclosed pocket of plate | `--drop-grey-pockets`, then put back the silver-rimmed pockets it also drops (hair strands, blade fullers, knee highlights) |
+| a grey shard blinks inside the outline on a few cells | a fully enclosed near-neutral blob the pocket rule skips | also drop enclosed blobs of chroma spread under 14, brightness 110–165, 25–3000 px; seen only on a dark review |
+| enclosed transparent holes, 1–2 px cracks to 300 px slits | the matte | count every enclosed transparent component at any size, at alpha 128 and at 250; fill cracks with outline black |
+| earlier frames change by a few grey levels after a recompose | re-encoding an mp4 of another length | the compose script writes the plate as `.npy` |
+| `finish_key.py` turns the rogue olive | it colour-matches to the archer | a flat-grey flood-fill matte (`characters/rogue/work/run/r9/key_flat_matte.py`) |
 | a loop drifts in scale or position | the model's framing wanders | pick the best-closing pair with `tools/runstat.py <clip> --loop`, stabilise head x and ground line (`run/compose_run.py`) |
-| grey wedge between limbs | an enclosed pocket of plate | `--drop-grey-pockets`, then put back the silver-rimmed pockets it also drops (hair strands, blade fullers) |
-| a dip or sink asked for between two keys never appears, or the arm drops with it | the video model only moves between its end keys; a pose in neither key is not drawn — an over-crouch, nothing, or a frozen split render from a video frame (3 of 3 takes) | draw the dip into a key, or drop it from the brief |
-| a figure hops between two keys that stand still | the pinned boot sits higher in one key than its neighbour | compare boot rows across all keys at key review, before any clip |
-| the scarf or cloak tail pops on a snap start | the picked frames do not follow the tail growing into the action's first key | pick frames where the tail grows in step |
-| head travel measures wrong on a hooded figure | the 'head' track follows the scarf centre | measure from the hood top |
-| hip travel measures wrong on the rogue | trouser centroid moves with the legs | measure hips from the sash centroid |
-| feet skate after in-place tracking (whole frames re-centred on the body) | the take's feet stay planted while the body travels | in-place tracking only on a take whose feet move with the body. When it is used: track the chest by a colour region (scarf, sash), not the bounding box; take ground contact per segment; smooth or freeze the offsets once the body settles; matte to the largest figure before shifting so the frame border never shows |
-| a planted foot measures as sliding or lifting | boot row vs ground lies when the raw figure floats | measure contact from sole stability frame to frame |
-| the blood test fires on skin | `r > g+40, r > b+40` catches skin tones | `r > 140, g < 80, b < 80`, against an idle-key baseline |
-| a snap start lingers before it moves | the first frame held three frames before the snap | hold the first frame once |
-| `pose_guard.py --run` crashes on the rogue | it finds the hood by the archer's green | judge the run key by eye until it has a dark-hood mode |
-| `clipmeasure.py` numbers jump mid-clip | its matte fails when the plate brightens partway through | check the plate's brightness across the clip first; judge that clip by contact sheet, or re-plate before measuring |
-| `ch_measure.py` fails a hurt or death K1, or misreads dagger length | its K1 gates are the attack's; fist touching blade merges them | read its K1 verdict only on an attack; check the blade by eye where it meets the fist |
-| the edit draws the weapon as a long staff gripped mid-handle, or a hammer, whatever the wording or picture 2 | the edit model's own idea of a mace (10 of 10 tank edits) | keep the drawn arm and fist, swap the weapon by code; paste back only glove and cuff pixels over the new handle (exclude the old wood by colour, r−b > 40) and keep the glove's bottom outline inside the paste box, or a stub of the old staff and a flat glove edge show at 2× |
-| a whole-figure edit keeps picture 1's legs | picture 2 was a code-drawn prop | picture 2 = picture 1 gave the wider stances; a prop picture 2 left the legs unchanged |
-| the first key of an action, already wound up, needs the weapon arm pulled back and code warping squashes the forearm | a rigid 100% forearm cannot retract past the back silhouette (rogue: reach 137 vs 70 wanted) | check retraction against forearm length before briefing; a pulled-back arm needs new upper-arm art from the edit model, not a code warp |
-| a crushed tunic flap and doubled hem after a knee slide | the knee group pinned points on the hem and upper thigh while the block moved, shearing the cloth | put knee handles on the knee rows only; let the hem interpolate between block and knee |
-| 1–2 px transparent cracks where hood, scarf and glove meet after a lean warp | the 3–60 px pinhole check does not count them | list every enclosed transparent component of any size and fill with outline black |
-| a model-drawn blade with no outline over the background, a hollow slit, or flecks | grey blade shading keyed out as plate by the matte | swap the blade for the base key's own blade art, rotated rigidly onto the drawn crossguard; repaint the old outline the fill leaves behind |
-| run legs built by code from rigid base-key pieces read as a paper puppet at 2× (sliced shaft ends, a break at the ankle, unoutlined edges) | rigid pieces cannot bend at the knee or ankle | don't build stride legs from pieces; a legs crop clean-up with picture 1 = picture 2 redraws a standing pose and drops a lifted leg |
-| the edit model never draws a run passing pose (jump or stride instead) | it draws strides from a standing key; a passing pose from the base key, or the archer's airborne pose as picture 2, comes out as a hop | key the loop contact to contact (two contact keys) and let the video model draw the passing frames. Never pose legs by a limb warp |
-| ground props (dropped daggers) sit on top of a fallen body, or under a kneeling leg | pasted above the body layer, or at another key's x | paste ground props under the body layer; check where the kneeling leg is before reusing another key's prop x |
-| planting the trailing toe of a drawn stride turns it into a knee-down lunge | the drawing had the rear foot in the air | let the trailing foot lift; only the front heel sits on the ground row |
-| a redrawn arm is a stiff straight tube | the edit copied a code-drawn guide arm faithfully | never give the model a code-drawn limb as the pose; picture 2 = a drawing with a natural arm |
-| whole-figure edit of an erased-limb plate draws a stub limb, a second weapon, or turns the body front-on and drops the shield | nothing in the pictures shows the pose | picture 2 = a pose source with that limb; composite only the limb region back |
-| the tracker loses the hand (bracer, crossed arms, a far swing) | fist changes shape or leaves the search band | hand-label `locateSeeds`, widen `locateCols` / `locateRows`, set `angleOverrides` in the entry |
-| bow lies flat or whips | the bow turns 1:1 with a forearm that swings wide | `maxTurnDeg`, or an eased `angleOverrides` |
-| bow floats beside the body, or swaps hands on a run | the pinned fist is hidden behind the torso | `hiddenFrames` + `weaponBehind`; seeds from `run/far_arm_seeds.py`; check with `../loadout/checks_behind.py` |
-| bow hangs in the air after a fall | rigid pin to a limp hand | `bowRelease` in the entry |
-| fist art does not sit on the handle, or the face shows through the bow | the rest-fist cut-out is the wrong drawing | `gripShift`, `fingerMask` |
+| a run stop keeps running and never brakes | from a mid-stride frame neither Seedance nor Wan brakes (3 of 3) | prompt the brake hard on the run-frame option; a start picture already in the skid also worked, with a pop at the cut into it the user passed ("I think we're good") — show it, say it is there |
+| pinned weapon: the tracker loses the hand (bracer, crossed arms, far swing) | the fist changes shape or leaves the search band | hand-label `locateSeeds`, widen `locateCols` / `locateRows`, set `angleOverrides` |
+| pinned weapon: bow lies flat or whips | the bow turns 1:1 with a forearm that swings wide | `maxTurnDeg`, or an eased `angleOverrides` |
+| pinned weapon: floats beside the body or swaps hands on a run | the fist is hidden behind the torso | `hiddenFrames` + `weaponBehind`; check with `../loadout/checks_behind.py` |
+| pinned weapon: hangs in the air after a fall | rigid pin to a limp hand | `bowRelease` in the entry |
+| pinned blade: a slit between fist and guard | the art sits off its own blade axis | `attach_blade.py` measures the axis from the steel and exits 1 on a new enclosed hole |
+| pinned blade: a grip step slips or jumps a frame | window agreement let a weak match through | an NCC floor of 0.35 on every tracked grip step; hand-choose steps where the fist turns |
 | `install.py` refuses | a hand track older than its body or than shared code | `finish.sh <action>`; after editing `pin.py`, `newaction.py <a> --locate` for each action, then a full `pin.py` |
-| swap still over 8 GB after a job | the server holds the models (Unity open makes it worse) | stop local model jobs; `GEN_MODE=fast`, or close Unity |
 
 ## Acceptance — before the user sees it
 
 | What | Pass |
 |---|---|
-| key | `pose_guard.py` PASS, or each REJECT line explained by the pose |
-| join to the idle or the linked action | checks 8n "within 0.5 px / 0.5 deg" on the first and last frame, every bow |
-| hand found | check 8o reports no frame with the hand or the string hand missing |
-| checks | `finish.sh` prints no failure verdict; `--force` is never how an action ships |
-| steps | no step above 3× the clip's mean (`tools/measure.py` flags it); a loop's seam step no larger than its median step |
-| travel | hips and hand visibly move — numbers stated next to the previous version's. A death's drop is measured by hood-top travel; a sash-drop bar of 200 px is unreachable for a chibi, which lies about 100 px tall. A measured float on a death is reported, not a reject: the user passes it by eye |
-| units | every px bar names its pixel unit — the 832 plate's px and the artist's key px differ by about 1.6×, so an unnamed bar is read at the wrong scale |
-| on the spot | body centre (torso and hips, not the bounding box) on the last frame within a few px of the first, horizontally, end x measured on the sash, not on all teal; no other figure and no blood in any frame. A take that needs re-centring by code is reported as such |
-| face | the base key's face on every frame; no invented expression |
+| action | reads as a solid action at game size, by eye on the contact sheet and the mp4 |
+| same character | the start picture's weapon, clothes and face on every frame; no new details |
+| frame | only he and his own weapon; no other figure, no effect, no blood, no projectile |
+| tone | the take's mean figure brightness within 3% of the start picture's, and each region (cloth, fur, boots, face) without a visible step at the idle cut |
+| matte | clean on black and on a light background at 4×; no pockets, holes or fringe |
 | rebuild | `build_action.py <action>` alone reproduces the sheet |
-| in motion | watched at 1x and quarter speed as mp4 |
+| pinned weapon (fallback only) | `finish.sh` prints no failure verdict and finds the hand on every frame; `--force` is never how an action ships |
+| in motion | watched at 1x and quarter speed as mp4, on grey and on dark, wrapped in idle cells |
 
 ## What still fails
 
-- **The first pass is usually too subtle or mechanically wrong** — that is where the 2.3 passes come
-  from. Read "What the user judges" against the key before rendering anything.
-- **The edit model cannot draw some poses**, and the video model's faces and extra limbs are a seed
-  lottery. Past budget the item is blocked for the user; a code-made body key is never the fallback.
-- **Hand seeds are labelled by hand** on most actions.
+- **The video model's faces and weapons are a seed lottery**: the grade rejects a changed face or
+  weapon, and the answer is another seed or wording, not a repair.
+- **A staff held in a fist leads every move.** Seedance makes the staff arm do the action on a
+  hurt (the Star Sage 3 of 3 takes, the porter 2 of 2: fist up 80–340 px, staff over the hat) and
+  collapses a two-hand staff grip to bunched hands whatever the wording. Next to prove: a body-only
+  take with empty fists and the staff pinned by code (step 5).
+- **Only the archer has a build and check route.** `build_action.py`, `finish.sh` and
+  `actions.json` are archer-only; every other class and enemy writes its own compose and check
+  script per action. A shared body-only build-and-check is an `annie-tool-writer` ask.
+- **A run stop does not brake** from a mid-stride picture on either video model, and which
+  picture it starts from is not settled: the action pose or a frame from the run, shown side by
+  side.
 
 ## Run loops must match the ground speed (no ice-skating)
 
 In a battle scene the run plays in place while the ground scrolls under it. The foot on the
-ground must slide backward at exactly the ground's speed, or the character skates. Games solve
-it this way, and so do we:
+ground must slide backward at exactly the ground's speed, or the character skates.
 
-- **The even slide is made in the original stride render, never after.** It cannot be retrofitted
-  into a finished run: FILM in-betweens ghost where the legs cross, a Wan first-last render over one
-  contact runs 2–3 strides in 17 frames and crowds the end key, and spare frames from another
-  stride do not line up once stabilised. Judge it at clip review with `tools/footspeed.py`'s CV,
-  and rate legs clean by eye — Laplacian variance does not catch speckled ghost legs.
-- **Measure every run loop's foot speed**: during each contact, track the planted foot (sole
-  x per frame, in sheet pixels) and record how fast it travels back, in pixels per frame, plus
-  the stride (pixels per full cycle). The sliding must be steady through the contact — a foot
-  that stops, jumps or speeds up skates whatever the playback speed; that is a clip defect for the
-  clip reviewer, fixed by another take, never by moving the body in code.
+- **The even slide comes from the take itself**, never after: judge it at clip review with
+  `tools/footspeed.py`'s CV, and rate legs clean by eye.
+- **Measure every run loop's foot speed**: during each contact, track the planted foot (sole x per
+  frame, in sheet pixels) — pixels per frame and the stride per cycle. A foot that stops, jumps or
+  speeds up skates at any playback speed: another take, never moving the body in code.
 - **Record it with the action**: `footSpeedPxPerFrame`, `stridePx`, `fps` in the sheet's
   `.sheet.json` / registry entry, at the scale the sheet is installed.
 - **The game sets one ground speed for everyone**; each character's run playback speed is
-  `groundSpeed / footSpeed` (Unity Animator speed). Stay within about ±20% of 1.0 or the legs look
-  too fast or slow — if a character falls outside, its run needs a longer or shorter stride.
+  `groundSpeed / footSpeed`. Stay within about ±20% of 1.0, or the run needs a longer or shorter
+  stride.
+- **Loop length is one measured cycle**, never a frame count written ahead (the rogue's hosted
+  run stepped every 7.6 frames). Pick the window by the hood's series and foot speed as well as
+  the seam: the best-seam window can hide a whole-body hitch.
+- **Every run plays at the Archer's run pace**: a 1.00 s cycle (the rogue's 22 frames play at
+  22 fps).
 - A character standing still (idle, the enemy side) is parented to the ground and travels with it.
 
 ## Scorecard — the last step of every run
@@ -324,6 +346,7 @@ this skill.
 `date,character,action,frames,passes,key_edits,inbetweens_local,inbetweens_remote,hand_fixes,new_tools,minutes,usd,user_verdict,note`
 
 - `passes` — how many times the action has been shown to the user, this one included.
+- `key_edits` — edits to make the start picture, usually 0; `inbetweens_remote` — paid takes rolled.
 - `hand_fixes` — anything done by hand that these steps did not tell you to do; `new_tools` — scripts
   written mid-run. These, `passes` and `minutes` are what this skill exists to drive down.
 - `user_verdict` stays empty until the user has judged it; only their word makes it `approved`.

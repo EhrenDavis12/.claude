@@ -1,6 +1,6 @@
 ---
 description: Work annie's queue — take the top queued animation through the pipeline, park it for the user's eyes or on a question, and move on to the next, without ever stopping to ask
-argument-hint: "[--one] — omit to keep going until nothing is queued"
+argument-hint: "[--one] [--paid] — omit --one to keep going until nothing is queued; --paid: the paid slot"
 allowed-tools: Agent, Bash, Read, Grep, Glob, Skill, SendMessage, WebSearch, WebFetch
 ---
 
@@ -30,15 +30,61 @@ python3 $Q list
 2. **Re-read the queue before every change.** The user may have reordered it from another
    session, so trust what the file says, not what you remember.
 3. **One item working at a time.** This is annie's one-artist rule, nothing more.
-   `python3 $Q next` refuses to claim a second item.
+   `python3 $Q next` refuses to claim a second item. The one exception is the paid slot below.
 4. **An item already `working` when the run starts is resumed, not restarted.** Check its note
    and the files it names, then pick up from the last stage that finished.
 5. **Never wait with `while pgrep -f "<pattern>"`.** The waiting shell's own command line
    holds the pattern, so pgrep finds itself and the loop never ends: a worker sat in two such
    loops for 15 hours (2026-10-27). Wait on the job's PID (`while kill -0 $PID`), a finished
    file it writes, or the background task's own completion notice.
-6. **The user's word is the only `done`.** A passing sheet review takes the item to `review`
+6. **Every note is a promise, and the runner holds you to it.** Under the runner, each
+   `python3 $Q note <id> "..."` on the working item buys the stage it starts 90 minutes; a
+   stage that will take longer says so up front with `--minutes N` (at most 180 — a longer one
+   notes again part way). A worker past its promise with no new note is taken down, whatever it
+   looks like it is doing, and the next worker resumes from the note. So note before every
+   stage and before every long wait, and say in the note what is running. The runner cannot
+   tell a long render from a hung one; only your note can.
+7. **Nothing waits open-ended.** A script that may run long goes under a time limit —
+   `perl -e 'alarm shift; exec @ARGV' <seconds> <command>` (macOS has no `timeout`) — and a
+   wait polls with a limit too. In Python, never use a `multiprocessing` Pool without an
+   `if __name__ == "__main__":` guard: Python 3.14 on macOS starts its children by re-running
+   the script, so they spawn forever and the pool never returns — a reviewer waited 7 hours on
+   two such scripts (2026-10-30). A plain loop is almost always fast enough.
+8. **Never end the turn while a subagent you started is still running.** Keep the turn open
+   with a polling wait (with a limit, per rule 7) until it returns; a turn that ends early
+   leaves the agent's result with nobody to act on it.
+9. **The user's word is the only `done`.** A passing sheet review takes the item to `review`
    with its clip attached, never to `done`.
+
+**Every animation, one picture in (user, 2026-11-09, `focus.md` "How every animation is made now"):** the video model gets only the character's approved picture and a short action prompt, no end pose and no in-between keys; it invents the whole action, the game snaps in and out of it, and the only grade is: a solid action, and the same weapon, clothes and face. This overrides any recipe or brief step that draws strike or hit keys or renders first-last.
+
+**Away week (until about 2026-11-09, see `focus.md`):** the user is offline. No question
+parks an item unless it needs money: take the default, note it as `Going ahead with:`. A pick
+sheet still goes to `review`, with the reviewer's choice in its note as
+`PROVISIONAL PICK: <n>, because <reason>`, so the mastermind can queue the next step from it.
+A paid call this week follows `focus.md` "Replicate budget" (paid is the worker's call within it,
+no asking; `edit_remote.py` for a pose the free tool cannot draw, hand-logged): the total
+read before each call, never past $55.52 in `local_runs/replicate_spend.csv`, the item's own cap
+($4 an action unless its note says less); a call on a path that writes no ledger line is hand-logged into the ledger the same minute. At the cap, finish locally.
+Character and enemy clip takes go to the paid model, never local Wan (user, 2026-11-07: "we
+know the local animations don't work that we have to do paid"); weapons stay in hand in every
+idle and action. See `focus.md`.
+Before claiming with `next`, plan by token usage (`focus.md` "Plan by token usage"): when
+usage is near the limit, `python3 $Q up <id>` a long local render job first, so the hours go to
+cheap-token work while the window resets. While a render runs, wait cheaply: `kill -0` on its
+PID, minutes apart.
+
+## The paid slot (`--paid`)
+
+The runner may run one item marked paid beside the normal worker. With `--paid`, claim with
+`python3 $Q next --paid`, which takes only paid items. A paid-slot worker uses remote models
+only: it never starts the local model server, a local Qwen or Wan render, or Unity, because the
+main worker owns them. Light local steps — matting, ffmpeg, measuring scripts — are fine. When
+the next step needs a local render or Unity, note that on the item, then
+`python3 $Q move <id> queued` (no `--top`: the local part waits behind the user's other jobs —
+user, 2026-10-30: "once the paid part is done, and that same job now becomes lcoal clean up
+parts, that can wait behind the other jobs i had in my queue") and `python3 $Q paid <id> off`,
+in that order, so the main slot does it in turn. The brief's dollar cap still binds; reaching it parks the item as usual.
 
 ## The loop
 
@@ -50,9 +96,12 @@ python3 $Q list
    pipeline, then go to step 4.
    **Otherwise, run annie's pipeline for that one action, exactly as `SYSTEM.md` says** — recipe through
    `animation-skills`, the shot brief, then keys, clips, sheets, each one with its reviewer and
-   its budget. Answers already on the item go into the brief verbatim. After each stage,
-   `python3 $Q note <id> "<stage, one line>"` so the page shows where it is. `note` replaces the
-   whole note, so carry any `FOR MAIN LOOP:` text from an earlier stage into the new one.
+   its budget. Answers already on the item go into the brief verbatim. Before each stage,
+   `python3 $Q note <id> "<stage, one line>" [--minutes N]` so the page shows where it is and
+   the runner knows how long it may take (rule 6). `note` replaces the whole note, so carry
+   any `FOR MAIN LOOP:` text and every `User (<date>): '...'` quote into the new one — on a
+   fresh item the user's words live only in the note. Re-read it first: the desk may have
+   added words mid-run.
    **On a background item, run `python3 $Q check` after each stage too.** On `yield`, put it
    back with `python3 $Q move <id> queued --top` — its note says where it stopped, and the
    files stay where they are — and go to step 1. Never stop an artist mid-render to yield;
