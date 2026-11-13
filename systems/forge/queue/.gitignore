@@ -12,3 +12,4 @@ restarts.json
 queue.lock
 runner.beat
 selftest.day
+clips/

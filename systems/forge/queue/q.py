@@ -321,7 +321,17 @@ def cmd_note(a, q):
 
 def cmd_clip(a, q):
     it = find(q, a.id)
-    it["clip"] = str(Path(a.path).resolve())
+    # Copied in beside the queue: a worker's scratchpad is outside the repo, and the page only
+    # ever serves files inside it.
+    src = Path(a.path).resolve()
+    if not src.is_file():
+        sys.exit(f"no file {src}")
+    keep = HERE / "clips"
+    keep.mkdir(exist_ok=True)
+    dest = keep / f"{it['id']}{src.suffix.lower()}"
+    if src != dest:
+        shutil.copyfile(src, dest)
+    it["clip"] = str(dest)
     place(q, it, "review")
     print(show(it))
 
@@ -445,6 +455,27 @@ def usage_over(limit):
     return ""
 
 
+def goal_set():
+    """True when the active project's Focus has text under "## Goal" beyond its comment."""
+    import re
+    slug = active_project()
+    for manifest in [REPO / "Docs" / slug / "project.json", *(REPO / "Docs").glob("*/project.json")]:
+        try:
+            mf = json.loads(manifest.read_text())
+        except (OSError, ValueError):
+            continue
+        if mf.get("name") != slug:
+            continue
+        try:
+            text = (REPO / mf["docsRoot"] / "queue" / "focus.md").read_text()
+        except (OSError, KeyError):
+            return False
+        goal = re.search(r"^## Goal\s*$(.*?)(?=^## |\Z)", text, re.M | re.S)
+        body = re.sub(r"<!--.*?-->", "", goal.group(1), flags=re.S).strip() if goal else ""
+        return bool(body)
+    return False
+
+
 def idle_reason(q, m):
     """Why the mastermind may not run now, or "" when it may."""
     items = mine(q)
@@ -456,6 +487,10 @@ def idle_reason(q, m):
         return f"{m['review_cap']} auto results already wait for the user"
     if m["last_pass"] > _ago(minutes=m["cooldown_min"]):
         return f"it ran less than {m['cooldown_min']} minutes ago"
+    # A pass with no Goal makes nothing, so it is not started: a session every cooldown to say
+    # "no goal" is tokens for nothing.
+    if not goal_set():
+        return "the project's Focus has no Goal yet"
     # Last, so an idle runner asks only once every other gate is open.
     return usage_over(usage_limit(m))
 

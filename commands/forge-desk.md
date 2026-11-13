@@ -77,7 +77,10 @@ Git is the main loop's. For each srcRoot the item's note names a branch in:
 git -C <srcRoot> merge --no-ff queue/<id>-<slug> -m "queue(<project>): <title>"
 ```
 
-into the branch checked out there. A merge that conflicts is aborted (`git -C <srcRoot> merge
+into the branch checked out there. Items are built on top of each other (on `queue/build`),
+so approving one also brings in any earlier, not-yet-approved item it was built on — check
+with `git -C <srcRoot> log --oneline <main>..queue/<id>-<slug>` and tell the user in one line
+which earlier pieces come with it. A merge that conflicts is aborted (`git -C <srcRoot> merge
 --abort`), the item goes back to `queued --top` with the conflict as an answered question, and
 the user hears it in one line. Then move the root's submodule pointers and commit:
 

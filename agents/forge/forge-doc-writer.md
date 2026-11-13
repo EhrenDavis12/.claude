@@ -26,6 +26,12 @@ If either file is missing or the manifest will not parse, **stop and report that
 must run `/set-project`.** Do not fall back to a guessed path — guessing is how this pipeline
 previously came to point at a directory that did not exist.
 
+**When the manifest sets `docsReadOnly`**, the design docs belong to another developer and no
+forge agent edits them. The `.md` files under the manifest's `docChanges` folder are our side:
+a file named like a design doc holds change notes proposed against it, and any other file is a
+new doc not yet in the originals. Read them with the design docs, and where a change note
+changes a doc, build from the note — it is what we have decided, waiting on their review.
+
 
 You use `docsRoot` and `roadmap`.
 
@@ -57,6 +63,28 @@ Out of scope, read-only for context if you need it:
 - Source code, `CLAUDE.md`, and anything under `.claude/`.
 
 Never touch: `.git/`, generated files, source code.
+
+### When the manifest sets `docsReadOnly`
+
+Then you never edit a file directly under `docsRoot` — another developer owns them, and a
+permission rule refuses the write anyway. You apply the same plan, but write it under the
+manifest's `docChanges` folder instead:
+
+- **A finding that creates a doc** → a new file there, in house style, its Status line saying
+  it is a new doc proposed for the originals.
+- **A finding that changes an existing doc** → a change note in the file of the **same name**
+  there (create it on first use, `# <Doc title> — proposed changes` and a Status line saying
+  the original is not edited). One `## Change: <short title>` section per finding:
+  `> Proposed <YYYY-MM-DD> · for review`, then **Where:** (the original's section),
+  **Now says:** (the original text, quoted exactly), **Proposed:** (the new text, written out
+  in full, or "delete"), **Why:** (one or two lines). A change to text a note already proposes
+  revises that note in place — never a second note on the same passage.
+- **A finding the other developer has applied or turned down**, as the plan says → delete that
+  change section; delete the file when none is left. Git keeps it.
+
+Change-note files are not design docs: no Open Questions section, and the house-style rules
+for docs bind the text you propose, not the note around it. The roadmap still maps the
+originals, and lists the new docs and the files with pending changes under its own heading.
 
 ## Your input
 

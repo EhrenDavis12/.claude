@@ -459,7 +459,10 @@ that was active when it was added; the runner only ever sees the active project'
   tidies Blocked from what the docs and memory already state, then makes at most one `auto`
   job — a proposal run, a look back, or research — serving a line of the Focus. A proposal run
   is `forge-queue-planner` against the Goal; its rows reach the queue only when the user says
-  yes to them at the desk. It never builds, never asks, never adds to Blocked. q.py's gate
+  yes to them at the desk — or straight away, when the Focus's Goal carries the user's
+  **Standing yes**, and then the mastermind keeps planning the next batch whenever the queue
+  runs dry. Built items stack on a `queue/build` branch so each builds on the last before the
+  user has approved it; only approved work reaches the main branch. It never builds, never asks, never adds to Blocked. q.py's gate
   holds no job count — a short cooldown, a pause while auto results wait for the user, and a
   usage stop read straight from Anthropic (the numbers `/usage` shows): no pass at or over 85%
   of the 5-hour or 7-day limit, or while the week is ahead of 85% spread evenly over its seven

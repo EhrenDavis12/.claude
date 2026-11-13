@@ -68,7 +68,8 @@ reaches you.
    leaves the agent's result with nobody to act on it.
 9. **The user's word is the only `done`.** A green suite and a passing review take the item to
    `review` with its picture attached, never to `done`. Only the desk moves an item to `done`,
-   on the user's approval, and only then is its branch merged.
+   on the user's approval, and only then is its branch merged — **unless the Focus carries the
+   user's Standing approval**, their word given in advance (see "Park it").
 10. **Everything `SYSTEM.md` says still holds.** You never write source, tests, design docs or
     PRDs yourself — the owning agent does. The review budget, the 250k bound, the escalation
     triggers and the no-docs-during-the-build rule are all in force. A worker is the main loop
@@ -120,9 +121,20 @@ any branch exists, and move on.
 
 ### Branch
 
-In each srcRoot the work will touch: `git -C <srcRoot> checkout -b queue/<id>-<slug>` from the
-currently checked-out branch, and name the branch in the note. A resumed item checks out its
-existing branch instead. A `[research]` item has no branch.
+Items build on each other before the user has approved them — the second screen needs the
+first one's project — so every queue branch starts from **`queue/build`**, the stack of
+everything built so far. In each srcRoot the work will touch:
+
+```
+git -C <srcRoot> rev-parse --verify queue/build || git -C <srcRoot> branch queue/build
+git -C <srcRoot> checkout -b queue/<id>-<slug> queue/build
+```
+
+and name the branch in the note. When the item parks in `review`, merge it into the stack
+(`git -C <srcRoot> checkout queue/build && git -C <srcRoot> merge --no-ff queue/<id>-<slug>`),
+so the next item builds on it. A blocked item is not merged in. A resumed item checks out its
+existing branch instead. A `[research]` item has no branch. The checked-out main branch is the
+desk's: only approved work reaches it.
 
 ### Run the path
 
@@ -169,6 +181,13 @@ a save format) attaches the test run's summary as a `.txt` instead, and says so 
   the item goes to `review` — and `note` it: the branch, what changed in one line, what the
   user should look at, and `took <Nh Nm> · http://localhost:3000/d/claude-agents?from=<start ms>&to=<end ms>`.
   Put anything still open in the note.
+- **Under a Standing approval** in the Focus, a built and reviewed item does not wait in
+  `review`: after the steps above, merge it into the checked-out main branch of each srcRoot
+  (`git -C <srcRoot> checkout <main> && git -C <srcRoot> merge --no-ff queue/<id>-<slug>`, then
+  back to `queue/build`), commit the moved pointers at the root (`git add <srcRoot>`), and
+  `python3 $Q move <id> done` with `APPROVED under the user's standing approval` first in the
+  note. Its picture stays attached so the user can look later. A merge that conflicts is
+  aborted and the item stays in `review`, with the conflict in the note.
 - **A question that has a cheap default does not park.** When an agent names what it would do
   anyway ("going ahead with …"), and that default is cheap to change later and touches
   nothing approved, record it with `python3 $Q ask <id> "<question> Going ahead with:

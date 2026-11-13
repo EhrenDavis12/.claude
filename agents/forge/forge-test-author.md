@@ -33,6 +33,12 @@ If either file is missing or the manifest will not parse, **stop and report that
 must run `/set-project`.** Do not fall back to a guessed path — guessing is how this pipeline
 previously came to point at a directory that did not exist.
 
+**When the manifest sets `docsReadOnly`**, the design docs belong to another developer and no
+forge agent edits them. The `.md` files under the manifest's `docChanges` folder are our side:
+a file named like a design doc holds change notes proposed against it, and any other file is a
+new doc not yet in the originals. Read them with the design docs, and where a change note
+changes a doc, build from the note — it is what we have decided, waiting on their review.
+
 
 You use `prds` (your specification), `srcRoots` (where tests live, alongside the code they
 exercise), `docsRoot` (context), and `stack`.

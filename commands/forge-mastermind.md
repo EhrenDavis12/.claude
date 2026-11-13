@@ -37,7 +37,9 @@ ruled out is in `$F`, memory and the queue's notes — read it there and steer c
    `q.py ask`. A job that would need the user's answer is not made.
 2. **Proposals, research and look-backs only.** No code, no test, no PRD, no design-doc edit,
    no branch. Reports land under `$OUT`. Building is the user's yes away: a proposal becomes
-   a queue item only when the desk adds it on their word.
+   a queue item only when the desk adds it on their word — **unless the Goal carries a
+   Standing yes**, the user's yes given in advance: then a Propose job queues its own rows as
+   normal jobs (see "Working an auto job"), and the workers build them.
 3. **No paid call of any kind.** A web search is fine.
 4. **One job per pass.** A pass makes at most one item, `add --auto --bg`. q.py's gate holds
    the usage stop, a short cooldown and the pause while auto results wait for the user; there
@@ -70,7 +72,9 @@ ruled out is in `$F`, memory and the queue's notes — read it there and steer c
 3. **Make one job.** Pick the kind, in this order of preference:
    - **Propose** — when `$OUT` has no proposal report newer than `$F`'s Goal and Right now
      (`git log -1 --format=%ct` on each, or the report's date), or none from the last 7 days:
-     the gap between the code and the Goal, as proposed queue items.
+     the gap between the code and the Goal, as proposed queue items. **Under a Standing yes,
+     also whenever nothing is queued or working** — the last batch is built, so plan the next
+     one from where the code now is.
    - **Look back** — when no look-back report from the last 7 days is in `$OUT`: how the
      queue's recent items went — passes in review, blocks, takedowns, what the user rejected —
      and where the process cost more than it should have.
@@ -107,6 +111,11 @@ runner holds an auto job to its promises too.
   `PROPOSAL: <row, verbatim>`; then **Dropped**, **Already covered** and **Needs your call**
   as it gave them. A **Needs your call** that blocks the goal itself is said in the note, never
   asked.
+  **Under a Standing yes**, then queue the rows, in the report's order, as normal jobs:
+  `python3 $Q add "<row's title and tags, verbatim>" --note "From the mastermind's proposal of
+  <date>, under the user's standing yes. Why: <the row's reason>."` — no `--auto`, `now` lane.
+  A `decide:` row is queued too: its worker parks it on the question, which is how missing
+  details block. Then the report goes to `review` as usual, so the user sees what was queued.
 - **Look back** — read the queue's done, dropped and blocked items (`list --brief`, `find`),
   the runner log's takedowns, and the agent metrics if the project keeps them; dispatch
   `forge-retro-planner` when the friction is in the pipeline itself. Write
