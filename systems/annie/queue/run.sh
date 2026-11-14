@@ -136,6 +136,11 @@ case "${1:-status}" in
   start)
     rm -f "$PARK"
     if running; then echo "already running (pid $(cat "$PID"))"; exit 0; fi
+    # The pid file alone is not proof: a loop that lost its pid file (or a pending restart's
+    # waiter) would run beside a new one, and two loops each start a worker on the same job.
+    if pgrep -f "$HERE/run.sh loop" >/dev/null; then
+      echo "already running (a loop is live without its pid file: $(pgrep -f "$HERE/run.sh loop" | tr '\n' ' '))"; exit 0
+    fi
     # By full path through bash: `sh run.sh start` leaves $0 as a bare "run.sh", which nohup
     # cannot find, and the loop died before writing a line. Its errors go to the log, not away.
     # In a session of its own: started from a Claude session's shell, it would otherwise share

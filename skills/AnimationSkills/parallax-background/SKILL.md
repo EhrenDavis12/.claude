@@ -44,7 +44,9 @@ Unity draw order: Sky, Clouds, Far, Mid, Trees, Ground, Grass edge, Characters, 
   2 px dark-tinted. Forest edge 1–2 px dark green. Mid hills 1 px tinted at most. Far layers no
   outline. A black line on a far layer pulls it forward and flattens the scene.
 - **One light direction** (upper left) on every layer and the characters. No cast shadows baked
-  into any layer; contact shadows belong under the characters.
+  into any layer; contact shadows belong under the characters — drawn above ground props such as
+  the grass strip, or the props hide them, and deeper than any ground prop's shadow (about 25–30%
+  dark), soft-edged, never a black blot.
 - **Palette.** Sky and far layers cool; ground and near layers warm and saturated; the most
   saturated, highest-contrast colours are kept for the characters.
 - **Fighter zone stays quiet.** Between about 35% and 75% of the height, where the fighters
@@ -119,7 +121,12 @@ Unity draw order: Sky, Clouds, Far, Mid, Trees, Ground, Grass edge, Characters, 
    1920 px camera window across the loop, wrap included; every window needs 0.25 or more. Get there
    by pairing some sprites at 120–180 px gaps and opening others to 450–700 px. Code-drawn sprites
    pass this way with no Qwen.
-10. **Preview**: stack the layers, slide each by its factor across two loops, render an mp4 (and a
+10. **Foreground occluders need room.** With a full 15-a-side roster and a 16 px no-go box round
+   each fighter, edge occluders shrink below readable (under 1% coverage). The foreground look
+   needs either some overlap of the fighters' lower legs or cards that run past the frame edge —
+   say which with the still. An occluder drawn after a vignette must be tinted darker than the
+   darkened layer under it, or it lightens into a ghost.
+11. **Preview**: stack the layers, slide each by its factor across two loops, render an mp4 (and a
    still with both characters on it) for the user. That clip is what the user judges. Encode at
    1280 wide, crf 20, with one keyframe for the whole clip
    (`-x264-params keyint=<frames>:min-keyint=<frames>:scenecut=0`) — at crf 26 with the default

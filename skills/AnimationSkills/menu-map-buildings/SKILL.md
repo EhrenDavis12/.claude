@@ -1,6 +1,6 @@
 ---
 name: menu-map-buildings
-description: Make the main-menu map — a top-down 3/4 still map of a town with roads, a pond and fields — and its buildings as separate sprites with shadows and anchor points, plus the game's menus in the map's style (pages, pop-ups, buttons, item icons), local and free. Use when the user asks for a menu map, a town or world map, building props for one, or menu and UI mockups to match it. Not for a side-view battle background (`parallax-background`).
+description: Make the main-menu map — a top-down 3/4 still map of a town with roads, a pond and fields — and its buildings as separate sprites with shadows and anchor points, plus the game's menus in the map's style (pages, pop-ups, buttons, item icons) as game-ready text-free pieces with a layout.json, local and free. Use when the user asks for a menu map, a town or world map, building props for one, or menu and UI mockups to match it. Not for a side-view battle background (`parallax-background`).
 ---
 
 # Menu map and buildings (top-down 3/4, still)
@@ -12,6 +12,10 @@ and nothing scrolls.
 **Local and free only.** Shapes are code; Qwen-Image-Edit (`src/LLMs/generate.py edit`) is used
 only where it helps. No paid model without the user's say-so for that job.
 
+**Everything is tinted to the approved palette** — every UI piece, icon, map and building
+(palette_v4 option 3; the user, 2026-11-13: "Make sure as we go through everything that we do
+tinted with our color skin."). An untinted piece is not done.
+
 Working folder: `src/asset-animation-demo/local_runs/scenes/menu_map/` — `k0.py` (the shared code
 blockout and masks, `blockout/layout.json`), `styleA.py` (fully code), `styleC_buildings.py`
 (flat fills + ink by code), `fullbleed.py`, `runq.py`, `common.py`. Python:
@@ -22,9 +26,12 @@ blockout and masks, `blockout/layout.json`), `styleA.py` (fully code), `styleC_b
 1. **Code blockout first** (`k0.py`): map, roads, pond, and one blockout + mask per building. Every
    style is built from the same blockout, so styles compare like for like. Roads must meet each
    door.
-2. **Alpha from the mask**, eroded 2 px — never keyed. Thin parts (poles, flags, fence rails) are
-   ORed back into the alpha after the erosion, and every attachment touches its body in the mask:
-   each sprite is **one connected piece**. Pixel-art poles snap to the pixel grid.
+2. **Alpha from the mask, soft-edged** — never keyed. Draw the mask at 3x, erode it 6 px there
+   (2 px at 1x), OR the thin parts (poles, flags, fence rails) back at 3x, and area-reduce: the
+   alpha is that coverage. Partial pixels outside the old hard edge take the ink colour. Recolour
+   with plain `rc`, not `rc_over` — `rc_over` re-solves edge alpha and moves it 5–7 levels
+   (`game_ready_v5/map/build_v5.py`). Every attachment touches its body in the mask: each sprite
+   is **one connected piece**. Pixel-art poles snap to the pixel grid.
 3. **Buildings are drawn by code in every style**: flat fills, lit face upper-left, windows and
    trim drawn. Qwen on a building sheet drops windows and trim and adds bevels or brick texture,
    and the result reads as the code version with less detail.
@@ -39,6 +46,20 @@ blockout and masks, `blockout/layout.json`), `styleA.py` (fully code), `styleC_b
    opposite side.
 7. **Per building**: `<name>.png`, `<name>_shadow.png`, and its anchor points in `anchors.json`.
    Composite them on the map and on grey for review.
+8. **Cast shadows are one closed footprint projected from one ground line.** Per building, pick
+   ONE ground line (where its front feet meet the ground), take the CLOSED footprint — fill
+   between the outermost feet, then `binary_fill_holes` — project that, and cut everything above
+   the ground line. Never project per-column bases: gap columns streak and overhangs invent
+   grounds. **Shadows fall back and to the right** (the user, 2026-11-13: "For the map the V2
+   alternative it looks great use that." — the back set, `ui_parchment/game_ready_v2/map/
+   pieces_back`, made by `shadows_v2.py`). A dome or rock prop (the cave) does not fit the flat
+   ground line — it turns into a slab — and needs its own method that keeps its silhouette.
+9. **Adding buildings to an approved map: rebuild it byte-exact first** (K0, `game_ready_v5/map/
+   k0_run.py`) and prove the md5s match before changing anything. Then each new building:
+   - clears the old neighbours' flag and pole shadows — a shadow landing on a new roof was a
+     review finding;
+   - a small hanging sign has a visible link below its arm, or it reads as a bag;
+   - side-by-side crates sit on one top line, never stepped — stepped reads as stairs.
 
 ## Menus and UI in the map's style
 
@@ -51,15 +72,75 @@ wooden rod with a curled free edge, on the Scroll page layout. Every new page, p
 orange on the panel but dark red on red buttons. To make them one colour in a job, subclass and
 take the curl pixels from a same-size aged render (`R04C` in `victory_v1/build_victory.py`); moving
 that into `scroll_v3.py` needs `annie-tool-writer`. Other styles below are history; do not offer
-them again unless asked. The words on these pieces are a stand-in; real words are option 11 (see
-Lettering).
+them again unless asked. The words on these pieces are mock-up only (see below).
+
+**No word is ever baked into an image.** The game draws every word in code with the approved font
+(option 11, see Lettering), so a panel or button with lettering on it cannot go into the game
+(the user, 2026-11-12: "Those assets should've been game ready"). A mock-up with words on it is
+fine for the user's pick, but it is not the deliverable. A menu or UI job is done only when it
+hands over, per screen:
+
+- **Text-free panels** — pages, pop-ups, plates, tabs — as transparent PNGs.
+- **Blank buttons**, each in its normal, pressed and selected state.
+- **Icons as separate transparent PNGs**, never pasted onto a panel or button.
+- **9-slice notes for every panel that stretches**: the four border insets in px, and which
+  middle bands may stretch or tile.
+- **`layout.json`** per screen: every piece's file and box (x, y, w, h), and every text slot —
+  `id`, the words, box, size, colour, alignment.
+- **A check sheet rebuilt from the pieces alone**: the PNGs placed by `layout.json` and the words
+  drawn by code (`ink_font` or the `bake.py` atlas) into the slots, beside the approved mock-up.
+  A slot whose words do not fit its box, or a piece that does not line up, shows here.
+
+**A code-built screen is made game-ready by re-rendering it with the word step off, never by
+painting the words out.** Re-run the approved builder with `ink_font.text` / `Ink.paint` wrapped to
+record each text slot (words, box, cap, colour, anchor) at the call and skip the ink, and keep
+every `s.seed()` call, so the paper, rod and buttons come out pixel for pixel as approved
+(`ui_parchment/game_ready_v1/build_pieces.py`, checked by `check_pieces.py`).
+
+- **Compare pieces against the approved picture outside the word ink dilated 3 px.** The approved
+  pictures were recoloured after the words were blended in, so word edges on gold and red never
+  match the re-render — up to 48 levels, invisible by eye. Inside that band is not a defect.
+- **Re-solve the soft-pixel alpha of a recoloured piece against the picture underneath**, not
+  against the pre-recolour render, or its edge carries the old colour.
+- **A leftover-ink box measure false-flags rod shading, ruled lines and the icons in price boxes.**
+  Read its flags by eye before calling any of them ghost ink.
+- **Page paper carries the old map's erased path as a pale swirl.** It is in the approved paper,
+  not a leftover; say so with the check sheet so nobody cleans it. It cannot be cleaned by
+  patching — only 54% of the page is real paper, and two patches failed (a flat silhouette, then
+  a chevron). A fresh Qwen parchment matched by one linear colour map comes out pale, flat and
+  edge-less: match it with a low-frequency tone map, or keep the warm vignette.
+
+**New UI pieces** follow `ui_parchment/game_ready_v4/build_v4.py`: import `scroll_v3`, `ui_lib`,
+`build_pieces` and `unroll_lib` read-only (the `build_pieces` import calls `S3.calibrate()`), and
+write the md5 before-snapshot of those files first. Check with `check_v4.py`.
+
+- **Judge the pieces-vs-approved diff on opaque pixels only.** Soft-pixel diffs are invisible.
+- **A modal's height fits its slots.** Measure the dead band between the body text and the
+  buttons; a confirm panel at 520 tall had to come down to 440.
+- **Qwen ink glyphs** (pause and the like): write "two upright bars" plainly, or it adds slashes.
+  Pick the render whose red matches the Q1 close X.
+- **Unroll gap shadows are a fall-off curve.** Take the profile from the approved unroll as a
+  curve, and check the fall-off itself, not only the max alpha — three passed on max alpha as flat
+  strips.
+- **Palette checks compare with the approved palette screen's own button**, not the option 3 corner
+  swatch. Piece-by-piece recolour edges differ by a few levels invisibly, so a 2–4 level limit
+  fails good pieces.
+- **Character select uses each character's approved relaxed pose, placed on a scroll by the game**
+  — no portraits (the user, 2026-11-13). The layout gives each slot a box, a feet anchor and a
+  scale (`game_ready_v3/charselect_08/`); characters are not recoloured.
+
+**Removing words from painted art** (no builder to re-run): clean the paper underneath — no
+smudge, no ghost letters, the grain and tone carried through — and measure the leftover ink in each
+old text box against free paper beside it (dark pixels over the paper's own level). Clean by eye at
+full size as well; a ghost the measure misses shows once the code-drawn words sit over it.
 
 **The results pop-ups are chosen: Victory 2 and Defeat 9** (the user, 2026-11-01), `opt2` and `opt9`
 in `ui_parchment/victory_v1/build_victory.py`. Victory 2 is a tall scroll with the loot as a written
-list: icon, name and amount on each ruled line. Defeat 9 has Retry and Exit lettered by hand on the
-buttons, which was shown as applying to every button. Each opens by code (`unity-effects`, a scroll
-that unrolls). `ui_parchment/font_v1/build_frames.py` rebuilds both with every word in the game font,
-list lines and buttons included (`frames/victory2.png`, `frames/defeat9.png`), placed by baseline.
+list: icon, name and amount on each ruled line. Defeat 9 has Retry and Exit on the buttons in the
+game's lettering, which was shown as applying to every button. Each opens by code (`unity-effects`,
+a scroll that unrolls). `ui_parchment/font_v1/build_frames.py` renders both with every word in the
+game font (`frames/victory2.png`, `frames/defeat9.png`), placed by baseline — those are the approved
+mock-ups; the game pieces are their text-free panels, blank buttons and icons plus `layout.json`.
 
 **A script importing `scroll_v3` calls `S3.calibrate()` once before its first render.** Without it
 `_GAIN` stays 1.0 and the paper goes dark and orange while the rod and red buttons do not, so the
@@ -144,8 +225,9 @@ polygons from the paint, checked by eye after) and `GLOW` as a constant in its `
 made this way; all four shields made this way were liked).
 
 1. `python blockout.py` — the same items in the same order for every style, on flat grey 128.
-   **Put throwaway items in the four upper-left cells** of a sheet: Qwen washes that corner (see
-   the defect table).
+   **Qwen's yellow wash spoils seven cells of a 4x4 sheet**: (col,row) (0,0)–(2,1), (0,2) and
+   (1,2). Only about nine cells a sheet come back clean, so from try 1 put the important icons in
+   the right column and the bottom row, and throwaways in the washed cells.
 2. `python qwen_run.py <style> [try]` — **one** edit per style (4 steps), prompt saved beside the
    result. Run a batch under `perl -e 'alarm shift; exec @ARGV' 2400` per edit.
 3. **Crop the raw Qwen cell and keep its paint.** Do not run the old heavy finish (`build.py
@@ -167,7 +249,11 @@ made this way; all four shields made this way were liked).
    over the paint. Drawn at 512 a cell, area-reduced to 128. The cap kept the shield's detail
    measure at 16.6–23.3 against 6.1 from the old finish. A cap of 5 still browns thin spike tips:
    set `cap` to 1.5 on that item's trace. Gold needs a glow gain of 0.12, not 0.30, which clipped
-   14% of a coin's core to lemon.
+   14% of a coin's core to lemon. **The gold check is "matches the shop gold, no lemon wash"**: the
+   gold coin sits near 43° hue; 70–95° is lemon.
+   **Tint to the palette, then mask warm cream fields back to the raw paint** — the tint clips
+   cream (239,228,198) to near-white. The current game set is `icons_game_v1/` (`build_set.py`,
+   `check_A.py`–`check_C.py`).
 6. `python measure_v3.py [ids]` (writes `I03/measure_v3.json`).
 7. `python sheets.py block <style>` — the style **on the One Rod panel and buttons at 128, 64 and
    32 px**; `python sheets.py all` adds `compare_all.png`.
@@ -202,6 +288,10 @@ user, 2026-10-30: "IO3 the scorched Edge is the way to go here"). New icons are 
 - **When a design fails twice, change the design, not the wording.** Two crystals that failed
   twice worked first try once the planner redrew them; the coin pouch stayed wrong through five
   tries of the same route.
+- **The folded hide and the bandage roll failed in six edits each.** Try a side-on view next, not
+  another edit of the same view.
+- **A crest-badge emblem must fill the crest.** About 14 px on a 32 px badge is too small for a
+  thin shape to read.
 - **The coin pouch has no working method yet.** A neck level with the coins' centres gives a dome
   with horns on every try; raising the coins clear detaches them with a zigzag neck. Try a
   different method, not another edit.
@@ -230,8 +320,8 @@ user, 2026-10-30: "IO3 the scorched Edge is the way to go here"). New icons are 
   and the haft shorter in the spec. Thin blades (scimitar, dagger) also go to hairlines there.
 
 **Scribble and X marks (the close button).** The chosen close button is **Q1, hard slashes, in
-red** (the user, 2026-10-31). Red marks vanish on a red button: put it on a tan button, or give
-it a darker edge. Same route as the icons, with the round-4 scripts in `icons_v2/`
+red** (the user, 2026-10-31): `icons_v2/I03/round4/items_v4/Q1.png` **placed as-is** — no tan
+button behind it and no other X (the user, 2026-11-13). Same route as the icons, with the round-4 scripts in `icons_v2/`
 (`items_v4.py`, `blockout_v4.py`, `qwen_v4.py`, `finish_v4.py`, `measure_v4b.py`,
 `pick_sheet_v4b.py`); it took 3 Qwen edits of 6.
 
@@ -246,7 +336,8 @@ it a darker edge. Same route as the icons, with the round-4 scripts in `icons_v2
 
 **The game's font is approved for all text except damage text: option 11, Eagle Lake with the ink
 treatment — font + code ink, not painted** (the user, 2026-11-01: "The font for the rest of the app
-is approved"). Every word on a page, pop-up or button is lettered with it. Damage text is chibi
+is approved"). Every word on a page, pop-up or button is drawn with it by code at run time, into a
+`layout.json` text slot — never into the image. Damage text is chibi
 (`unity-effects`, Floating text). Do not offer another font, or painted Qwen lettering, unless asked.
 
 **Show lettering in place.** They chose it seeing it on the pop-up sheet, not from the lettering
@@ -372,10 +463,21 @@ for the Health bar system."). Build to it; do not offer other placements again u
 | Added rivets and dots on icons | Qwen detailing | judge by eye on the raw paint; no despeckle or low-pass, which strip real detail |
 | See-through holes in an icon | enclosed mask holes after ORing thin parts back | fill enclosed holes in the mask |
 | Grey plate showing inside an icon (a helmet plume gap) | a gap enclosed by paint matches the plate, so no measure sees it | check enclosed gaps by eye; trace it in `holes` |
-| Pale facets on a Qwen sheet wash to cream or yellow | a yellow beam over the sheet's upper-left cells; rewording and a darker blockout facet did not move it in three edits | throwaways in the four upper-left cells (red minus blue 3.6 or under on every used cell); move the item, do not reword |
+| Pale facets on a Qwen sheet wash to cream or yellow | a yellow beam over cells (0,0)–(2,1), (0,2), (1,2); rewording and a darker blockout facet did not move it in three edits | important icons in the right column and bottom row, throwaways in the washed cells (red minus blue 3.6 or under on every used cell); move the item, do not reword |
+| Cream fields go near-white after the palette tint | the tint clips (239,228,198) | mask cream fields back to the raw paint |
+| Gold icon reads lemon | hue pushed past ~70° | keep the coin near 43°; check against the shop gold |
 | Stars on every coin | a star named in the prompt | no star in the prompt; stamp in the blockout only |
 | Potions all one colour | fill colours not named | name each colour in the prompt |
 | Ink spots read as bullet holes | round blots drawn by code | no round discs |
+| Menu art cannot go into the game | words baked into the panel or button image | text-free pieces + `layout.json` text slots; words drawn by code |
+| Smudge or ghost letters where words were removed | words painted out without cleaning the paper | code-built: re-render with the word step off; painted: carry grain and tone through, measure leftover ink against free paper beside it |
+| Pieces-vs-approved check fails at word edges on gold and red | approved pictures recoloured after the words were blended in | measure outside the word ink dilated 3 px |
+| A recoloured piece's soft edge does not match the approved picture | soft-pixel alpha solved against the pre-recolour render | re-solve alpha against the picture underneath |
+| Building shadow streaks, or a second ground under an overhang | shadow projected per column from each column's lowest pixel | one ground line per building; closed footprint (fill between outer feet, `binary_fill_holes`); cut above the line |
+| Building edges hard or stair-stepped | alpha from a 1x mask, or `rc_over` re-solved the edge | 3x mask coverage eroded 6 px, area-reduced, partial pixels in ink colour, plain `rc` |
+| New building wears a neighbour's flag shadow | placed without checking old pole and flag shadows | move it clear of them |
+| Small sign reads as a bag; crates read as stairs | no link below the sign's arm; crates on stepped tops | draw the link; crates on one top line |
+| Cave or rock shadow reads as a flat slab | flat ground-line projection on a dome shape | its own silhouette-keeping method; not the building projection |
 | Trees look off beside the buildings | side-view battle trees used on a top-down map | draw map trees top-down 3/4 |
 
 ## Scorecard — the last step of every run

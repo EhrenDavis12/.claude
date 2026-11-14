@@ -12,7 +12,7 @@ folder's `SKILL.md` and follow it** — do not work from this table.
 | The job | Read |
 |---|---|
 | A character's or enemy's breathing idle — from the at-the-ready battle pose, longer and a little varied — or an extra motion layered on it (head turn, regrip, weight shift) | `idle-breathing-loop/SKILL.md` |
-| A new action for any character or enemy — attack, hurt, defend, run loop / stop, death — from one approved picture with the real weapon in hand (the action pose; the relaxed pose for runs), the video model making the whole action | `base-action/SKILL.md` |
+| A new action for any character or enemy — attack, hurt, defend, run loop / stop, death — from an approved start key and end key (the full wind-up and the finished follow-through; the at-the-ready pose is the other end for hurt and defend; runs start from the relaxed pose), sized to match by code, with the video model making the middle | `base-action/SKILL.md` |
 | Sprite-sheet animations through Replicate and the Asset-Gen-Framework (idle, attack, defend, hurt, projectile, burst) | `animate-characters/SKILL.md` |
 | A new colour of an armor the character already wears — same shape (Fire Robes) | `recolour-armor/SKILL.md` |
 | A new armor or outfit with its own animations, made the base's way from its own base image (Nightmare Cloak) | `new-armor/SKILL.md` |
