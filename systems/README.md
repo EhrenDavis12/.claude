@@ -15,6 +15,7 @@ reinterpreted.
 | System | What it is |
 |---|---|
 | `forge` | Pure delegation. Thirteen agents, one territory each; the main loop never writes a project artifact. |
+| `annie` | The animation studio. Eight agents; every artist is followed by a reviewer that holds no pen, and the user watching the clip is the only gate that makes it done. |
 | `direct` | Off, made explicit. No pipeline; the main loop does the work inline. |
 
 ## Swapping

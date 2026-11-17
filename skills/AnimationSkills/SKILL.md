@@ -1,0 +1,40 @@
+---
+name: animation-skills
+description: The front door to every animation skill in this repo — making a character's idle, its one-shot actions, a recolour of an armor, a new armor or outfit animated on its own, an effect overlay such as a hit spark, game sound effects and music loops, and sprite-sheet generation through Replicate. Use for any request to create, re-create, fix or review a character animation, an armor or outfit variant, or a weapon overlay; it names the one sub-skill to read for the job.
+---
+
+# Animation skills
+
+Every animation skill lives in a folder beside this file. The harness only lists skills that sit
+directly under `.claude/skills/`, so this file is the one entry it sees; **pick the row, then Read that
+folder's `SKILL.md` and follow it** — do not work from this table.
+
+| The job | Read |
+|---|---|
+| A character's or enemy's breathing idle — from the at-the-ready battle pose, longer and a little varied — or an extra motion layered on it (head turn, regrip, weight shift) | `idle-breathing-loop/SKILL.md` |
+| A new action for any character or enemy — attack, hurt, defend, run loop / stop, death — from an approved start key and end key (the full wind-up and the finished follow-through; the at-the-ready pose is the other end for hurt and defend; runs start from the relaxed pose), sized to match by code, with the video model making the middle | `base-action/SKILL.md` |
+| Sprite-sheet animations through Replicate and the Asset-Gen-Framework (idle, attack, defend, hurt, projectile, burst) | `animate-characters/SKILL.md` |
+| A new colour of an armor the character already wears — same shape (Fire Robes) | `recolour-armor/SKILL.md` |
+| A new armor or outfit with its own animations, made the base's way from its own base image (Nightmare Cloak) | `new-armor/SKILL.md` |
+| The layered, looping background of a battle scene — sky, mountains, hills, trees, ground, foreground — for parallax | `parallax-background/SKILL.md` |
+| An effect overlay for an action — hit spark, landing dust, footfall puffs — code-drawn, body-free, placed by game code; also a full battle-scene preview with a crowd of idles | `effects-overlay/SKILL.md` |
+| An effect or test scene built in the Unity editor — layered particles, trails, 2D light, bloom, each layer toggleable — recorded to a captioned mp4 (Archer vs Archer) | `unity-effects/SKILL.md` |
+| Sound effects and music loops, local and free — action sounds (MOSS), pitch-varied crowd variants and sorted release / hit / miss / blocked sets for random play, Celtic battle music loops (ACE-Step); the user's ears are the gate | `sound-effects/SKILL.md` |
+| The main-menu map — a top-down 3/4 still town map — and its building sprites with shadows and anchors | `menu-map-buildings/SKILL.md` |
+
+Three rules hold for all of them:
+
+- **The Character Chart is kept current during the run** — the commands are in
+  `idle-breathing-loop/SKILL.md`, "Keep the Character Chart current".
+- **A run ends by scoring itself and improving its skill**: append the row the sub-skill's "Scorecard"
+  section names, then run the `skill-improver` skill on it. That is how these recipes get better
+  instead of being re-learned.
+- **A measuring script is a plain loop, run under a time limit** — `perl -e 'alarm 600; exec
+  @ARGV' python3 …`, since this Mac has no `timeout` command. A `multiprocessing.Pool` with its
+  work at module top level never returns here: Python 3.14 starts pool children by spawn, each
+  child re-runs the module and spawns its own pool, and `p.map` waits forever — one review sat
+  seven hours on eight cores that way. If a pool is truly needed, every line of top-level work
+  goes under `if __name__ == '__main__':`.
+
+A process that is not in the table yet — it was worked out in a session and lives in a work log — is a
+skill waiting to be written. `skill-improver` writes it into this folder and adds its row here.

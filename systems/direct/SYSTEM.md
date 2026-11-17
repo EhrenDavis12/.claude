@@ -14,9 +14,9 @@ is legible: a session that opens with no system named is broken, not relaxed.
 is no delegation boundary, no territory ownership, and no writer-per-path table — those belong
 to `forge` and are not in context right now.
 
-**Do not dispatch `forge-*` agents.** They are denied in `settings.json` while this system is
-active, so a dispatch fails rather than half-works. If you want them, **ask the user to run
-`/set-system forge`** — it is a user-only command. Don't try to route around the denial.
+**Do not dispatch `forge-*` or `annie-*` agents.** They are denied in `settings.json` while this
+system is active, so a dispatch fails rather than half-works. If you want them, **ask the user
+to run `/set-system forge` or `/set-system annie`** — it is a user-only command. Don't try to route around the denial.
 
 **The built-in agents are still available** and worth using for what they are good at: `Explore`
 for broad read-only search, `Plan` for implementation strategy. Neither writes, so neither

@@ -76,6 +76,9 @@ fourth row means "route it to an existing worker agent" or "just do it inline".
   to source, tests, design docs, or PRDs goes through the agent owning that territory, so a
   one-off write routes to an existing worker — never to the main loop, and never to a new agent
   invented for the occasion.
+- Under **`annie`**, the same line holds for animation: the main loop never draws, renders,
+  composes or patches. A one-off key, clip, sheet or shared script routes to the artist that
+  owns it.
 - Under **`direct`**, there is no delegation boundary and the main loop writes directly. A
   proposal justified only by "the main loop isn't allowed to write this" fails Gate 1 outright.
 
@@ -134,8 +137,9 @@ and record it in the roster row.
 ## Systems: folder + prefix + `system.json`
 
 Agents belong to a **system** — a whole way of working, with its own rules, agents, skills, and
-hooks. One system is active at a time; see `.claude/systems/README.md`. Today there are two:
-`forge` (design docs → PRD → code → tests) and `direct` (no pipeline, no agents).
+hooks. One system is active at a time; see `.claude/systems/README.md`. Today there are three:
+`forge` (design docs → PRD → code → tests), `annie` (animation: brief → keys → clips →
+sheets) and `direct` (no pipeline, no agents).
 
 **Every agent must belong to exactly one system.** An agent belonging to none is never denied
 on a swap, because the deny list is computed from the *inactive* systems — so it stays

@@ -1,0 +1,90 @@
+# animate-characters config. Lives beside assetgen.yaml in the calling project.
+# Every key under background/reference/video/interpolate/upscale/mask/sheet/effect has a
+# default (see scripts/animate.py DEFAULTS); write only what you change. This is the
+# knight config that the Unity showcase was built with, as a worked example.
+#
+#   ../Asset-Gen-Framework/.venv/bin/python ../../.claude/skills/AnimationSkills/animate-characters/scripts/animate.py animate.yaml --character knight --action idle
+#
+agf: ../Asset-Gen-Framework/.venv/bin/agf
+# Every roll is kept here, so the evolution of an animation stays visible.
+archive: animation_drafts   # every roll is kept here: raw clip, review, sheet, your notes.md
+style: >-
+  Clean 2D game character art. Chibi proportions with a large head and a compact body, flat
+  cel shading with two tones per color and no gradients, thick uniform dark-charcoal outlines,
+  a vibrant but limited palette. Full body, standing at the ready in a natural battle stance,
+  weapon held low and steady, a calm neutral face with the mouth closed and eyes open, facing
+  three-quarter toward the viewer's right, feet planted and fully visible, centered in the frame
+  with even margins, the weapon hand toward the viewer's right. Solid flat {background}, nothing else in the scene: no floor, no ground shadow or drop shadow of any kind, no
+  props on the ground, no text.
+video:
+  model: kwaivgi/kling-v3-video:cadb27bd609b3432e7989ce823fb107570335cd165d83f3bddd26da045944ed3
+  keys: {image: start_image, last_image: end_image}
+  frame_inputs: false
+  frames: 120       # planning guess; the review reads the real count and rate off the clip
+  fps: 24
+  trim_end: 2
+  keep_every: 1
+  hold: 4
+  inputs:
+    mode: pro
+    duration: 5
+    generate_audio: false
+    negative_prompt: >-
+      talking, speaking, mouth opening, mouth moving, lip movement, open mouth, grimace,
+      frown, smile, laughing, shouting, squinting, closed eyes held shut, bouncing, jumping,
+      hopping, dancing, excited, fast movement, big movement, walking, extra limbs,
+      second weapon, camera movement, zoom, background change, blur, text, watermark
+sheet:
+  frame: 512
+effect:
+  burst_fps: 32
+actions:
+  idle:
+    loop: true
+    end_frame: false
+    motion: >-
+      A lone, silent sentinel who never speaks to anyone and has no one to speak to, standing
+      guard at the ready, calm and focused. All movement is small, slow and controlled: he
+      breathes slowly and the chest and shoulders rise and fall gently; the knees bend a little
+      and straighten with each breath so the body settles slightly lower and rises again; the
+      shield stays up in front and drifts only a fraction; the sword tip drifts a little; the
+      plume sways softly. The feet never leave the ground and the body never bounces, hops,
+      jumps or rocks side to side. The face is calm and focused, the eyes steady on the enemy
+      ahead with one slow blink, the mouth a sealed closed line that never opens and never
+      moves. Quiet, minimal, steady motion for the whole clip.
+  attack: {end_frame: false}
+  defend: {end_frame: false}
+  hurt: {end_frame: false}
+characters:
+- id: knight
+  name: Knight
+  look: >-
+    A knight in polished blue-and-silver plate armor with a red plume on the helmet, visor
+    up showing a calm determined face with the mouth closed. Composition, in image terms: the
+    knight stands facing the LEFT edge of the image; his big kite shield is on the LEFT side of
+    the image, held out in front of him with the arm extended toward the left edge, the shield
+    leading and covering the front of his body; his longsword is on the RIGHT side of the image,
+    held low by his back leg with the blade pointing down and to the right. Knees slightly bent
+    in a battle-ready stance.
+  attack: >-
+    a powerful longsword attack; the blade stays plain steel with no glow, flash, sparkle,
+    magic or trail
+  defend: raises the kite shield up front and braces behind it
+  hurt: gets hit hard and reels back
+  skill:
+    name: Sword Wave
+    noun: crescent slash wave
+    look: >-
+      A single large crescent-shaped slash wave of solid pale-blue energy with a white inner
+      band, shaped like a bold C opening toward the viewer's right, chunky and thick with no
+      thin lines, solid opaque flat colours in two tones, the same thick dark-charcoal outline,
+      no glow, no transparency, no motion blur, no particles, no character or figure, centered
+      and filling about two thirds of the frame, on a solid flat {background}, nothing else.
+    motion: >-
+      the crescent pulses slightly larger and smaller and its white inner band ripples along
+      its length
+
+app:
+  assets: assets/characters
+  catalog: assets/characters/characters.json
+  pubspec: pubspec.yaml
