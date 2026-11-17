@@ -124,11 +124,14 @@ Then publish `chart.html` to the same link: the Artifact tool with `url` set to 
 
 ## The result this produces
 
-A 16 fps sprite sheet (512 px cells, transparent), about 6–9 s long: the character in the
-at-the-ready battle pose, weapon in hand as the model drew it, breathing — several breaths that
-are not all the same (a deeper one, a shallower one, a small settle of the grip or weight), feet
-planted, face the same face on every frame, loop seam no bigger than a normal frame step. One
-breath repeated reads as too short and too plain (the user).
+A 16 fps sprite sheet (512 px cells, transparent), about 6–9 s long — **the longest animation the
+character has**: the at-the-ready battle pose, weapon in hand as the model drew it, breathing —
+several breaths that are not all the same (a deeper one, a shallower one), feet planted, face the
+same face on every frame, loop seam no bigger than a normal frame step. One breath repeated reads
+as too short and too plain (the user). **The movement is constant and small, with no pause**: the
+fighter's idle was liked, then faulted because "it looks like the characters flat out stops living
+all of a sudden until he starts moving again" (the user, 2026-11-15). Hair may wave a little. The
+weapon may tilt, "it just has to come back".
 **Idles never snap.** The idle and its extra motions (a weight shift, a head turn) are seamless
 loops: the last frame flows into the first and the pose comes back to K0 exactly, because they
 play back to back in the game (the user). Only actions — attack, hurt, defend — may
@@ -194,8 +197,14 @@ Unity: `Assets/Characters/<character>_versions/idle_vN.png` + an entry in that f
    length comes from two or three different K0 → K0 takes (other seeds, or wording for a deeper
    breath, a shallow one, a small grip or weight settle) cleaned one by one and played back to
    back: each starts and ends on K0, so every join closes like the loop seam (step 6 at each join).
-   Rests (step 6b) go between them, not one long freeze at the end. Keep only takes that hold the
-   weapon, clothes and face of K0; a take that swings the weapon or stands up is dropped.
+   Keep only takes that hold the weapon, clothes and face of K0; a take that swings the weapon or
+   stands up is dropped. **Use the plain breath prompt only.** On the fighter's two-handed sword,
+   any "weight shift", "settle" or "ease lower" wording swung or dropped the sword (2 of 4 takes),
+   and asking for hair-tip or cape-hem sway gave 0 usable of 6 (sword swung up to 85°, body sank
+   40–61 px, mouth opened). **A pinned K0 → K0 take blinks mid-take**: cut the clean window between
+   blinks, about 12 frames a breath from a 3 s take. So a long no-rest idle (136–160 cells) comes
+   from FILM 2× on there-and-back windows cut from two or more takes, not from more takes — plan
+   the FILM step in the local slot from the start.
 4. **Lock the face** (`scripts/face_lock.py`): paste K0's face (eyes, nose, mouth, chin; rows
    150–240, cols 268–392 at 640) onto every frame at the tracked head position — SSD template
    match, ±10 px, 1 px steps, offsets median-filtered over 5 frames so the patch never jitters,
@@ -223,7 +232,9 @@ Unity: `Assets/Characters/<character>_versions/idle_vN.png` + an entry in that f
 6. **Close the loop**: drop the duplicate last frame (it equals the first), 2-frame premultiplied
    crossfade across the seam (last → first). Do not paste the crisp K0 into the sheet — a sharp
    frame inside soft frames reads as a flash.
-6b. **Rests, when a steady bob reads as constantly rising**: after the loop's cells, repeat cell 1
+6b. **No rest cells in a new idle** — a held still reads as the character stopping living (see
+   The result). The rest below is kept only on the approved rogue idle, where a steady bob read
+   as constantly rising: after the loop's cells, repeat cell 1
    (the rogue: floor cells 001–064 byte for byte, then 32 copies of 001). Add no ease or drift by
    code: an eased bob already arrives with no position corner (under 0.2 px a cell at 640), and if
    the rest reads frozen, shorten it, which is a free re-cut. Count the freeze from the cells, since
@@ -273,7 +284,8 @@ centroid under-reads a fist or claw that moves out of its box by half. On a hang
 the arms with the head: the outer fist and elbow edge must not move before the head top has moved
 2 px; the goblin's arms pulled out at frame 5–6 of every sink. Render every review mp4 on a dark
 background as well as grey — grey hid plate bits at a cape hem — and have the reviewer check the
-face on every frame for blinks; an artist's blink windows have been wrong. Also: per-frame mean |diff| profile (whole figure and head region), plate-coloured pixel count
+face on every frame for blinks; an artist's blink windows have been wrong. Face strips include the
+mouth, not only the eyes. Also: per-frame mean |diff| profile (whole figure and head region), plate-coloured pixel count
 inside the figure, edge-ring colour, and the pose guard. A lint that runs these before Unity is the next step.
 Run each take's quick gate before cleaning it — on a bad take it saves the whole clean. Captions
 go in a strip outside the picture: `compose_idle_v4`'s caption bar over rows 0–26 hid the hood's
@@ -281,7 +293,10 @@ rise. A reviewer never runs the artist's compose script to read its checks — e
 rewrites the sheet. A face-box check read under sub-pixel offsets scores high on its own (a
 perfect moved K0 scores 11.81), so judge the face on paired-frame strips, not that number. A
 tip-travel number passes on a rigid slide: judge cloth motion registered on the face and rim, by
-shape change and reversals.
+shape change and reversals. The shared `archer/actions/tools/contact.py`, its `common.read_video`
+and `measure.py` assume 640×640 and fail on 1664×1248 Seedance 1 Pro frames: scale to 640 first. A
+shared sword tip and angle tracker is owed by `annie-tool-writer`; until then measure the blade per
+run.
 
 ## Keys for extra motions (head turn, regrip) — on a COPY of the idle, never on it
 

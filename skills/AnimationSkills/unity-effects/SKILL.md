@@ -40,7 +40,9 @@ is chibi (Floating text below); the words on those pieces are a stand-in in anot
 
 - The CLI is `~/.unity/bin/unity`; a non-login shell does not have it on PATH, so call it by that
   path. Prefix every call with `UNITY_NO_BANNER=1 UNITY_NON_INTERACTIVE=1 UNITY_NO_PAGER=1` and
-  pass `--project-path <absolute project path>`.
+  pass `--project-path <absolute project path>`. The CLI picks the editor by that path, and an
+  editor without the Pipeline package never shows up in `unity status`, so a second editor open
+  on another project (forge's) is safe to leave alone.
 - `unity status` first. No row means the editor is closed: open it yourself with `open -a
   /Applications/Unity/Hub/Editor/6000.6.2f1/Unity.app --args -projectPath <path>` and poll
   `unity status` until it answers — never `unity open` or `unity doctor`, which go through the
@@ -52,15 +54,15 @@ is chibi (Floating text below); the words on those pieces are a stand-in in anot
   `<project>/Logs/Editor.log`.
 - **Close the editor when the job is done** (the user, 2026-10-28: it wastes processing power
   left open). After the last recording and the frames are saved, save the scene, then
-  `kill -TERM` the editor's PID. An `osascript` quit is refused here (no assistive access) and
-  Unity ignores a polite quit while the scene is dirty anyway (see What still fails). Unity
+  `unity command editor quit`. An `osascript` quit is refused here (no assistive access), and a
+  dirty scene can hold the quit on its save prompt (see What still fails). Unity
   shows a restore-backup dialog at open whenever `Temp/__Backupscenes` exists, even empty, so
   once the editor is gone move the whole folder out of `Temp/` — never only its contents. Never
   leave it open for a later job; that job opens it.
 - **Check the licence before building.** "No valid Unity Editor license found" or
   `LicenseGroupOfflineValidityPeriodIsExpired` in the log means nothing will build: park the item
   at once with that question, never work round it.
-- `unity command set_autotick --enable true` before anything else; the editor stalls unfocused.
+- `unity command set_auto_tick --enabled true` before anything else; the editor stalls unfocused.
 - Build with the builder pattern: write `AnnieBuild/<Job>.cs` with a static entry, run
   `unity command run_script --file AnnieBuild/<Job>.cs --entry <Class>.<Method>`; `--dry_run
   true` compiles without running; `--args` takes a JSON array. Create assets through `AssetDatabase`, `PrefabUtility`,
@@ -71,8 +73,9 @@ is chibi (Floating text below); the words on those pieces are a stand-in in anot
   the CLI cannot connect at all.
 - **A command that stops answering is usually a modal dialog.** Check with `osascript` (System
   Events, an `AXDialog` window of the Unity process) and press its button. Never kill the editor.
-- Play mode: `unity command editor_play`, then eval `UnityEngine.Application.runInBackground =
-  true;` — without it time does not advance between CLI round trips. Leave play mode at the end.
+- Play mode: `unity command start`, then eval `UnityEngine.Application.runInBackground =
+  true;` — without it time does not advance between CLI round trips. Leave play mode at the end
+  with `unity command stop`.
   A recording started right after a play session returns Runtime Error: wait for play mode to
   stop, then 10 s.
 - Exit code 2 is a bad command line: fix it. Exit 6 is the editor failing: read the error.
@@ -370,11 +373,14 @@ work on the characters"). Character motion stays model-drawn keys + video (`idle
    **A side-by-side at 2/3 scale shrinks the motion** a third, so lead with the stronger take
    full size and put the comparison second.
    **Keep the raw frames until the reviewer has run** — without them determinism and full-size
-   sharpness cannot be checked, and an encode fix needs a re-capture.
+   sharpness cannot be checked, and an encode fix needs a re-capture. Once the mp4 is reviewed,
+   delete the raw frame folder: a long take runs to several GB.
 4. **Caption from `capture.json`, never typed.** The local ffmpeg has no `drawtext`, so draw the
    caption — "TEST · layers on: Flash, Core, …" — onto a transparent PNG with PIL and lay it over
    with ffmpeg's `overlay` filter. Every recording carries it, the quarter-speed one too. Wrap a
-   long caption and check its bounds on the PNG, or it runs off the 1920 frame.
+   long caption and check its bounds on the PNG, or it runs off the 1920 frame. Put the bar at
+   the top of the frame or outside it, never at the bottom: the front row's feet stand on y
+   1040–1080 at 1080p, and a bottom bar covers them.
 5. Contact sheet of every frame (or every second frame past 60) and a paired-frame strip of the
    hit, for the reviewer. The reviewer's own sheets and measurements go to its scratch folder,
    never into the take folder.
@@ -410,6 +416,46 @@ main module" errors and the job sits silent for hours. If the reviewer reports t
 reached it, though the dispatch held it whole, the main loop checks the brief's acceptance rows
 itself before the user sees the clip.
 
+## Play-testing the game
+
+A play-test records forge's game in motion and reports what looks wrong. It changes nothing.
+
+- **Annie's own copy only**: `~/work/gmd-annie`. Never forge's working copy or the user's.
+- **Saves are per copy.** `gmd-annie` saves to
+  `<persistentDataPath>/EditorCopies/gmd-annie/`, under `~/Library/Application
+  Support/PlaceholderStudio/Guild Master's Descent/`, not in the user's slots. To play from a
+  slot that has a dive in progress, seed a copy of it into `EditorCopies/<copy>/` with the dive
+  cleared, and restore that folder after. Still copy the whole real save folder aside before play
+  mode and check it unchanged at the end; say in the report if it was touched.
+- **Change no game files.** `git -C ~/work/gmd-annie status --short` before and after must match.
+  Test scripts go under an `Editor/` folder that is deleted at the end, and a package added for
+  the run (the Pipeline package) is removed again.
+- **A still UI review runs headless, not in the editor.** Copy the game's `MenuScreenshots`
+  tool into a temporary `Editor/` folder, run it in batch mode, and delete the copy after; no
+  editor opens and no save file is touched. Shoot at 2340x1080. The UI scales against a
+  2532x1170 stage, so a size read at 1920 wide is 0.822 of its stage size.
+- **A mock sheet obeys the rule it shows**, and keeps every panel at 1:1 scale. A sheet that
+  broke its own rule or shrank a panel to fit was rejected on both counts.
+- **Capture with `scripts/PtCapture.cs`** (copy it into the temporary `Editor/` folder; it
+  references the game's `GameAudio`, so check it still compiles against the copy). The CLI's
+  `capture_game_view` refuses paths outside the project. PtCapture writes the frames, the
+  scheduled clicks and marks, and every sound the game asks for (`GameAudio.Requested`) — a
+  scan of playing AudioSources misses `PlayOneShot`, so judge sound from its cues file.
+- **Check the project's colour space first** (the game is Gamma): a check judged in Linear does
+  not hold in the game.
+- **Record at 1x, 30 fps.** A fixed-rate capture (`Time.captureFramerate`) speeds up anything on
+  unscaled time — the scroll unroll lasts only 1–4 frames — so say up front that unroll speed and
+  button press states are not judged.
+  Encode a quarter-speed copy too, and cut the contact sheet every 1–2 frames: sparser, a hard
+  cut falls between tiles.
+- **Check frame to frame, not only settled frames.** Diff each frame against the one before and
+  look at every spike for a hard cut, a stage that resets, or a jump. A play-test whose settled
+  frames all matched the preview still missed a wave change that hard-cut and reset the stage;
+  only the reviewer caught it.
+- **Quit the editor when done** (as in Driving the editor).
+- **Report in two parts, worst first**: what is forge's (game code) and what is annie's (sheets,
+  installs), plus what is right and what was not judged. Annie fixes neither from the play-test.
+
 ## What still fails
 
 - The dissolve's fleck brightness floor (V 0.93) with its saturation cap (0.45) washes a dark
@@ -426,12 +472,14 @@ itself before the user sees the clip.
   `annie-tool-writer` for AnnieCapture to write scroll state and the scene's parameters into
   `capture.json`, so the caption reads them.
 - `AnnieCapture` leaves the scene dirty. The artist has to open a scene additively and
-  `CloseScene(false)` to drop the approved scene's changes, and the unsaved-changes prompt is
-  why Unity ignores the quit and needs `kill -TERM`. Ask `annie-tool-writer` for AnnieCapture to
+  `CloseScene(false)` to drop the approved scene's changes, and the unsaved-changes prompt can
+  hold `editor quit`: save or discard the scene before quitting. Ask `annie-tool-writer` for AnnieCapture to
   clear the dirty flag (or discard the scene) when it exits play mode.
 - `AnnieCapture` does not expose its frame index, so a director cannot tie its tick to the
   frame written and the offset drifts between runs. Ask `annie-tool-writer` for AnnieCapture to
   expose the frame index it is writing.
+- A subagent's `Write` of a new `REPORT.md` can be refused while an `Edit` of an existing file
+  works. Put the report in an existing file, or in the hand-back itself.
 - An artist resumed late had `Bash` refused with "running in don't ask mode", though its earlier
   encodes had worked; the cause is unknown, and that run's joined review clip was never made.
 

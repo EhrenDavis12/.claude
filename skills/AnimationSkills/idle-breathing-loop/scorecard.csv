@@ -28,3 +28,4 @@ date,character,action,frames,passes,key_edits,inbetweens_local,inbetweens_remote
 2026-11-05,mage,idle_still_placeholder,64,,0,0,0,,,~10,0,review,"still placeholder: 64 copies of K0 in the installed idle format; 0 renders, 1 sheet build, 1 sheet review"
 2026-11-06,hobgoblin,idle_v1,,,4,0,3,1,,~150,0.30,still placeholder,"4 K0 edits + erase-only fix; 3 takes (Wan, Seedance pinned 2s, Seedance start-only 3s), 0 usable; key, clip and sheet reviews; shipped as still placeholder"
 2026-11-07,goblin,idle_v1,,,,,4,,,,0.52,placeholder,"paid slot; 4 takes, 2 methods, no slice; placeholder build: sheet artist 1 dispatch, sheet reviewer 1 round pass, $0"
+2026-11-12,fighter,idle_v3,80,1,0,0,4,0,0,95,0.72,pending,"start+end A1->A1 Seedance 1 Pro; 4 takes (2 swung/dropped sword on settle wording); loop cut from 2 takes, blink cut; clip review 2 rounds; no sheet built (TEST for user)"

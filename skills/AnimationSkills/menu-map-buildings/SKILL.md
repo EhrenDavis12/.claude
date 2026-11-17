@@ -107,8 +107,14 @@ every `s.seed()` call, so the paper, rod and buttons come out pixel for pixel as
 - **Page paper carries the old map's erased path as a pale swirl.** It is in the approved paper,
   not a leftover; say so with the check sheet so nobody cleans it. It cannot be cleaned by
   patching — only 54% of the page is real paper, and two patches failed (a flat silhouette, then
-  a chevron). A fresh Qwen parchment matched by one linear colour map comes out pale, flat and
-  edge-less: match it with a low-frequency tone map, or keep the warm vignette.
+  a chevron). A clean paper gets its warm edges and age back in one step from a per-channel
+  low-frequency tone map: multiply each channel by `G_sigma(old) / G_sigma(new)`, Gaussian sigma
+  200, old = the approved `paper.png` (`game_ready_v6/paper/paper_v6.py tone 200`). Use that, not
+  Qwen re-renders — a fresh Qwen parchment matched by one linear colour map comes out pale, flat
+  and edge-less.
+- **Only the v1 page paper is approved** until the user approves a newer one. `paper_v3b` is not,
+  so every page built on it (the v3 settings, about, shop and character-select `page.png`) never
+  ships. `game_ready_v3/paper_measure.py` gives v3b a mid-band ratio of 0.773.
 
 **New UI pieces** follow `ui_parchment/game_ready_v4/build_v4.py`: import `scroll_v3`, `ui_lib`,
 `build_pieces` and `unroll_lib` read-only (the `build_pieces` import calls `S3.calibrate()`), and
@@ -122,6 +128,12 @@ write the md5 before-snapshot of those files first. Check with `check_v4.py`.
 - **Unroll gap shadows are a fall-off curve.** Take the profile from the approved unroll as a
   curve, and check the fall-off itself, not only the max alpha — three passed on max alpha as flat
   strips.
+- **The unroll's moving strip also carries the panel's bottom-edge shadow beside the rod.** Zeroing
+  the gap shadow outside opaque rows leaves a pale gap at rest. Keep the run-to-knob strip, and
+  give `panel.png`'s 15 rod-side columns the panel's own bottom-edge shadow, within ~10 luma of
+  v3 at 100%.
+- **Shadow checks need an at-rest crop**: 100% open, at both knobs — mid-opening stills miss the
+  rest-state gap.
 - **Palette checks compare with the approved palette screen's own button**, not the option 3 corner
   swatch. Piece-by-piece recolour edges differ by a few levels invisibly, so a 2–4 level limit
   fails good pieces.
@@ -229,7 +241,8 @@ made this way; all four shields made this way were liked).
    (1,2). Only about nine cells a sheet come back clean, so from try 1 put the important icons in
    the right column and the bottom row, and throwaways in the washed cells.
 2. `python qwen_run.py <style> [try]` — **one** edit per style (4 steps), prompt saved beside the
-   result. Run a batch under `perl -e 'alarm shift; exec @ARGV' 2400` per edit.
+   result. Run a batch under `perl -e 'alarm shift; exec @ARGV' 2400` per edit. **Pass the next
+   unused try number** — a used one silently re-runs that old try (14 minutes lost).
 3. **Crop the raw Qwen cell and keep its paint.** Do not run the old heavy finish (`build.py
    finish`: blockout mask, low-pass, despeckle, code boss and buckle, 10 px burn) — on the boot
    and shield it removed planks, rim, arch and buckle the paint already had. When an icon looks
@@ -251,9 +264,14 @@ made this way; all four shields made this way were liked).
    set `cap` to 1.5 on that item's trace. Gold needs a glow gain of 0.12, not 0.30, which clipped
    14% of a coin's core to lemon. **The gold check is "matches the shop gold, no lemon wash"**: the
    gold coin sits near 43° hue; 70–95° is lemon.
-   **Tint to the palette, then mask warm cream fields back to the raw paint** — the tint clips
-   cream (239,228,198) to near-white. The current game set is `icons_game_v1/` (`build_set.py`,
-   `check_A.py`–`check_C.py`).
+   **Tint to the palette, then mask cream, teal, gold and purple fields back to the raw paint** —
+   the tint clips cream (239,228,198) to near-white and halves purple saturation (0.61 to 0.32).
+   **After a light-hide edit the tint pushes the item to gold** (median V 0.73). Recolour it by
+   ramp to a sibling icon's brightness, and check its median V against the set's before review.
+   The current game set is `icons_game_v1/` (`build_set.py`, `check_A.py`–`check_C.py`). The
+   game's icons now live at `Menus/icons/icon_<n>_128.png`, not `OneRod/Icons/`, so
+   `icons_items_v1/pick_sheet_items.py`, which reads `OneRod/Icons/<name>.png`, is stale: repoint
+   it before using it for the game-icon reference row.
 6. `python measure_v3.py [ids]` (writes `I03/measure_v3.json`).
 7. `python sheets.py block <style>` — the style **on the One Rod panel and buttons at 128, 64 and
    32 px**; `python sheets.py all` adds `compare_all.png`.
@@ -288,8 +306,10 @@ user, 2026-10-30: "IO3 the scorched Edge is the way to go here"). New icons are 
 - **When a design fails twice, change the design, not the wording.** Two crystals that failed
   twice worked first try once the planner redrew them; the coin pouch stayed wrong through five
   tries of the same route.
-- **The folded hide and the bandage roll failed in six edits each.** Try a side-on view next, not
-  another edit of the same view.
+- **The bandage and the hide have no edit route.** Eleven Qwen edits across two jobs and four
+  designs all failed (birch log, mat, capsule, cigar, tap, chocolate bar). Do not edit them again:
+  ask the planner for another way — a code-drawn blockout traced as it stands, or a different
+  item for the same meaning.
 - **A crest-badge emblem must fill the crest.** About 14 px on a 32 px badge is too small for a
   thin shape to read.
 - **The coin pouch has no working method yet.** A neck level with the coins' centres gives a dome
@@ -316,6 +336,14 @@ user, 2026-10-30: "IO3 the scorched Edge is the way to go here"). New icons are 
   below about 0.79; part contrast against 4 px neighbours misreads cork and bone.
 - **After ORing the mask back, fill enclosed holes in the mask**, or see-through holes appear
   where the erosion cut a narrow neck.
+- **A dark garment's off-colour patch that survives a darker blockout and a named-colour prompt**
+  is fixed by recolouring that region in the raw paint before the finish step — one go.
+- **A greatsword in a box-filling diagonal cannot be longer than a sword**, and a 1.7x guard with
+  a 30% grip reads as an X at 64 px. Specify the blade width and a shorter guard, and tell it from
+  the sword by a ricasso or a longer grip.
+- **A garment that fails twice is built on an approved garment's outline**, then given one
+  edit. The hide vest read as a sheaf or a pelt in two designs drawn from scratch; on the
+  jerkin's outline with a V cut out it passed after one edit.
 - **At small size the axe head reads as a flag on a pole in every style** — make the head wider
   and the haft shorter in the spec. Thin blades (scimitar, dagger) also go to hairlines there.
 
@@ -412,6 +440,8 @@ for the Health bar system."). Build to it; do not offer other placements again u
 - **Every bar placement lands on a neighbour in a stacked formation.** In the 5-row block an
   over-head bar sits on the torso of the row behind, an under-feet bar on the chest of the row
   in front — there is no clear ground. Say so in the brief so nobody hunts for it.
+- **A skill-button row over a stacked formation has two clear spots only**: the top HUD line, or
+  the gap between columns.
 - **"Show only when hurt" means health below full** — mana does not count. Write that in the
   brief, or the artist ORs in mana and full-health units show bars.
 - **A rim or outline on a figure is cut by every layer in front of it, scenery included.**
@@ -446,6 +476,26 @@ for the Health bar system."). Build to it; do not offer other placements again u
 - **When the planner's brief is lost, write the brief's text or its path into the queue note**, so
   the next worker resumes against the same brief.
 
+## Hand-off to forge
+
+The last step of a menu or UI job the user has approved. Annie never writes into the game; forge
+copies the folder in.
+
+1. **One folder, grouped by piece**: `local_runs/handoff/UI/` — `map/`, `icons/`, `popups/<name>/`,
+   `party_pick/`, `battle_hud/`, `loading/`, `widgets/`, `unroll/<set>/`, `results/`, `charselect/`,
+   `settings/`, `about/`, `shop/`, and `_review/` for preview stills only. Forge copies every folder
+   except `_review/` and the README into the game's `Assets/Resources/Menus/` under the same names
+   and keeps every file name — each `layout.json` names its pieces by file.
+2. **Byte copies, md5-checked.** Every file is a copy of the approved source; list the md5 of
+   both and report the mismatch count, which must be 0. No `.meta` files are shipped.
+3. **The v1 page paper wherever a newer paper is unapproved** — see the page paper rule above. A
+   layout that still names `paper_v3b` keeps the note; the README says the shipped file is v1.
+4. **The README explains every path in the layouts**: which are the piece's own, which point into
+   another shipped folder, and which are annie's provenance notes (`auto/...`, `scenes/...`,
+   `nowords.png`) that are not shipped and not needed. Map each game screen to its pieces.
+5. **md5 the game's current stills against the approved roster** and list every one that is not
+   approved — this caught an unapproved Brute portrait.
+
 ## Defects and their fixes
 
 | Defect | Cause | Fix |
@@ -464,7 +514,8 @@ for the Health bar system."). Build to it; do not offer other placements again u
 | See-through holes in an icon | enclosed mask holes after ORing thin parts back | fill enclosed holes in the mask |
 | Grey plate showing inside an icon (a helmet plume gap) | a gap enclosed by paint matches the plate, so no measure sees it | check enclosed gaps by eye; trace it in `holes` |
 | Pale facets on a Qwen sheet wash to cream or yellow | a yellow beam over cells (0,0)–(2,1), (0,2), (1,2); rewording and a darker blockout facet did not move it in three edits | important icons in the right column and bottom row, throwaways in the washed cells (red minus blue 3.6 or under on every used cell); move the item, do not reword |
-| Cream fields go near-white after the palette tint | the tint clips (239,228,198) | mask cream fields back to the raw paint |
+| Cream fields go near-white, purple goes dull after the palette tint | the tint clips (239,228,198) and halves purple saturation | mask cream, teal, gold and purple back to the raw paint |
+| Off-colour patch on a dark garment | Qwen; survives a darker blockout and a named colour | recolour the region in the raw paint before the finish |
 | Gold icon reads lemon | hue pushed past ~70° | keep the coin near 43°; check against the shop gold |
 | Stars on every coin | a star named in the prompt | no star in the prompt; stamp in the blockout only |
 | Potions all one colour | fill colours not named | name each colour in the prompt |
@@ -478,6 +529,8 @@ for the Health bar system."). Build to it; do not offer other placements again u
 | New building wears a neighbour's flag shadow | placed without checking old pole and flag shadows | move it clear of them |
 | Small sign reads as a bag; crates read as stairs | no link below the sign's arm; crates on stepped tops | draw the link; crates on one top line |
 | Cave or rock shadow reads as a flat slab | flat ground-line projection on a dome shape | its own silhouette-keeping method; not the building projection |
+| Pale gap beside the rod at rest | the moving strip carried the panel's bottom-edge shadow; zeroing it outside opaque rows removed it | keep the run-to-knob strip; give `panel.png`'s 15 rod-side columns the bottom-edge shadow, within ~10 luma of v3 at 100% |
+| Clean paper is pale, flat and edge-less | linear colour match, or a Qwen re-render | per-channel tone map `G_200(old)/G_200(new)` |
 | Trees look off beside the buildings | side-view battle trees used on a top-down map | draw map trees top-down 3/4 |
 
 ## Scorecard — the last step of every run

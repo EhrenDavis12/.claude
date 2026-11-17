@@ -49,6 +49,9 @@ key and flag is `actions/README.md` — read it when a step below names a key.
   agent, every round): dispatch fresh each round with a hand-off brief, so the system's resume
   budget does not apply here. Write the brief's path (or its text) into the item's note at every
   stage end: a worker restarted mid-run lost it.
+- **Every reviewer dispatch carries a target time and says to wrap each command in an alarm**
+  (`perl -e 'alarm 600; exec @ARGV' <cmd>`). A review with neither hung 145 minutes and the worker
+  was killed; with them the reruns took 9 and 4 minutes.
 - The Character Chart cell is set as the state changes — `idle-breathing-loop/SKILL.md`, "Keep the
   Character Chart current".
 
@@ -69,10 +72,17 @@ made the Assassin run with his daggers held out in front and his arms not swingi
 | run stop | not settled — try the action pose and a frame taken from the run itself, and show the user both | |
 
 **Plan a mid key when start and end are far apart.** Seedance 1 Pro, given a high overhead start
-and a low-right end, adds a backswing to the left whatever the prompt says ("the blade staying on
-the right side of the image the whole time" did not stop it). Either add a mid key — the blade
-upright in front of him — and render start → mid and mid → end, or keep only the straight part
-of the take and drop the backswing frames, as the approved Fighter attack did.
+and a low-right end, does not swing between them. It adds a backswing to the left whatever the
+prompt says ("the blade staying on the right side of the image the whole time" did not stop it),
+or it holds the start and cuts to the end in 1–3 smeared frames — 5 of 5 Knight hammer takes over
+3 prompts, and a mid key with the hammer upright overhead → end cut the same way. The mid key goes
+at mid-swing: the weapon level in front of him, not upright overhead. Render start → mid and
+mid → end, or keep only the straight part of one take and drop the backswing frames, as the
+approved Fighter attack did.
+
+**A hurt key keeps the ready key's mouth.** First+last from a gritted-teeth hurt key to a
+closed-mouth ready key broke the face at the mouth change on 3 of 3 Knight takes and 2 of 2
+Fighter takes. Ask for (or plan) a hurt key whose mouth matches the ready key's.
 
 **A death from a standing key needs a mid key, planned up front.** A standing → lying first+last
 segment makes Seedance cross a head arc of about 420 px in about 6 frames, and it smears the face
@@ -185,8 +195,15 @@ figure grows or shrinks across the clip. Scale and place every key as a **whole 
 — one LANCZOS scale and one translation, never a cut piece — to match the at-the-ready key
 (the Fighter's `startend_v1/keys/make_keys_TEST.py` does the matte, scale, place and one global
 gain). Measure the scale by **rigid features**: headband thickness, width and area, and boot
-length. Never by hair-top-to-chin — a raised arm hides the chin, and that measure gave a false
-15% on the wind-up key. Boots sit on one ground line on every key.
+length; on the Knight, the shield's area where it is drawn at the same angle (his helmet's dome
+and width swing with head tilt). Never by hair-top-to-chin — a raised arm hides the chin, and that
+measure gave a false 15% on the wind-up key. The ratio measured is key ÷ reference, so the key is
+scaled by **1 ÷ ratio**; re-measure after scaling — an inverted scale doubled every size gap and
+was caught only at review. Boots sit on one ground line on every key.
+
+A frame taken from a take to use as a key maps onto the plate by the take ÷ plate size ratio
+alone (1280 ÷ 1664 = 0.7692, offset 0) — never rescale it by a rigid feature (tilt changes the
+shield's area) or recentre the boots.
 
 An image-model end key can carry an effect mark joined to the blade — a ground scrape under a
 low strike. Cut it along the blade's own edge (fit a line to the clean edge and clear what lies
@@ -228,6 +245,9 @@ sinks ... head stays level ... eyes open") held the fighter's face, where every 
 the same picture turned his eyes to lines or doubled his face. A hurt is a flinch and a stagger
 with the head kept level, not a fall backward; "hit hard" reads as an attack.
 
+From a hurt start key Seedance deepens the hurt before it recovers (2 of 3 Knight takes), and a
+3 s take invents extra motion (a kick, a step). Use 2 s and word the recovery as beginning at once.
+
 Moving the action over from another clip does not save the face — the face breaks where the head
 moves, whichever model draws it, so start from the keys. Kling v3 Motion Control refuses the
 3-head chibi figure as a driver ("No complete upper body detected"), even on his own footage, and
@@ -257,8 +277,9 @@ picture, start-only, hosted.
 **3 — Look at every take.** A contact sheet of each take (`tools/contact.py <clip> <out.png>
 --step 2`; it breaks on 1280×720 frames, so until `annie-tool-writer` fixes it use the rogue
 hurt's `local_runs/characters/rogue/work/hurt/v9/sheet_R1.py`), then every fast frame at 4× for
-the defects below. Grade against the table above; pick the take; cut its window — drop still
-lead-in frames, any backswing the model added, and smeared drawings, and stop before a long
+the defects below. Grade against the table above; pick the take; cut its window — start at the
+first moving frame, not later (a window starting six frames in jumped 36 plate px at the snap from
+the idle), drop any backswing the model added and smeared drawings, and stop before a long
 take's tail starts inventing. A start-only 2 s Seedance take stays on-model for only about frames
 7–21; a start+end take holds longer (the approved attack kept clip frames 28–46 less a few
 smears) and its last kept frame should sit close to the end key. Check the face on every picked frame for doubled edges — a doubled face shows at modest
@@ -272,7 +293,9 @@ inside a box round the cape, plate-tinted grey (within 34 levels of that frame's
 touches the background becomes background — the plain matte leaves grey pockets in the cape's
 folds. Then check every cell on dark for **closed plate-grey gaps** — a grey pocket fully walled
 in, such as between the headband tail and the cape — and count any of 300 px or more; the plain
-pocket check misses them on grey.
+pocket check misses them on grey. On a fall, the gaps between the boots and between a leg and the
+lying weapon fill with flat warm plate grey that is invisible on the grey preview: check every gap
+on dark across the whole fall and clear it on every frame it appears, or the fix itself blinks.
 
 ```
 .venv python tools/build_action.py <plate> <action> "<Label>" --fade 0 --register [--loop]
@@ -303,9 +326,26 @@ chain (`../loadout/review_chain.py`). A sheet judged from stills is not judged. 
 until the user has seen it. Render the review mp4 on a dark background as well as grey — grey hid
 plate bits at a cape hem and a grey shard in a spider's fangs — and wrap the action in idle cells
 on both sides, so the user judges the real snap. Captions: write them from the measured numbers,
-never the brief's targets; plain hyphens (the caption font has no en dash); this ffmpeg has no
+never the brief's targets; frame numbers 0-based (`f00` is the first frame) in every caption and
+every agent report — an ffmpeg frame file is 1-based, so convert; plain hyphens (the caption font has no en dash); this ffmpeg has no
 `drawtext`, so the TEST label also goes in the filename. A class with no install route yet (the rogue): at install, set the
 sheet's pivot so the feet do not drop at the idle cut.
+
+**7 — Hand-off to the game.** Approved actions go to forge as sheets in the game's format, built
+from the approved takes into `local_runs/handoff/characters/<Class>/` with a README of per-sheet
+settings (copy `handoff/characters/work/compose_*.py` and `gmd_common.py`).
+
+- **Keep the tone the user watched.** Never colour-match an approved take to K0 at sheet time —
+  it changes what was approved.
+- **Drop a plate pocket only when it is all of these**: within 3 levels of the border grey, flat
+  (std < 1.2), 40 px or more, and 80% or more ringed by dark outline. Any looser rule takes light
+  trim and pale hair, and they blink.
+- **Measure each action's extent before choosing the cell.** Hit, death, run and big weapons
+  outgrow 512; give that sheet a larger square cell and say why in the README. A fall moves
+  `feetCellX` off centre toward the side he does not fall to (the Fighter's death: 429 in a 672
+  cell, his head falling far left).
+- **PPU stays 512 and the feet sit 81 px above the cell bottom** (`FeetY = cellSize - 81`) in
+  every cell size, so a bottom-pivot sprite stands where a 512 sheet would.
 
 ## Defects and their fixes
 
@@ -314,7 +354,9 @@ sheet's pivot so the feet do not drop at the idle cut.
 | the figure grows or shrinks across the clip | the two keys were drawn at different scales, or matched by a hidden feature (hair-to-chin under a raised arm) | size-match by headband and boots, whole image, step 0 |
 | a ready slant → upright guard swings the blade over the head (1 of 3), and the sword leads before the body sinks (3 of 3) | Seedance moves the weapon first between those two keys | grade it as a weapon-led take; the fix is not proved — say so with the clip |
 | a face smear on every seed of a fall | standing → lying in one segment: a ~420 px head arc in ~6 frames | a sitting or half-fallen mid key, planned before keys are drawn |
-| a backswing to the left before the strike | a high start and a low end far apart; Seedance adds the swing whatever the prompt says | a mid key with the blade upright in front, or keep only the straight part |
+| a backswing to the left before the strike, or the start held then cut to the end in 1–3 smeared frames | a high start and a low end far apart; Seedance does this whatever the prompt says, and an upright-overhead mid key did not help | a mid key at mid-swing with the weapon level in front, or keep only the straight part |
+| the face smears where the mouth changes on a hurt | a gritted-teeth hurt key against a closed-mouth ready key | a hurt key with the ready key's mouth |
+| a held last cell (death) a few % darker in some regions than the end key while steel and skin match | one gain for the whole cell | per-region tone on held end cells (−6% purple and boots on the Knight's death) |
 | the sword grows a scrape or a spike at the tip | an effect mark drawn on the end key, joined to the blade | cut it along the blade edge on the key, check the tip against the start key's |
 | grey pockets in the cape folds, or a walled-in grey gap (headband tail to cape) | plate grey the plain matte keeps | the cape-pocket rule on every cell; count closed plate-grey gaps on dark |
 | a new face, a "shocked" or open-mouthed expression, blinks | the video model invents faces | another seed or wording; a face that changes fails the grade. Never paste a face over moving frames — the user found it "horrible" and it glitches at the head's edge |
@@ -329,9 +371,11 @@ sheet's pivot so the feet do not drop at the idle cut.
 | hosted frames sit about 10% darker than the picture | the hosted model's own tone | match the take's tone to the start picture before compose |
 | the take starts about 7% darker than the start key and brightens across the action | Seedance's own tone drift | ramp the gain from the start key's tone to the end key's across the take, not one gain for the whole take |
 | fur, boots or face pop at the idle cut though the figure's tone passes | a whole-body colour match averages regions out (+16% on the brute's fur) | match by region (mantle, boots, face) to the idle with 12 px blurred masks; never the legs |
-| steel highlights inside a grey-steel figure go transparent (visor, knee), or a plate pocket (chin to blade) is refilled grey | the plate colour key takes light grey steel; a size-only refill cannot tell the two apart | refill enclosed holes under 2000 px from the raw before the colour match (`characters/tank/defend_v1/refill_holes.py`), split by colour: a plate pocket is neutral or warm and flat (R ≥ B − 1.5, std < 5.5) and stays transparent; steel is blue-tinted (B > R by 4–6) and is refilled. A size-only drop made the pauldron and toe caps flicker transparent on dark |
+| steel highlights inside a grey-steel figure go transparent (visor, knee, hammer), or a plate pocket (chin to blade) is refilled grey | the plate colour key takes light grey steel; a size-only refill cannot tell the two apart | refill enclosed holes from the raw before the colour match (`characters/tank/defend_v1/refill_holes.py`, under 2000 px). Judge each hole against the frame's own border grey, not by blue tint: a plate pocket is flat and within a level of it and stays transparent; an enclosed alpha < 128 component of 100 px or more, brighter than the border grey by 1.0 or more, is steel and is refilled — steel drawn near plate grey (~130 vs 123) slips past the size cap because its 128–249 outline alpha joins it to the outside. Fence the rule into boxes round the steel, or it clears real steel elsewhere. Raising `matte.refill_max` (to 4000) also fills real see-through pockets that close mid-clip: pair it with `refill_plate_pocket_revert` boxes and check every cell on dark. A plate-pocket rule inside `refill_holes.py` is an `annie-tool-writer` ask |
 | a dotted light fringe round a matted hosted clip | the plate's halo round the outline; it shows only on black | review mattes on black; `characters/tools/ch_edge.py` plus smear removal |
 | a matte clean-up eats real trim (a hem, a pauldron) or misses a chip | a smear rule bites trim and light steel touching transparency; its luminance floor misses dark chips | scope the smear rule to the regions that smear (cape, legs); diff every cleaned cell against the first matte |
+| light trim and pale hair blink transparent on a hand-off sheet | a loose plate-pocket drop | drop only flat (std < 1.2), within 3 levels of border grey, ≥ 40 px, ≥ 80% ringed by dark outline |
+| a hand-off sheet's tone differs from what the user approved | colour-matched to K0 at sheet time | no colour match at hand-off; keep the approved take's tone |
 | grey wedge between limbs | an enclosed pocket of plate | `--drop-grey-pockets`, then put back the silver-rimmed pockets it also drops (hair strands, blade fullers, knee highlights) |
 | a grey shard blinks inside the outline on a few cells | a fully enclosed near-neutral blob the pocket rule skips | also drop enclosed blobs of chroma spread under 14, brightness 110–165, 25–3000 px; seen only on a dark review |
 | enclosed transparent holes, 1–2 px cracks to 300 px slits | the matte | count every enclosed transparent component at any size, at alpha 128 and at 250; fill cracks with outline black |
@@ -363,10 +407,13 @@ sheet's pivot so the feet do not drop at the idle cut.
 
 ## What still fails
 
-- **The start+end method is proved on one action** (the Fighter attack). Hurt, defend and death
-  from an at-the-ready key and one drawn key are next; each is proved on its own first pass.
-- **Seedance adds a backswing between far-apart keys** whatever the wording; the mid key is the
-  fix to prove.
+- **The start+end method is approved on two actions** (the Fighter attack and death; the death
+  shipped with a short face smear in the fall, and the Knight's death from no mid key smeared the
+  same way). Hurt and defend are each proved on their own first pass.
+- **Seedance will not swing between far-apart keys** — a backswing, or a hold and a smeared cut.
+  The Knight's attack shipped as two takes joined at the top with a one-frame strike. A mid key at
+  mid-swing, weapon level in front, is the fix to prove. A shared weapon-head tracker is an
+  `annie-tool-writer` ask.
 - **Faces and weapons between the keys are still a seed lottery**: the grade rejects a changed
   face or weapon, and the answer is another seed or wording, not a repair.
 - **A staff held in a fist leads every move.** Seedance makes the staff arm do the action on a

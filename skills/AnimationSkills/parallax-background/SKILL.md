@@ -54,7 +54,8 @@ Unity draw order: Sky, Clouds, Far, Mid, Trees, Ground, Grass edge, Characters, 
 - **No landmark that shows the repeat.** Balanced, even content; a strong one-off feature repeats
   every 3840 px and gives the loop away.
 - **Greyscale check**: the archer and the assassin placed on the stacked scene, desaturated;
-  both must stand out by value alone.
+  both must stand out by value alone. Set the separation bar (`gsep` in `shadows.py`) from the
+  roster actually placed: 56.9 was archers only; the full v2 roster scores about 27–29.
 
 ## Method
 
@@ -63,7 +64,10 @@ Unity draw order: Sky, Clouds, Far, Mid, Trees, Ground, Grass edge, Characters, 
    call: build each layer on its own. The first layer the user approves sets the style prompt
    and seed family for the rest. Grass blades along the top of the ground are never part of it:
    they are the grass-edge layer. The fine detail on the ground (small stones, pebbles, grain) is
-   what makes it work.
+   what makes it work. **Every scene is built like the meadow: each element its own layer**, made
+   from its own source parts. Never split a finished, composited strip into layers by colour (a
+   join split by R−B < 8 shipped once): the split slices objects across two speeds, and when the
+   stage scrolls the user sees them "cut in half".
 2. **Code blockout first, never a text prompt.** Text-to-image failed 3 of 3 on every layer tried
    (floating blocks, tilted ground, merged cloud banks, cropped bottoms). Draw each layer as a code
    blockout — periodic over 1920 so it loops by construction (peaks, humps or pebble placement
@@ -98,7 +102,9 @@ Unity draw order: Sky, Clouds, Far, Mid, Trees, Ground, Grass edge, Characters, 
    downscaled — force its alpha to 255 and regrade it.
 6. **Tint by code is allowed** — a still background layer has no body; lightening, desaturating
    and shifting a far layer toward the sky colour is a colour grade, not a pose. Each tree depth
-   is graded on its own: a far trunk is a lighter grey than a mid one, never darker.
+   is graded on its own: a far trunk is a lighter grey than a mid one, never darker. A grade
+   that keeps a layer off the wall's palette shifts hue and warmth and never darkens: darkening
+   made near-black specks.
 7. **Trees beside the fighters.** Where a trunk would stand beside a fighter's head, lift the tree
    so its foot sits on the hill in the band between the hill's solid line and the back row's head
    box (battle 1: y 340–346) — never fade the trunk, which leaves ghost stubs beside the hoods. Each
@@ -125,13 +131,19 @@ Unity draw order: Sky, Clouds, Far, Mid, Trees, Ground, Grass edge, Characters, 
    each fighter, edge occluders shrink below readable (under 1% coverage). The foreground look
    needs either some overlap of the fighters' lower legs or cards that run past the frame edge —
    say which with the still. An occluder drawn after a vignette must be tinted darker than the
-   darkened layer under it, or it lightens into a ghost.
+   darkened layer under it, or it lightens into a ghost — so measure it against the ceiling
+   after the vignette is applied, never before.
 11. **Preview**: stack the layers, slide each by its factor across two loops, render an mp4 (and a
    still with both characters on it) for the user. That clip is what the user judges. Encode at
    1280 wide, crf 20, with one keyframe for the whole clip
    (`-x264-params keyint=<frames>:min-keyint=<frames>:scenecut=0`) — at crf 26 with the default
    keyint, figures fixed to the camera over the scrolling scene shimmer at every keyframe. A
    whole-frame flicker number hides that: measure neighbour-frame change inside the figure masks.
+   **Check every package in motion**, hand-offs included: the scrolling mp4 plus a shift-vs-y
+   profile on frame pairs (each row's measured shift must match its layer's factor, with no row
+   split between two). `profile_v2.py` reads opaque strips only: on a sparse sprite layer its
+   90 px pairs find no shift, so it needs a sparse-layer mode (an `annie-tool-writer` job) before
+   it can judge one. A still at scroll 0 is not enough — the game pans the stage in its intro.
    Over 16 MB it cannot go on the Queue page. `preview.py` truncates
    `ground/v2/preview/measure_preview.txt` in any mode, so copy it (and the scripts it calls) into
    the run's own folder before running it. A preview with a crowd of fighters idling and attacking is
@@ -153,6 +165,23 @@ bows, or the stagger direction — before changing anything.
 Unity wiring (a parallax script per layer, Tiled SpriteRenderer with Full Rect + Repeat, one PPU,
 no Pixel Perfect camera for this painted art) is application code — not annie's; report it.
 
+**Hand-off to forge** — a drop-in folder (`local_runs/handoff/BattleCave/`): the layers,
+`scene.json` (depth, factor and order per layer), the fighter slots and a loader. Annie builds it;
+forge copies it in.
+
+- **Ship it under a `Resources/` path** — the loader loads by path, and nothing else is found.
+- **Guard the import size**: set each texture's max size to its real width or above, and check it
+  after import — the default cap shrinks a 1920+ strip.
+- **Blend masks are data, not colour.** The game's importer treats only `M1_`-prefixed files as
+  data textures, and its iPhone override ASTC-compresses masks. Say in the forge note which files
+  are masks so they import linear and uncompressed.
+- **One layer, one depth.** A layer that spans two depths (a wall at 0.8 and a floor at 1.0) is
+  split, so each part moves at its own factor.
+- **Check at the game's aspect (~19.5:9)**, not only 16:9: a card duplicated off-frame for the
+  wrap shows at the wider edges. Drop any duplicate the wider frame does not need.
+- **Preview in Gamma colour space** — the game uses Gamma, not Linear, so a check judged in
+  Linear does not hold in the game.
+
 ## Scorecard — the last step of every run
 
 Append one row per layer pass to `scorecard.csv` beside this file, then run `skill-improver` on
@@ -160,17 +189,53 @@ this skill.
 
 `date,scene,layer,generations,edits,passes,minutes,usd,user_verdict,note`
 
-## Ground variety later: a mask blend, not tiles
+## Ground and wall variety: one blend method, not tiles
 
 Tile sets are not used for the battle ground (the user, 2026-10-29: a tiled ground showed its
-grid through repeating pebble clusters). The user's way to vary it later: render the grass and
-the ground as two full layers, then lay a third, invisible layer on top — random patterns in
-greys between black and white. The grey at each spot decides how much ground shows through the
-grass there, so the two bleed into each other at random, and a new pattern on that third layer
-changes the look without redrawing either picture. In Unity it is one small shader that mixes
-two textures by a third (a splat or noise mask); the mask is soft gradients, never hard shapes.
-The blend is approved in the Unity sandbox (`Assets/Annie/BattleScene1GroundBlend`, shader
-`GbMix`, masks M1–M3). To hide any repeat along a long ground, chain different grey patterns
-one after another, each starting and ending all white, so every join is seamless (the user,
-2026-10-29: "each sade patter ends and start with a all white on the ends. So diffrent patters
-remove visable patterns").
+grid through repeating pebble clusters). **Every blended surface in every scene is built one way**
+(the user, 2026-11-15: "we should just have the one method of how to build these things"): a
+white-slot texture, a black-slot texture and a grey mask, mixed by the game's `GbMix` shader —
+m = saturate(mask.r × MaskMul + MaskAdd), MaskMul 1, MaskAdd 0, blended in linear under Gamma and
+premultiplied by the white slot's alpha. The meadow is grass + soil; the cave floor is dirt +
+stones, its back wall two rock types, its join edge J1 + J1 recoloured in the floor-rock tones.
+A new pattern on the mask changes the look without redrawing either picture. No new generation:
+the surfaces are built from approved textures.
+
+`local_runs/scenes/_shared/gbmix.py` is the shader's twin in Python, the one tool for this (run it
+with `src/Asset-Gen-Framework/.venv/bin/python`): `mix --white --black --mask [--scroll --window]`
+composites exactly what the game draws, `mask --w --h --segments --seed [--labels ids.npy --grow 2]
+[--light-below Y]` makes a pattern, `selftest` checks it against the formula. The meadow's blend is
+in the Unity sandbox (`Assets/Annie/BattleScene1GroundBlend`, masks M1–M3).
+
+- **Chained, white-ended patterns.** To hide any repeat along a long strip, chain 3 or more
+  segments of unequal width (no two within 15%), each starting and ending all white, so every join
+  is seamless (the user, 2026-10-29: "each sade patter ends and start with a all white on the ends.
+  So diffrent patters remove visable patterns"). Column 0 must equal column 3839. The meadow's own
+  M1 is not white-ended (edge columns about 138) — report that gap, do not copy it. Make three
+  patterns a surface, overlapping under 0.5 IoU; the game picks one per battle.
+- **Hard-edged objects snap whole.** The soft grey alone cannot show slabs or stones whole: the
+  meadow's mask over the cave stones drew 91% of stone pixels half-faded, and more contrast only
+  reached 11% whole while cutting stones in half. So each stone or slab takes one value, 0 or 1,
+  from the grey at its centre (`--labels`, from the approved per-object label map, each object
+  grown 2–3 px); the loose dirt between objects keeps the soft grey. Pass: at most 1% of object
+  pixels at 0.05 < m < 0.95. Masks are full size: a quarter-size mask cannot hold an edge under
+  12–16 px. Show the meadow-exact version beside it on the sheet. Snapped stones keep their dark
+  outlines, so the floor behind the fighters gets busier than any soft-mask version (about 6× the
+  edge count in the fighter zone on the cave): say so with the first still, not after.
+  `gbmix.py`'s snap has no threshold/bias or cluster-aware option yet — an `annie-tool-writer`
+  job; until then expect to set some slabs by hand (11–14 of 39 on the cave wall).
+- **Slab clusters**: an outline with no thin horn, hook or hammer point and corners of 60° or
+  wider; no slit of the other rock inside a cluster. A 30 px morphological opening removing
+  nothing is not enough — it misses a slanted horn — so also run a corner-angle test (the share of
+  a small ring round each boundary point that is inside the shape, read as an angle; pass at 60°
+  or wider) on every rock-type boundary. Slabs on the front row alone drop coverage below 35%. Scan
+  for rock-type edges from y 280, not 340, along slanted runs as well as columns: a column-only
+  detector misses slanted slab sides and dashed seams, and a slab side that starts above the head
+  tops still slides behind them.
+
+**The join between ground and back wall is its own piece.** Design it on its own and show it to
+the user before it ships; a quick fix (a soil lip in front of the wall) was not approved: "The
+land between the ground and the back wall doesn't look quite right". J1 is the approved join top.
+Its top matches the old cave's luma within about 5 in the band behind the back row's faces
+(y 381–410) — a light, level ribbon there was rejected — and breaks the level line by dipping
+down, never up; only about 18 px of dip fits above the floor line.

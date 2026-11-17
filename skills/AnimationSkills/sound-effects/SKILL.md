@@ -59,6 +59,9 @@ description: Make game sound effects and music loops locally and free on this Ma
   voice. They want the shortest grunts and do not pick them by sound name ("uhh", "ugh"): sort by
   length, not by prompt. Battle cries **approved as made** ("Just approve the sound effects for
   now").
+- **Every approved set lives in one library**, `local_runs/sounds/` (approved: "yes appve the sound
+  library"). When a new set is approved ("For the sounds approved just move them into their
+  apropreate bukcets"), copy it into its bucket there.
 
 ## Where things live
 
@@ -74,9 +77,18 @@ description: Make game sound effects and music loops locally and free on this Ma
 | Split a set at a length with no re-render: moves rather than deletes, rebuilds both list files | `sandbox/72/keep_short.py` (`CUT_SECONDS`) |
 | One-at-a-time sets, no crowd test: a start and a length limit per bucket, variant de-dupe, faint takes listed (copy this for menu-like sets) | `sandbox/73/sort_sets.py`, `gen.py`; coins `sandbox/78/` |
 | ACE-Step generator, loop cutter, waveform sheet (the working copy) | `sandbox/61/celtic/gen.py`, `loop.py`, `run_render.sh`, `sheet.py` — not the older `sandbox/61/loop.py` |
+| Held sounds and beasts: per-bucket length limit that drops the pre-cut tail fail, beast and whoosh sets (the working copy for a mixed batch of buckets) | `sandbox/185/sort_sets.py`, `gen.py`, `finish.py` |
+| **The sound library** — every approved set, copies only | `src/asset-animation-demo/local_runs/sounds/<category>/<bucket>/` (categories combat, magic, items, voices, creatures, menu, coins, ambience), each bucket with its `list.json`; `sounds/README.md` lists every bucket, its count, its source sandbox and the approval that covers it |
 | Research behind the model choice | `local_runs/auto/research/sound-effects-and-music.md` |
 
 Copy the nearest job's scripts into the new sandbox and change the prompts, seeds and counts.
+
+**On approval, copy the set into the library**: the bucket folder under its category, its WAVs and
+`list.json`, and a row in `sounds/README.md` (count, source, the user's words). Copies only — the
+sandbox stays as it was. Where two jobs made the same sound, merge them into one bucket and
+prefix each file with its sandbox id (`s<id>_`). Leave out what was never judged or was turned
+down, and say so. Check every `list.json` against the WAVs beside it. The library is about 106 MB
+and is not gitignored: it is not committed until the user says how (gitignore or LFS).
 Run every script with `sandbox/62/.venv/bin/python` — system `python3` has no numpy.
 `mix.py` imports `check.py` from `sandbox/62` by path, so point that import at the copy.
 
@@ -117,9 +129,16 @@ that take rather than gaining it up.
 brief" paper and pen prompts gave 4–21 bursts, "a single coin" gave 4–6, and a pour or slide
 always reaches the length limit. Cut after the render, by the set's purpose: a limit per bucket
 ending on a 60 ms fade (`limit_length`, `MAX_SECONDS` in `sandbox/73`, `sandbox/78`), and tell
-the user which sets were cut, to listen for an abrupt end. What each prompt gives:
+the user which sets were cut, to listen for an abrupt end. Fade at min(length, limit), and drop the
+tail fail measured before the cut (`sandbox/185/sort_sets.py`): otherwise every full-length 2 s held
+take fails tail. What each prompt gives:
 
 - **Clicks** prompt well, under 0.11 s.
+- **Whooshes** (a thrown flask, a claw swipe) swell in 250–530 ms on 5 of 6 takes even with
+  "flicked fast ... starts at once" in the prompt. Wording does not fix it: make more takes, or
+  cut the front.
+- **Huge beasts** (a charge, a dragon's hurt) clip on the raw take, 5 of 10. Throw those out and
+  plan double the takes; a lower CFG or "not too loud" in the prompt is untried.
 - **Paper crinkle** swelled late on all 4 seeds, 270–490 ms, and all were thrown out; ask for a
   rustle or a flick instead.
 - **Pen** comes out faint, peak 0.007–0.06, and is lifted 20–30+ dB. Keep it and list it for
@@ -285,6 +304,8 @@ the queue page's 15 MB clip limit at 120 kbps audio.
 | Held shout dropped as too quiet | -20 LUFS peaks low on a held sound | variant floor -24 dB, not -12 |
 | Crowd of voices clips | held sounds stack higher | bus -10 dB, not -8 |
 | Pitch copies of a click sound the same | 5% barely moves a very short sound | de-dupe variants at 90% (`sandbox/73`) |
+| Huge beast take clipped | the raw render is too loud (5 of 10) | drop it; more takes |
+| Full-length held take fails tail after the length cut | tail measured before the cut | fade at min(length, limit), drop the pre-cut tail fail |
 | Take is silent | a bad seed (MOSS 6805 peaked -66 dB) | drop it, new seed |
 | Bow release sounds doubled | 2–3 bursts in one take | list burst counts for the user; prefer one-burst fronts |
 | Arrow variants sound alike | the hit is all front | more distinct model takes, not more front+body swaps |
