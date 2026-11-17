@@ -191,3 +191,13 @@ agent's partial work on resume. Concrete fixes:
 4. **Make hand-offs structured.** A planner that hands the writer a precise, itemized list (not
    prose) makes the writer's job deterministic and its run shorter — visible as lower `turns`
    on the downstream agent.
+
+## Real per-agent cost: `agent-otel-cost.py`
+
+```bash
+python3 .claude/tools/agent-otel-cost.py --days 7   # cost_usd per forge agent, from OTEL log events
+```
+
+Joins `api_request` events (which carry `agent_id` since Claude Code 2.1.311) to the run log.
+This is billed cost, not an estimate. Runs from before 28 Oct 2026 have no `agent_id` and are
+not counted.

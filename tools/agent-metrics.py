@@ -110,6 +110,11 @@ def build_agentid_map(proj):
 
 
 def analyze_run(path):
+    # Claude Code writes one transcript line per content block, each repeating the
+    # message's usage (output_tokens grows while it streams), and since 2.1.30x it
+    # also writes "api-request-blob" records that repeat every tool_use. So count
+    # usage once per message id (max of each field) and each tool_use id once.
+    # Without this, turns/tool_calls/out_tok/cache_read read about 2x high.
     turns = 0
     tool_calls = 0
     tools = defaultdict(int)
@@ -117,7 +122,13 @@ def analyze_run(path):
     cache_read = 0
     max_ctx = 0
     first_ts = last_ts = None
+    usage_by_msg = {}
+    seen_tools = set()
+    fields = ("output_tokens", "cache_read_input_tokens", "input_tokens",
+              "cache_creation_input_tokens")
     for rec in iter_lines(path):
+        if rec.get("type") == "api-request-blob":
+            continue
         ts = parse_ts(rec.get("timestamp", ""))
         if ts is not None:
             first_ts = ts if first_ts is None else min(first_ts, ts)
@@ -126,22 +137,28 @@ def analyze_run(path):
         if msg.get("role") == "assistant":
             usage = msg.get("usage") or {}
             if usage:
-                turns += 1
-                out_tok += usage.get("output_tokens", 0) or 0
-                cr = usage.get("cache_read_input_tokens", 0) or 0
-                cache_read += cr
-                ctx = (
-                    (usage.get("input_tokens", 0) or 0)
-                    + cr
-                    + (usage.get("cache_creation_input_tokens", 0) or 0)
-                )
-                max_ctx = max(max_ctx, ctx)
+                key = msg.get("id") or rec.get("uuid") or len(usage_by_msg)
+                prev = usage_by_msg.get(key, {})
+                usage_by_msg[key] = {
+                    f: max(prev.get(f, 0), usage.get(f, 0) or 0) for f in fields
+                }
             content = msg.get("content")
             if isinstance(content, list):
                 for block in content:
                     if isinstance(block, dict) and block.get("type") == "tool_use":
+                        bid = block.get("id")
+                        if bid and bid in seen_tools:
+                            continue
+                        if bid:
+                            seen_tools.add(bid)
                         tool_calls += 1
                         tools[block.get("name", "?")] += 1
+    for u in usage_by_msg.values():
+        turns += 1
+        out_tok += u["output_tokens"]
+        cache_read += u["cache_read_input_tokens"]
+        max_ctx = max(max_ctx, u["input_tokens"] + u["cache_read_input_tokens"]
+                      + u["cache_creation_input_tokens"])
     dur = (last_ts - first_ts) if (first_ts and last_ts) else 0.0
     return {
         "turns": turns,

@@ -44,6 +44,33 @@ exercise), `docsRoot` (context), and `stack`.
 - For a file over about 2,000 lines (the source-of-truth overview is over 7,000), Grep it for
   `^## ` first, then Read only the section you need with `offset`/`limit`. Reading it whole
   fails (over 256 KB) or fills your context.
+- Most back-end services keep code under `lib/`, not `src/` (`micro-*`, `compose-*`,
+  `kolbe-utils-nodejs`, `kolbe-notebook-schemas`). Front-ends (`web-*`, `kai-*`, `kc-*`) use
+  `src/`, and so do `micro-notebook-auth` and `micro-reports`. Before your first Grep into a
+  srcRoot, list it once to see its layout. The `kolbe-*` libraries keep their entry
+  point `main.ts` at the package root, beside `lib/` — there is no `lib/main.ts` or `lib/index.ts`.
+- Glob with `path` set to the folder and a short `pattern`: `path: <workspace>/src/web-notebook`,
+  `pattern: "*"`. Never Glob from the workspace root with a long pattern such as
+  `src/web-notebook/*` or `Docs/RAG/*.md`, and never leave `path` empty: that walks every repo
+  and its `node_modules` and times out after 20 seconds.
+- If Grep answers "Path does not exist", Glob the parent the same way; do not guess another
+  path.
+
+## Writing test files
+
+- Write a new test file whole, in one Write (or one Write per `describe` block for a very large
+  file). Do not build it one test per Edit: each Edit is a turn, and every turn re-reads all
+  of your context.
+- When you change an existing file, group nearby changes into one Edit.
+- Before a second Edit to the same file, stop and merge: put both changes in one Edit, or
+  rewrite the file with one Write. Aim for at most 3 Edits per file in a run. Most of your
+  cost comes from back-to-back Edits on one file, one test at a time.
+- Plan every change to a file before the first Edit to it. List them, then:
+  - the same rename or value change in many places → one Edit with `replace_all: true`;
+  - several changes inside one region → one Edit whose `old_string` spans the whole region;
+  - more than 3 changes spread across a file under ~500 lines → Read it once, Write it whole.
+  In the week to 30 Oct this agent made 1,676 Edits in 90 runs; 67% followed an Edit to the
+  same file and the median Edit added 22 characters. Each of those was a full turn.
 
 ## Scope
 
@@ -58,8 +85,8 @@ failure is a specification for `forge-code-writer`, not a problem to work around
 **Bound your reading before you start.** Your dispatch names the requirements, and each
 srcRoot's tests need only that root's API shape — a feature spanning several `srcRoots`
 never requires the whole surface in context. If the scope the caller named spans more than
-one srcRoot, or your context passes ~250k tokens (you can't see that number, so treat ~120
-turns as the same limit), stop: return the tests you have finished and ask to be re-split
+one srcRoot, or your context passes ~250k tokens (you can't see that number, so treat ~50
+turns, or ~35 files read, as the same limit), stop: return the tests you have finished and ask to be re-split
 by srcRoot. Cost per turn grows with everything you have ever read — one run of this agent
 reached 930k tokens of context and cost more than the seven bounded runs around it
 combined. Handing back for a split costs one round trip; continuing costs the window. If your context is ever compacted or summarized, stop at once and hand back the same way; a

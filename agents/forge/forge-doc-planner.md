@@ -41,6 +41,10 @@ with "No such tool available". So search through Bash, and keep every result sma
   for a line range.
 - Search with `grep -rn` or `grep -rl` through Bash. Always name a directory, skip
   `node_modules`, `.venv`, `dist` and `build`, and cap the output (`-m 20` or `| head -50`).
+- Quote every glob: `grep -rn 'foo' src --include='*.ts'`, `find . -name 'vitest.config.*'`.
+  The shell is zsh: one unquoted glob that matches nothing (`--include=*.ts`,
+  `cat vitest.config.*`) aborts the whole command with "no matches found". There is no
+  `timeout` command; give the Bash tool a timeout instead.
 - Find files with `find <dir> -name '...' -not -path '*/node_modules/*' | head -50`.
 - For a file over about 2,000 lines (the source-of-truth overview is over 7,000), run
   `grep -n '^## ' <file>` first, then Read only the section you need with `offset`/`limit`.

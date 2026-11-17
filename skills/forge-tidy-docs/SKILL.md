@@ -36,6 +36,16 @@ How they behave, so you know what to expect:
 
 **Relay the Needs your call items to the user** — those are questions only they can settle.
 
+**Never ask the user whether to tidy.** Doc updates are pre-authorized: when docs need it, run
+the pair. Uncommitted edits in a doc are not a reason to wait — most of them are
+`forge-doc-writer`'s own. The one wait is a build in progress (the "no doc writing during the
+build" rule in `SYSTEM.md`); then log it under Follow-ups and tidy at close-out.
+
+**Never commit when `forge-doc-writer` returns.** Leave its edits uncommitted and unstaged,
+and name the files it changed in your report. The user reviews the diff in their IDE and
+commits it themselves; a commit hides the diff from them. Uncommitted doc edits at the next
+session start are not a reason to stop and ask (see above).
+
 `forge-doc-planner` runs on Opus at high effort on purpose: deciding whether a question is
 *really* answered, and spotting contradictions across docs, is judgment work where a wrong
 call silently destroys a design decision. Don't skip the pair to tidy docs inline "because

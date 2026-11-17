@@ -1,5 +1,5 @@
 ---
-description: Open a pull request from the current branch for one or more repos in this mono repo — a project (all its srcRoots), a submodule by name, or the mono repo itself
+description: Open a pull request from the current branch for one or more repos in this mono repo — a project (all its srcRoots), a submodule by name, or the mono repo itself. kolbe-notebook-schemas, kolbe-utils-nodejs, postman-collections, claude-repo and the mono repo merge into main; every other repo merges into dev
 argument-hint: "[project, submodule, or path names] [to <branch>] — omit for the mono repo"
 allowed-tools: Bash, Read, Glob, Grep
 ---
@@ -18,8 +18,12 @@ per-target skips in steps 1–3, and each skips **that target** while every othe
 
 The arguments, if any, are: `$ARGUMENTS`
 
-This command is **project-agnostic**: it learns what a project is from `Docs/*/project.json`
-and what a submodule is from `.gitmodules`. Nothing in here names a project or a repo.
+This command learns what a project is from `Docs/*/project.json` and what a submodule is from
+`.gitmodules`. The one thing it names by hand is the short list of repos that merge into `main`
+(step 1) — that is the user's ruling, not something the repo can tell you.
+
+**A repo the user names is a repo a PR is built from — that repo, and only that repo.** Never
+add the mono repo, a sibling submodule, or the active project's other `srcRoots` to the list.
 
 ## What an argument names
 
@@ -64,17 +68,31 @@ There is no bare `git` here. For `gh`, which infers the repo from cwd, run
 
 ### 1. Resolve the base branch
 
-Read the remote's actual heads — `git -C <repo> ls-remote --heads origin` — and pick the base:
+Every repo has one designated base branch. It is fixed by the user, never inferred from which
+branches happen to exist:
 
-1. An explicit `to <branch>` from the arguments. If it does not exist on the remote, **stop
-   that target** and say so — never silently retarget.
-2. Otherwise `dev` if it exists (match case-insensitively, then use the **real** name from the
-   remote — `Dev` and `dev` are different refs to git and only one of them exists).
-3. Otherwise the repo's default branch: `cd <repo> && gh repo view --json defaultBranchRef -q
-   .defaultBranchRef.name`.
+| Repo (directory name) | Base branch |
+|---|---|
+| `kolbe-notebook-schemas` | `main` |
+| `kolbe-utils-nodejs` | `main` |
+| `postman-collections` | `main` |
+| `claude-repo` | `main` |
+| the mono repo (`local_dev_kolbe`) | `main` |
+| **every other repo** | `dev` |
 
-Say which one you resolved and why, in one line, as you go. If it fell back, say it fell back — a
-PR quietly retargeted at `main` is the kind of thing that gets noticed after the merge.
+- **The `main` repos never target `dev`.** A `dev` branch on one of them is a mistake — ignore it
+  even when it exists. Picking `dev` "because it exists" is exactly the bug this table fixes.
+- **Every other repo targets `dev`, and only `dev`.** Read the remote's heads
+  (`git -C <repo> ls-remote --heads origin`) and match `dev` case-insensitively, then use the
+  **real** name from the remote (`Dev` and `dev` are different refs to git). If no `dev` exists,
+  **stop that target** with "no `dev` branch on origin" — never fall back to `main` or the
+  default branch.
+- **An explicit `to <branch>`** from the arguments overrides the table for that one run. If that
+  branch does not exist on the remote, **stop that target** and say so. If it goes against the
+  table (e.g. `to dev` for a `main` repo), still honor it, and say so in that repo's row.
+
+For a `main` repo, confirm `main` exists on the remote too; if it doesn't, stop that target —
+never retarget. Say the resolved base in one line as you go.
 
 ### 2. Check the head branch is sane
 
@@ -85,8 +103,10 @@ Stop this target, with the reason, if:
 - **Head equals base** — you can't PR a branch into itself.
 - **No commits ahead** — `git -C <repo> rev-list --count origin/<base>..HEAD` is `0`. Report
   "nothing to PR" and move on. This is a normal outcome, not an error.
-- **An open PR already exists** for this head → base (`cd <repo> && gh pr view --json url -q
-  .url`). Return that URL instead of opening a second one, and label it as pre-existing.
+- **An open PR already exists** for this head (`cd <repo> && gh pr view --json
+  url,baseRefName,state`). Push any new commits, return that URL instead of opening a second
+  one, and label it as pre-existing. If its base is not the one step 1 resolved, say so in the
+  row (`⚠️ targets dev, should be main`) — never retarget or close it yourself.
 
 ### 3. Handle uncommitted work — report it, never commit it
 
@@ -124,10 +144,14 @@ only the substantive files into context. You are writing a summary, not a review
 
 ### 6. Write the PR
 
-**Short.** A reviewer should get the shape of the change in under thirty seconds and go read
-the diff for the rest.
+**The title and body become the merge commit message.** When the user merges, GitHub uses them
+as the commit on the base branch, so write them to be read in `git log` a year from now by
+someone who never saw this PR. Short, but complete: a reviewer gets the shape of the change in
+under thirty seconds, and the log tells the story without opening the diff.
 
-Title: `<area>: <what changed>`, under 72 characters, no trailing period.
+Title: `<area>: <what changed>`, under 72 characters, no trailing period. Name the outcome
+("usage: limit-window resolver and banded model pricing"), never a vague verb ("updates",
+"misc fixes", "longCon work"). Never the branch name.
 
 Body, exactly this shape:
 
@@ -137,7 +161,8 @@ Body, exactly this shape:
   Remove, Refactor). Max 8 bullets.
 
 ## Why
-One to three sentences. The intent, not a restatement of the bullets.
+One to three sentences. The intent — what problem this solves or what feature it enables —
+not a restatement of the bullets. "Keeps X in step" alone is not a reason; say what needed it.
 
 ## Notes
 Only when a reviewer genuinely needs it: migrations, new env vars / SSM params, seed reruns,
@@ -156,6 +181,10 @@ Hard rules for the body:
 - One bullet per *change*, not per commit. Squash "fix typo" and "fix typo again" out of
   existence.
 - **Always call out anything a reviewer must do by hand** — that is what Notes is for.
+- **Always call out a breaking change** — a removed export, a new required argument, a changed
+  wire contract — in Notes, because the merge commit is where a consumer will look for it.
+- **Release bumps are not changes.** `chore(release): x.y.z` commits fold into one Notes line
+  ("Version bump to x.y.z; npm publish is a separate step"), never a bullet.
 
 Create it with a heredoc so the body survives shell quoting:
 
@@ -174,14 +203,17 @@ Do not add a Claude Code footer or co-author trailer to PR bodies here.
 recap of the PR bodies, no next steps. Everything the user needs is the four columns below —
 anything more buries the URL, which is the one thing this command exists to hand back.
 
-One row per repo a PR was created for, plus a row for every target that was skipped or
-failed, so the table accounts for every target the user named:
+**Every repo the user named gets exactly one row, every time.** A repo with a PR — new or
+pre-existing — always has its full URL in the row; a run that opened or found a PR and did not
+hand back its URL has failed at the one thing it is for. A skipped or failed repo gets its
+reason instead:
 
 | Repo | PR URL | Status | Target branch |
 |---|---|---|---|
 | `micro-search` | https://github.com/<owner>/<repo>/pull/12 | ✅ created | `dev` |
 | `web-notebook` | https://github.com/<owner>/<repo>/pull/3 | ♻️ pre-existing | `dev` |
 | `micro-notebook` | — no commits ahead of `dev` | ⏭️ skipped | `dev` |
+| `kolbe-utils-nodejs` | https://github.com/<owner>/<repo>/pull/35 | ✅ created | `main` |
 | `<mono repo>` | — <the gh error, verbatim> | ❌ failed | `main` |
 
 Filling it in:

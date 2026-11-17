@@ -67,6 +67,6 @@ done
 jq -cn --arg n "$count" --arg list "$list" --arg prds "$prds" '{
   hookSpecificOutput: {
     hookEventName: "SessionStart",
-    additionalContext: ("\($n) PRD(s) are open in \($prds): \($list). A PRD is deleted at close-out, so one open for weeks is either mid-build or an un-drained close-out. For each: if its tests exist and pass, run the close-out in SYSTEM.md — forge-harvest-planner, then forge-doc-writer, confirm Ready to delete covers every doc it owes, commit the PRD if untracked, then git rm it. If it was never built and its premises have gone stale, say so and ask the user before harvesting. Do not start this mid-build; tell the user what is open and ask if unsure.")
+    additionalContext: ("\($n) PRD(s) are open in \($prds): \($list). A PRD is deleted at close-out, so one open for weeks is either mid-build or an un-drained close-out. For each: if its tests exist and pass, run the close-out in SYSTEM.md — forge-harvest-planner, then forge-doc-writer, confirm Ready to delete covers every doc it owes, then git rm it if tracked (if untracked, leave it and tell the user to commit it first). Never commit. If it was never built and its premises have gone stale, say so and ask the user before harvesting. Do not start this mid-build; tell the user what is open and ask if unsure.")
   }
 }'

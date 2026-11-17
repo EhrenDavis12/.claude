@@ -34,6 +34,17 @@ You use `prds`, `docsRoot`, and `srcRoots`.
 - For a file over about 2,000 lines (the source-of-truth overview is over 7,000), Grep it for
   `^## ` first, then Read only the section you need with `offset`/`limit`. Reading it whole
   fails (over 256 KB) or fills your context.
+- Most back-end services keep code under `lib/`, not `src/` (`micro-*`, `compose-*`,
+  `kolbe-utils-nodejs`, `kolbe-notebook-schemas`). Front-ends (`web-*`, `kai-*`, `kc-*`) use
+  `src/`, and so do `micro-notebook-auth` and `micro-reports`. Before your first Grep into a
+  srcRoot, list it once to see its layout. The `kolbe-*` libraries keep their entry
+  point `main.ts` at the package root, beside `lib/` — there is no `lib/main.ts` or `lib/index.ts`.
+- Glob with `path` set to the folder and a short `pattern`: `path: <workspace>/src/web-notebook`,
+  `pattern: "*"`. Never Glob from the workspace root with a long pattern such as
+  `src/web-notebook/*` or `Docs/RAG/*.md`, and never leave `path` empty: that walks every repo
+  and its `node_modules` and times out after 20 seconds.
+- If Grep answers "Path does not exist", Glob the parent the same way; do not guess another
+  path.
 
 ## Scope
 

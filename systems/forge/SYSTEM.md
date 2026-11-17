@@ -25,7 +25,8 @@ Three carve-outs, because they aren't project artifacts:
 
 - **`.claude/**` and `CLAUDE.md`** — the agent system itself, via `/agent-creator`. Delegating
   it would need an agent to build agents.
-- **Git operations** — commits and branches are coordination, not authorship.
+- **Git operations** — branches and `git rm` are coordination, not authorship. **Commits are
+  not yours**: never commit unless the user asks in their own words (see `CLAUDE.md`).
 - **The queue files** under `<docsRoot>/queue/` — coordination state, bookkept by
   `/forge-queue`. Moving a line between them, writing a note or a question, copying a
   planner's report into `Proposed.md`. Never inventing a task, never editing a line the user
@@ -114,7 +115,9 @@ before re-dispatching `forge-code-reviewer` on a fix round, confirm the diff act
 report. Nor is there a play-test agent: run the app
 yourself, however this project's stack runs it, and look. Appearance,
 spacing, animation, and feel are checked that way, never asserted — and checked by you, not by
-asking the user what they saw.
+asking the user what they saw. The exception is a project with no browser access (`RAG` and
+`MicroAdmin`, per `CLAUDE.md`): there, never reach for Claude in Chrome, and hand the user the
+on-screen check instead.
 
 ## The review loop has a budget
 
@@ -330,14 +333,13 @@ correctness comes first and deletion waits.
    **Ready to delete** line states this directly, and it accounts for *every* doc the PRD
    owes, not just the one this run targeted. If it does not read clean, the harvest is not
    finished and nothing gets deleted.
-4. **Commit the PRD if it is untracked, then delete it.** `git rm` fails outright on an
-   untracked file (`fatal: pathspec ... did not match any files`), and a PRD that was never
-   committed cannot be recovered after deletion — "git keeps the history" is only true once it
-   does. Check `git ls-files <prd path>`; if it comes back empty, `git add` the PRD and commit
-   it on its own first. Then `git rm` it. An archive folder instead becomes a second source of
-   truth again. Both are git operations, so both are the main loop's, not an agent's. The
-   PRD's whole life is then one add-then-remove pair, which is what makes
-   `git log --diff-filter=D -- <prds>/` able to list every retired PRD if you need one back.
+4. **Delete it only if it is tracked, and never commit.** Check `git ls-files <prd path>`.
+   If it is tracked, `git rm` it and leave the deletion uncommitted for the user to review.
+   If it comes back empty, the PRD is untracked: **do not delete it and do not commit it.**
+   `git rm` fails outright on an untracked file, and an untracked file deleted any other way
+   cannot be recovered. Tell the user it is ready to delete once they have committed it. An
+   archive folder instead becomes a second source of truth again. The deletion is the main
+   loop's, not an agent's.
 
 ### Migrating a backlog written before this system
 

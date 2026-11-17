@@ -41,6 +41,8 @@ with "No such tool available". So search through Bash, and keep every result sma
 - For a file over about 2,000 lines (the source-of-truth overview is over 7,000), run
   `grep -n '^## ' <file>` first, then Read only the section you need with `offset`/`limit`.
   Reading it whole fails (over 256 KB) or fills your context.
+- The shell is zsh on macOS: quote every glob you pass as an argument (`--include='*.md'`).
+  An unquoted one fails with "no matches found".
 
 ## Scope
 

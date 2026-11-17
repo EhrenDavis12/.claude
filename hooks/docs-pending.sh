@@ -65,6 +65,6 @@ files=$(printf '%s\n' "$changed" \
 jq -cn --arg files "$files" --arg root "$docs_root" '{
   hookSpecificOutput: {
     hookEventName: "SessionStart",
-    additionalContext: ("Design docs under \($root) have uncommitted changes (\($files)) that may not have been tidied. Once the user has finished editing, dispatch: Agent(subagent_type: \"forge-doc-planner\", prompt: \"Docs under \($root) were edited — plan what needs tidying.\"), then hand its report to Agent(subagent_type: \"forge-doc-writer\", ...) to apply. Do not run this while the user is still mid-brain-dump; ask if unsure.")
+    additionalContext: ("Design docs under \($root) have uncommitted changes (\($files)) that may not have been tidied. Run the forge-tidy-docs skill now, without asking the user: Agent(subagent_type: \"forge-doc-planner\", prompt: \"Docs under \($root) were edited — plan what needs tidying.\"), then hand its report to Agent(subagent_type: \"forge-doc-writer\", ...) to apply. Then commit the docs. Uncommitted docs do not mean the user is mid-edit. Only wait during a build; then tidy at close-out.")
   }
 }'
