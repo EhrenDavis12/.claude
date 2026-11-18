@@ -18,7 +18,11 @@ differs is the work — the forge pipeline in `SYSTEM.md`, not an animation one.
 
 Every queue change goes through the script, never by hand — it is the only writer. After
 every change that moves an item, `python3 $Q render` and publish what it prints to the Queue
-page (the link is in `SYSTEM.md`), so the user sees it from wherever they are:
+page (the link is in `SYSTEM.md`), so the user sees it from wherever they are. A fresh
+session's first publish is refused as not-yet-viewed: Read the saved copy the refusal names
+(one small Read; fall back to `Artifact` `read` on the url), then publish the same render
+unchanged. The render is the whole page built from current data, so it is the merge; there is
+nothing to diff.
 
 ```
 Q=.claude/systems/forge/queue/q.py
@@ -65,7 +69,9 @@ reaches you.
    by re-running the script, so they spawn forever and the pool never returns (2026-10-30).
 8. **Never end the turn while a subagent you started is still running.** Keep the turn open
    with a polling wait (with a limit, per rule 7) until it returns; a turn that ends early
-   leaves the agent's result with nobody to act on it.
+   leaves the agent's result with nobody to act on it. Under the runner, Monitor is denied and
+   foreground sleep is blocked: wait for the task notification, and if you poll, read the
+   `.output` file's age with `stat -L` (it is a symlink) inside a perl-alarm deadline.
 9. **The user's word is the only `done`.** A green suite and a passing review take the item to
    `review` with its picture attached, never to `done`. Only the desk moves an item to `done`,
    on the user's approval, and only then is its branch merged — **unless the Focus carries the
@@ -91,9 +97,8 @@ reaches you.
 4. **Run the forge pipeline for that one item**, below. Before each stage,
    `python3 $Q note <id> "<stage, one line>" [--minutes N]` so the page shows where it is and
    the runner knows how long it may take (rule 6). `note` replaces the whole note, so carry
-   the branch, any `FOR MAIN LOOP:` text and every `User (<date>): '...'` quote into the new
-   one — on a fresh item the user's words live only in the note. Re-read it first: the desk
-   may have added words mid-run.
+   the branch and any `FOR MAIN LOOP:` text into the new one. The user's words live in the
+   item's `brief`, which `note` never touches.
    **On a background item, run `python3 $Q check` after each stage too.** On `yield`, put it
    back with `python3 $Q move <id> queued --top` — its note says where it stopped, and the
    branch stays where it is — and go to step 1. Never stop an agent mid-dispatch to yield; the
@@ -133,7 +138,7 @@ git -C <srcRoot> checkout -b queue/<id>-<slug> queue/build
 and name the branch in the note. When the item parks in `review`, merge it into the stack
 (`git -C <srcRoot> checkout queue/build && git -C <srcRoot> merge --no-ff queue/<id>-<slug>`),
 so the next item builds on it. A blocked item is not merged in. A resumed item checks out its
-existing branch instead. A `[research]` item has no branch. The checked-out main branch is the
+existing branch instead, and merges `queue/build` into it before any dispatch. A `[research]` item has no branch. The checked-out main branch is the
 desk's: only approved work reaches it.
 
 ### Run the path
@@ -149,7 +154,12 @@ planner's **Ready to delete** line reads clean.
 
 **`[look]`:** built-in `Plan` agent → `forge-test-author` and `forge-test-auditor` only if
 there is behavior worth pinning → `forge-code-writer` → **tests pass** → `forge-code-cleaner`
-→ **tests still pass** → `forge-code-reviewer`.
+→ **tests still pass** → `forge-code-reviewer`. When the item changes layout or a shared
+measurement, or spans more than one screen, the Plan brief asks for (a) slices, one screen
+each, each run test-author → auditor → writer → suite; (b) measurements taken by script before
+any budget — baked font metrics, art sizes — never estimated; (c) spacing pinned in the first
+test pass: no text touches another, none leaves its container. The size tag does not exempt
+it.
 
 **`[research]`:** no code. Answer the question the item asks, with sources: read the design
 docs and code first, then `WebSearch`/`WebFetch` for anything outside the repo — or dispatch
@@ -170,7 +180,10 @@ agent that returns **Needs your call** with a question you cannot settle by read
 Before parking a built item, **look at it**: run the app or the scene the way the project's
 run skill says (`Skill(playtest)` for the app; the `unity-cli` or `unity-pipeline` skill for a
 Unity scene), and capture what the user would judge — a screenshot, or a short mp4 when the
-change moves. Save it under the scratchpad and attach it with `python3 $Q clip <id> <path>`.
+change moves. Save it under the scratchpad and attach it with `python3 $Q clip <id> <path>`. `clip` holds
+one file; a second replaces the first. Stack several shots into one first — `ffmpeg -i a.png
+-i b.png -filter_complex vstack=inputs=2 out.png` (same widths; hstack needs same heights).
+PIL is not installed.
 Appearance is checked by eye, never asserted. A change with nothing on screen (an engine rule,
 a save format) attaches the test run's summary as a `.txt` instead, and says so in the note.
 
@@ -184,15 +197,20 @@ a save format) attaches the test run's summary as a `.txt` instead, and says so 
 - **Under a Standing approval** in the Focus, a built and reviewed item does not wait in
   `review`: after the steps above, merge it into the checked-out main branch of each srcRoot
   (`git -C <srcRoot> checkout <main> && git -C <srcRoot> merge --no-ff queue/<id>-<slug>`, then
-  back to `queue/build`), commit the moved pointers at the root (`git add <srcRoot>`), and
+  back to `queue/build`), and record main's commit at the root explicitly — the checked-out
+  commit is now queue/build's, so `git add <srcRoot>` would record unapproved work:
+  `git update-index --cacheinfo 160000,$(git -C <srcRoot> rev-parse <main>),<srcRoot>`, then
+  `git commit -m "..."` with no pathspec (`commit -- <srcRoot>` re-stages from the worktree). Then
   `python3 $Q move <id> done` with `APPROVED under the user's standing approval` first in the
-  note. Its picture stays attached so the user can look later. A merge that conflicts is
+  note. Then run `.claude/systems/forge/queue/sync.sh`: it pushes the game and the root and
+  refreshes the user's play copy in Unity — the user asked for every merge to be pushed and
+  on their screen. A sync that stops goes in the note. Its picture stays attached so the user can look later. A merge that conflicts is
   aborted and the item stays in `review`, with the conflict in the note.
 - **A question that has a cheap default does not park.** When an agent names what it would do
   anyway ("going ahead with …"), and that default is cheap to change later and touches
   nothing approved, record it with `python3 $Q ask <id> "<question> Going ahead with:
-  <default>."` (no `--blocker`), move the item back to `working` if `ask` moved it, and carry
-  on with the default. The user judges the result when they look; a run that parks on every
+  <default>." --going-ahead` (no `--blocker`; the item keeps its state), and carry on with the
+  default. The user judges the result when they look; a run that parks on every
   soft question sits idle.
 - **A question only the user's intent can settle,** or a loop budget spent: commit what exists
   on the branch, `python3 $Q ask <id> ...` — it goes to `blocked` — and the run moves to the
@@ -204,12 +222,14 @@ a save format) attaches the test run's summary as a `.txt` instead, and says so 
 Docs at the repo root, after every stage that changed them:
 
 ```
-git add -A <docsRoot>
+git add -A <docsRoot> ':!<docsRoot>/project.json' ':!<docsRoot>/queue/focus.md'
 git commit -m "queue(<project>): <what changed>"
 ```
 
 Scoped to `docsRoot` on purpose: it picks up tidy edits, PRD creation and deletion, research
-reports and the roadmap, and it cannot pick up a submodule pointer or `.claude/`. Code is
+reports and the roadmap, and it cannot pick up a submodule pointer or `.claude/`. The two
+exclusions are the user's files — the manifest and the Focus — which a docs commit must
+never carry. Code is
 committed inside each srcRoot on its queue branch, never on the checked-out main branch — the
 desk merges it on the user's approval. The queue itself is not in git: `queue.json` is local
 state, and `q.py` is its record.

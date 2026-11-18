@@ -24,6 +24,10 @@ Queued items sit in one of two lanes. `now` is the default; `background` is long
 runs only when nothing in `now` is waiting.
 
   q.py add "title" [--top] [--bg] [--note TEXT]
+                                  --note is the item's brief: the user's words and the why.
+                                  `note` never touches it, so it outlives every stage note
+  q.py brief ID TEXT              append to the item's brief (the desk's, for the user's
+                                  later words on an item)
   q.py list [--brief]             the whole queue as text; --brief is one short line per item
   q.py show ID [ID ...]           those items in full, from the queue or the archive
   q.py find WORD [WORD ...]       items in the queue or the archive matching every word, one
@@ -40,8 +44,11 @@ runs only when nothing in `now` is waiting.
                                   minutes (default 90, at most 180), and worker.py takes down a
                                   worker past that with no new note
   q.py clip ID PATH               attach the screenshot or recording to look at; the item goes
-                                  to review
-  q.py ask ID TEXT [--blocker]    add a question; the item goes to blocked
+                                  to review. One file per item: a second replaces the first
+  q.py ask ID TEXT [--blocker] [--going-ahead]
+                                  add a question; the item goes to blocked, unless
+                                  --going-ahead: a soft question with a default the run carries
+                                  on with, and the item keeps its state
   q.py answer ID N TEXT           answer question N; with none left open it goes back on top
   q.py drop ID                    remove an item outright
   q.py archive [--days N]         move done items untouched for N days (default 1) out of the
@@ -173,6 +180,8 @@ def show(it):
     tag = it["state"] + (" · background" if lane(it) == "background" else "") \
         + (" · auto" if it.get("auto") else "") + project_tag(it)
     line = f"#{it['id']} [{tag}] {it['title']}"
+    if it.get("brief"):
+        line += f"\n    brief: {it['brief']}"
     if it.get("note"):
         line += f" — {it['note']}"
     if it.get("stuck"):
@@ -197,7 +206,8 @@ def cmd_add(a, q):
     project = active_project()
     if not project:
         sys.exit("no active project: run /set-project first")
-    it = {"id": q["next_id"], "title": a.title, "state": "queued", "note": a.note or "",
+    it = {"id": q["next_id"], "title": a.title, "state": "queued", "note": "",
+          "brief": a.note or "",
           "clip": "", "questions": [], "lane": "background" if a.bg else "now",
           "project": project, "created": now(), "updated": now()}
     if a.auto:
@@ -319,6 +329,13 @@ def cmd_note(a, q):
     print(show(it))
 
 
+def cmd_brief(a, q):
+    it = find(q, a.id)
+    it["brief"] = (it.get("brief", "") + " " + a.text).strip()
+    it["updated"] = now()
+    print(show(it))
+
+
 def cmd_clip(a, q):
     it = find(q, a.id)
     # Copied in beside the queue: a worker's scratchpad is outside the repo, and the page only
@@ -331,6 +348,8 @@ def cmd_clip(a, q):
     dest = keep / f"{it['id']}{src.suffix.lower()}"
     if src != dest:
         shutil.copyfile(src, dest)
+    if it.get("clip") and it["clip"] != str(dest):
+        print(f"replaced {it['clip']}")
     it["clip"] = str(dest)
     place(q, it, "review")
     print(show(it))
@@ -340,7 +359,8 @@ def cmd_ask(a, q):
     it = find(q, a.id)
     it["questions"].append({"text": a.text, "blocker": a.blocker, "answer": "",
                             "asked": now()})
-    place(q, it, "blocked")
+    if not a.going_ahead:
+        place(q, it, "blocked")
     print(show(it))
 
 
@@ -652,6 +672,8 @@ def render(q, clip_href, sub):
             body += f'<div class="meta">updated {e(it["updated"])}</div>'
             if it.get("stuck"):
                 body += f'<div class="q"><b>Looks stuck</b> {e(it["stuck"])}</div>'
+            if it.get("brief"):
+                body += f'<div class="note">{e(it["brief"])}</div>'
             if it.get("note"):
                 body += f'<div class="note">{e(it["note"])}</div>'
             href = clip_href(it) if it.get("clip") else ""
@@ -686,6 +708,8 @@ def spoken(it, label):
     parts = [f"{it['title']}. {label}." + (" Made by the mastermind." if it.get("auto") else "")]
     if it.get("stuck"):
         parts.append(f"Looks stuck: {it['stuck']}")
+    if it.get("brief"):
+        parts.append(it["brief"])
     if it.get("note"):
         parts.append(it["note"])
     for x in it["questions"]:
@@ -805,8 +829,9 @@ def main():
     s = sub.add_parser("move"); s.add_argument("id", type=int); s.add_argument("state"); s.add_argument("--top", action="store_true")
     s = sub.add_parser("up"); s.add_argument("id", type=int)
     s = sub.add_parser("note"); s.add_argument("id", type=int); s.add_argument("text"); s.add_argument("--minutes", type=int, default=STAGE_DEFAULT)
+    s = sub.add_parser("brief"); s.add_argument("id", type=int); s.add_argument("text")
     s = sub.add_parser("clip"); s.add_argument("id", type=int); s.add_argument("path")
-    s = sub.add_parser("ask"); s.add_argument("id", type=int); s.add_argument("text"); s.add_argument("--blocker", action="store_true")
+    s = sub.add_parser("ask"); s.add_argument("id", type=int); s.add_argument("text"); s.add_argument("--blocker", action="store_true"); s.add_argument("--going-ahead", action="store_true")
     s = sub.add_parser("answer"); s.add_argument("id", type=int); s.add_argument("n", type=int); s.add_argument("text")
     s = sub.add_parser("drop"); s.add_argument("id", type=int)
     s = sub.add_parser("archive"); s.add_argument("--days", type=float, default=1)

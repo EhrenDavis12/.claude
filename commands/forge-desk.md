@@ -31,7 +31,8 @@ F=<docsRoot>/queue/focus.md        # the active project's Focus — resolve docs
    to see whether a worker is running. If the runner is not running and work is queued, say so
    (the user starts it with `.claude/systems/forge/queue/run.sh start`, or you may, if asked).
 3. **Save the worker notes.** Every `FOR MAIN LOOP:` lesson in an item's note is about the
-   process, not the project. A lesson the agent files or `SYSTEM.md` do not yet say, seen twice,
+   process, not the project. Count with `python3 $Q find "FOR MAIN LOOP"` (it reads the
+   archive too) rather than from memory — a lesson that looks like a two-off is often a ten-off. A lesson the agent files or `SYSTEM.md` do not yet say, seen twice,
    goes to `forge-retro-planner` with the notes quoted; a one-off stays in the note. Then strip
    the saved text from the note (`note` the rest back).
 4. Report in the reply style below: what is running, what waits on the user. Show the picture
@@ -45,9 +46,9 @@ Record it **the same turn**, with their words verbatim, before anything else:
 | They say | You run |
 |---|---|
 | an answer to an item's question | `python3 $Q answer <id> <n> "User (<date>): '<their words>' So: <one-line reading>"` — the worker tidies it into the docs on pickup |
-| a rejection or change on a result with no open question | `python3 $Q ask <id> "<topic>"`, then `answer` it the same way, then `move <id> queued` — the branch stays, the next worker builds on it |
+| a rejection or change on a result with no open question | `python3 $Q ask <id> "<topic>"`, then `answer` it the same way, then `move <id> queued` — the branch stays, the next worker builds on it. Their later words on an item with no question go to `brief <id> "User (<date>): '...'"`, never into the note |
 | "approved" / "ship it" / "call it good" | merge it (below), then `move <id> done` and `note <id> "APPROVED by the user (<date>): '<words>'"` |
-| new work | `add "<title> [tag] [size]"`, tags only if they said them; `add --bg` for long work they want done "when nothing else is on"; `--top` if they want it first |
+| new work | `add "<title> [tag] [size]" --note "User (<date>): '<their words>'"` — `--note` is the item's brief, which no stage note overwrites; tags only if they said them; `add --bg` for long work they want done "when nothing else is on"; `--top` if they want it first |
 | reorder | `up`, `move <id> queued --top`, `lane <id> now|background` |
 | drop | `drop <id>`; its branch stays — say so, and delete it only if they ask |
 | a change of aim, what is not included, an idea for later, or a research topic | edit `$F` in place, their words kept |
@@ -74,29 +75,44 @@ worker act on it; if a reading is a real guess, say it back in the reply.
 Git is the main loop's. For each srcRoot the item's note names a branch in:
 
 ```
+git -C <srcRoot> checkout <main>
 git -C <srcRoot> merge --no-ff queue/<id>-<slug> -m "queue(<project>): <title>"
+git -C <srcRoot> checkout queue/build
 ```
 
-into the branch checked out there. Items are built on top of each other (on `queue/build`),
+The checked-out branch there is `queue/build`, which carries work the user has not approved,
+so the merge goes into `<main>` explicitly. Items are built on top of each other (on `queue/build`),
 so approving one also brings in any earlier, not-yet-approved item it was built on — check
 with `git -C <srcRoot> log --oneline <main>..queue/<id>-<slug>` and tell the user in one line
 which earlier pieces come with it. A merge that conflicts is aborted (`git -C <srcRoot> merge
 --abort`), the item goes back to `queued --top` with the conflict as an answered question, and
-the user hears it in one line. Then move the root's submodule pointers and commit:
+the user hears it in one line. Then move the root's submodule pointers to `<main>`'s commit
+and commit — `git add <srcRoot>` would record the checked-out `queue/build` commit instead,
+and `commit -- <srcRoot>` re-stages from the worktree, so use neither:
 
 ```
-git add <each srcRoot> && git commit -m "queue(<project>): <title>"
+git update-index --cacheinfo 160000,$(git -C <srcRoot> rev-parse <main>),<srcRoot>
+git commit -m "queue(<project>): <title>"
 ```
 
 A `[research]` item has no branch: once its answer is in the docs, `git rm` its report and
-commit. Push only when the user asks; never delete a branch unless they ask.
+commit. Never delete a branch unless they ask.
+
+**Then sync, every time:** `.claude/systems/forge/queue/sync.sh`. It pushes the game's main
+and the root (EhrensDocs and the moved pointers), merging the root's online edits first, and
+refreshes the user's play copy — closes the Unity editor on it, moves it to the new main, and
+reopens it. The user's standing word (2026-11-17): "keep both up-to-date and always pushed for
+the game and even do the same for the ehrendocs docs". Run it after any root commit of
+EhrensDocs too. It stops on a refused push or a conflicting merge; say so in one line.
 
 ## Publishing the Queue page
 
 - **Queue page** — the link is in forge's `SYSTEM.md`. `python3 $Q render` prints `file_path`,
   `root`, `files`; publish exactly those with `url` set.
-- A refusal saying a newer version is live is a worker's older render. Your local file is
-  built from current data, so publish the same thing again; it goes through. Never put `null`
+- A refusal saying a newer version is live, or not yet viewed, is a worker's older render.
+  Read the saved copy the refusal names (one small Read; fall back to `Artifact` `read` on the
+  url), then publish the same render unchanged — it is built from current data, so it is the
+  merge. Never put `null`
   in `files` for pictures you did not read.
 
 ## Pictures
@@ -132,6 +148,7 @@ The user is dyslexic and listens with read-aloud.
   them (memory says where on this machine); nothing is ever written, run or committed there.
   A missing asset is said to the user as annie's work, never made here.
 - `.claude/**` is yours. Commit only when the user asks: inside `.claude` first and push, then
-  the root pointer.
+  the root pointer. The game and the root are pushed always, by `sync.sh` — never `.claude`
+  without asking.
 
 $ARGUMENTS
